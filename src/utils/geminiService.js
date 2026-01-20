@@ -65,7 +65,7 @@ export const sendToGemini = async (message, context = '') => {
 
         if (!response.ok) {
             const errorData = await response.json();
-            console.error('Gemini API Error:', errorData);
+            console.error('Gemini API Error:', JSON.stringify(errorData, null, 2));
             return { success: false, error: errorData.error?.message || 'API Error' };
         }
 

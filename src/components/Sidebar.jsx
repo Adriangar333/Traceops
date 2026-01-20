@@ -40,6 +40,8 @@ const Sidebar = ({
 
     const [configInput, setConfigInput] = useState('');
     const [configType, setConfigType] = useState(null);
+    const [configSuggestions, setConfigSuggestions] = useState([]);
+    const [showConfigSuggestions, setShowConfigSuggestions] = useState(false);
 
     // AI Chat
     const [chatInput, setChatInput] = useState('');
@@ -78,6 +80,20 @@ const Sidebar = ({
         return () => clearTimeout(searchTimeout.current);
     }, [addressInput]);
 
+    // Autocomplete for Config
+    useEffect(() => {
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+        if (configInput.length < 3) { setConfigSuggestions([]); return; }
+
+        searchTimeout.current = setTimeout(async () => {
+            const results = await searchAddressSuggestions(configInput, 5);
+            setConfigSuggestions(results);
+            setShowConfigSuggestions(results.length > 0);
+        }, 400);
+
+        return () => clearTimeout(searchTimeout.current);
+    }, [configInput]);
+
     const handleSelectSuggestion = async (suggestion) => {
         setShowSuggestions(false);
         setSuggestions([]);
@@ -104,6 +120,29 @@ const Sidebar = ({
         if (result.success) {
             setWaypoints(prev => [...prev, { lng: result.lng, lat: result.lat, address: result.displayName.split(',').slice(0, 2).join(', ') }]);
             setAddressInput('');
+        }
+    };
+
+    const handleSelectConfigSuggestion = async (suggestion) => {
+        setShowConfigSuggestions(false);
+        setConfigSuggestions([]);
+        setConfigInput(''); // Clear input, but value is set in fixedStart/End
+        setIsGeocoding(true);
+
+        let point = null;
+        if (suggestion.placeId) {
+            const result = await geocodeByPlaceId(suggestion.placeId);
+            if (result.success) point = { lat: result.lat, lng: result.lng, address: suggestion.shortName };
+        } else if (suggestion.lat && suggestion.lng) {
+            point = { lat: suggestion.lat, lng: suggestion.lng, address: suggestion.shortName };
+        }
+
+        setIsGeocoding(false);
+
+        if (point) {
+            if (configType === 'start') setFixedStart(point);
+            else if (configType === 'end') setFixedEnd(point);
+            setConfigType(null);
         }
     };
 
@@ -356,9 +395,32 @@ const Sidebar = ({
                                         <button onClick={() => setFixedStart(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
                                     </div>
                                 ) : configType === 'start' ? (
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <input value={configInput} onChange={e => setConfigInput(e.target.value)} placeholder="Buscar dirección..." style={{ ...styles.input, flex: 1 }} onKeyDown={e => e.key === 'Enter' && handleSetConfig()} />
+                                    <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+                                        <input
+                                            value={configInput}
+                                            onChange={e => setConfigInput(e.target.value)}
+                                            onFocus={() => configSuggestions.length > 0 && setShowConfigSuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowConfigSuggestions(false), 200)}
+                                            placeholder="Buscar dirección..."
+                                            style={{ ...styles.input, flex: 1 }}
+                                            onKeyDown={e => e.key === 'Enter' && handleSetConfig()}
+                                        />
                                         <button onClick={handleSetConfig} style={{ ...styles.btn, ...styles.successBtn }}><Check size={16} /></button>
+
+                                        {/* Config Suggestions Dropdown */}
+                                        {showConfigSuggestions && configSuggestions.length > 0 && configType === 'start' && (
+                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 50 }}>
+                                                {configSuggestions.map((s, i) => (
+                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                        <Home size={16} color="#10b981" />
+                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.shortName}</div>
+                                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <button onClick={() => setConfigType('start')} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Home size={14} /> Configurar inicio</button>
@@ -374,9 +436,32 @@ const Sidebar = ({
                                         <button onClick={() => setFixedEnd(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
                                     </div>
                                 ) : configType === 'end' ? (
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <input value={configInput} onChange={e => setConfigInput(e.target.value)} placeholder="Buscar dirección..." style={{ ...styles.input, flex: 1 }} onKeyDown={e => e.key === 'Enter' && handleSetConfig()} />
+                                    <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+                                        <input
+                                            value={configInput}
+                                            onChange={e => setConfigInput(e.target.value)}
+                                            onFocus={() => configSuggestions.length > 0 && setShowConfigSuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowConfigSuggestions(false), 200)}
+                                            placeholder="Buscar dirección..."
+                                            style={{ ...styles.input, flex: 1 }}
+                                            onKeyDown={e => e.key === 'Enter' && handleSetConfig()}
+                                        />
                                         <button onClick={handleSetConfig} style={{ ...styles.btn, background: '#f59e0b', color: 'white' }}><Check size={16} /></button>
+
+                                        {/* Config Suggestions Dropdown */}
+                                        {showConfigSuggestions && configSuggestions.length > 0 && configType === 'end' && (
+                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 50 }}>
+                                                {configSuggestions.map((s, i) => (
+                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                        <Flag size={16} color="#f59e0b" />
+                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.shortName}</div>
+                                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : !returnToStart && (
                                     <button onClick={() => setConfigType('end')} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Flag size={14} /> Configurar fin</button>

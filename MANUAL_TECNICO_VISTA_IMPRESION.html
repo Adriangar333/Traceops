@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Técnico - Route Assigner</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+    </script>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #3b82f6;
+            --text: #334155;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            background: #ffffff;
+        }
+
+        /* Print Settings */
+        @media print {
+            body {
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .no-print {
+                display: none;
+            }
+
+            pre {
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                background: #eee !important;
+                color: #000 !important;
+            }
+
+            code {
+                color: #000 !important;
+            }
+
+            .mermaid {
+                break-inside: avoid;
+            }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            border-bottom: 4px solid var(--accent);
+            padding-bottom: 10px;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-top: 50px;
+            border-left: 5px solid var(--accent);
+            padding-left: 15px;
+            background: #f8fafc;
+            padding: 10px 15px;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--accent);
+            margin-top: 30px;
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 5px;
+        }
+
+        p,
+        li {
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+        }
+
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            border: 1px solid #475569;
+        }
+
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #f1f5f9;
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: #be185d;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        .architecture-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            background: #fff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .tech-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: On;
+            background: var(--primary);
+            color: white;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .meta-info {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 40px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="no-print"
+        style="text-align: center; margin-bottom: 30px; background: #dbeafe; padding: 15px; border-radius: 8px; color: #1e40af;">
+        ℹ️ <strong>Vista de Impresión Técnica:</strong> Usa <code>Ctrl + P</code> (Guardar como PDF) para exportar este
+        documento. Los diagramas se renderizarán automáticamente.
+    </div>
+
+    <h1>🛠️ Manual Técnico y de Arquitectura</h1>
+
+    <div class="meta-info">
+        <strong>Proyecto:</strong> Route Assigner & Logistics Dashboard<br>
+        <strong>Target:</strong> Desarrolladores, DevOps, Arquitectos<br>
+        <strong>Stack:</strong> React 18, Vite, MapLibre GL, Google APIs, Vercel
+    </div>
+
+    <h2>1. Arquitectura del Sistema</h2>
+    <p>El sistema sigue una arquitectura <strong>Client-Side SPA</strong> (Single Page Application), delegando la lógica
+        pesada a servicios especializados en la nube.</p>
+
+    <div class="architecture-box">
+        <h3 style="margin-top:0; border:none;">Diagrama de Flujo de Datos</h3>
+        <div class="mermaid">
+            graph TD
+            User[Cliente / Navegador] -->|React 18 + Vite| SPA[SPA: Logistics Dashboard]
+
+            subgraph Frontend Logic
+            SPA -->|Estado| AdminDash[AdminDashboard.jsx]
+            SPA -->|Render| Map[MapLibre GL JS]
+            end
+
+            subgraph External Services
+            AdminDash -->|API| GoogleMaps[Google Maps API]
+            AdminDash -->|API| Gemini[Google Gemini AI]
+            AdminDash -->|Webhook| N8N[N8N Automation]
+            end
+
+            subgraph Persistence
+            SPA -->|Sync| LocalStorage[LocalStorage Event Bus]
+            end
+        </div>
+    </div>
+
+    <h3>Stack Tecnológico</h3>
+    <div>
+        <span class="tech-badge">React 18</span>
+        <span class="tech-badge">Vite</span>
+        <span class="tech-badge">MapLibre GL JS</span>
+        <span class="tech-badge">Google Directions API</span>
+        <span class="tech-badge">Gemini 1.5 Flash</span>
+        <span class="tech-badge">N8N</span>
+    </div>
+
+    <h2>2. Estructura de Directorios</h2>
+    <p>La organización del código sigue el principio de <em>Separation of Concerns</em>.</p>
+
+    <pre>
+/src
+ ├── /components
+ │    ├── AdminDashboard.jsx  # (Controller) Lógica de negocio y estado
+ │    ├── MapComponent.jsx    # (View) Renderizado puro de mapas
+ │    ├── Sidebar.jsx         # (View) Controles e inputs
+ │    └── DriverView.jsx      # (Client) App ligera para conductor
+ ├── /utils
+ │    ├── googleDirectionsService.js  # Algoritmos TSP y 2-Opt
+ │    ├── geminiService.js            # Prompt engineering para IA
+ │    └── metricsService.js           # Estadísticas
+    </pre>
+
+    <h2>3. Algoritmos Críticos</h2>
+    <p>El núcleo del valor del negocio reside en <code>googleDirectionsService.js</code>.</p>
+
+    <h3>Motor de Optimización (TSP)</h3>
+    <p>Implementamos un enfoque híbrido para resolver el problema del viajante:</p>
+    <ul>
+        <li><strong>Greedy (Vecino más cercano):</strong> O(N²). Usado para pre-cálculos rápidos.</li>
+        <li><strong>2-Opt Heurístico:</strong> Refinamiento iterativo que "desenreda" rutas cruzadas intercambiando
+            aristas (edges).</li>
+        <li><strong>Google Optimization:</strong> Utiliza el flag <code>optimizeWaypoints: true</code> de la API de
+            Google para obtener la ruta basada en tráfico histórico y tiempo real.</li>
+    </ul>
+
+    <h2>4. Flujo de Datos (Sync)</h2>
+    <p>El sistema utiliza un <strong>Bus de Eventos</strong> basado en <code>localStorage</code> para sincronización
+        entre pestañas sin necesidad de WebSockets.</p>
+    <pre>
+// DriverView.jsx (Escritura)
+localStorage.setItem('logisticsRoutes', JSON.stringify(updatedRoutes));
+
+// AdminDashboard.jsx (Lectura Reactiva)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'logisticsRoutes') syncState();
+});
+    </pre>
+
+    <h2>5. Despliegue (CI/CD)</h2>
+    <p>Configurado para <strong>Vercel</strong> con reescritura de rutas SPA.</p>
+    <pre>
+// vercel.json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+    </pre>
+
+    <div
+        style="margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center; color: #64748b; font-size: 0.9rem;">
+        Logistics Dashboard Technical Documentation
+    </div>
+
+</body>
+
+</html>
