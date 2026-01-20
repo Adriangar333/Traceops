@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { reverseGeocode, setUserLocation } from '../utils/geocodingService';
-import { Plus, Minus, Maximize, LocateFixed, Layers, MapPin, Hand, Compass, Box, Car } from 'lucide-react';
+import { Plus, Minus, Maximize, LocateFixed, Layers, MapPin, Hand, Compass, Box, Car, Trash2 } from 'lucide-react';
 
 const MAP_STYLES = {
     dark: { name: 'Oscuro', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', icon: '🌙', type: 'vector' },
@@ -434,6 +434,17 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
                 <button onClick={() => map.current?.zoomOut()} style={btnStyle} title="Alejar"><Minus size={20} /></button>
                 <button onClick={() => setShowTraffic(!showTraffic)} style={{ ...btnStyle, background: showTraffic ? '#ea580c' : 'rgba(15,23,42,0.9)' }} title="Tráfico"><Car size={20} /></button>
                 <button onClick={() => setAddPointMode(!addPointMode)} style={{ ...btnStyle, background: addPointMode ? '#3b82f6' : 'rgba(15,23,42,0.9)' }} title="Agregar puntos"><MapPin size={20} /></button>
+
+                {waypoints.length > 0 && (
+                    <button
+                        onClick={() => onClearRoute ? onClearRoute() : setWaypoints([])}
+                        style={{ ...btnStyle, background: 'rgba(239,68,68,0.9)', borderColor: '#ef4444' }}
+                        title="Limpiar Ruta"
+                    >
+                        <Trash2 size={20} />
+                    </button>
+                )}
+
                 <button onClick={() => setShowStylePicker(!showStylePicker)} style={{ ...btnStyle, background: showStylePicker ? '#6366f1' : 'rgba(15,23,42,0.9)' }} title="Estilos"><Layers size={20} /></button>
                 <button onClick={() => { setIs3D(!is3D); map.current?.easeTo({ pitch: !is3D ? 60 : 0, bearing: !is3D ? -20 : 0, duration: 500 }); }} style={{ ...btnStyle, background: is3D ? '#10b981' : 'rgba(15,23,42,0.9)' }} title="3D"><Box size={20} /></button>
                 <button onClick={() => map.current?.easeTo({ bearing: 0, duration: 300 })} style={btnStyle} title="Norte"><Compass size={20} /></button>
