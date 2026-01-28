@@ -307,8 +307,13 @@ const Sidebar = ({
             transition: 'all 0.3s ease'
         },
         header: {
-            padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-            background: 'linear-gradient(180deg, rgba(59,130,246,0.1) 0%, transparent 100%)'
+            padding: isMobile ? 'calc(env(safe-area-inset-top) + 12px) 16px 12px' : '20px 24px',
+            background: isMobile ? (mobileCollapsed ? 'transparent' : 'rgba(15,23,42,0.95)') : 'linear-gradient(to right, rgba(59,130,246,0.1), transparent)',
+            borderBottom: isMobile && mobileCollapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            pointerEvents: 'auto'
         },
         section: { padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)' },
         input: {

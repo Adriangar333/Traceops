@@ -1,9 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Route, Switch } from 'wouter';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 import AdminDashboard from './components/AdminDashboard';
 import DriverView from './components/DriverView';
 
 function App() {
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const configureStatusBar = async () => {
+        try {
+          await StatusBar.setStyle({ style: Style.Dark });
+          // Make status bar transparent (Overlay)
+          if (Capacitor.getPlatform() === 'android') {
+            await StatusBar.setOverlaysWebView({ overlay: true });
+            await StatusBar.setBackgroundColor({ color: '#00000000' }); // Transparent
+          }
+        } catch (err) {
+          console.warn('Status bar not available', err);
+        }
+      };
+      configureStatusBar();
+    }
+  }, []);
+
   return (
     <Switch>
       <Route path="/" component={AdminDashboard} />

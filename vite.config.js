@@ -10,5 +10,12 @@ export default defineConfig({
     alias: {
       "@": path.resolve(process.cwd(), "./src"),
     },
+    // Fix for Capacitor packages in Vite
+    mainFields: ['module', 'main', 'jsnext:main', 'jsnext'],
   },
+  build: {
+    commonjsOptions: {
+      include: [/@capacitor-community\/background-geolocation/, /node_modules/]
+    }
+  }
 })

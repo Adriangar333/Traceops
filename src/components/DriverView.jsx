@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation, CheckCircle } from 'lucide-react';
+import { Navigation, CheckCircle, Radio } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
+import { TrackingService } from '../utils/trackingService';
 
 const DriverView = ({ params }) => {
     const { routeId } = params;
     const [route, setRoute] = useState(null);
     const [loading, setLoading] = useState(true);
     const [completedStops, setCompletedStops] = useState([]);
+    const [isTracking, setIsTracking] = useState(false);
+
+    // Check if we are native
+    const isNative = window.Capacitor && window.Capacitor.isNative;
 
     useEffect(() => {
         // Try getting data from URL query params first (Stateless mode for mobile)
@@ -39,6 +44,30 @@ const DriverView = ({ params }) => {
         }
         setLoading(false);
     }, [routeId]);
+
+    const toggleTracking = async () => {
+        if (isTracking) {
+            await TrackingService.stopTracking();
+            setIsTracking(false);
+            toast.info('Rastreo detenido');
+        } else {
+            toast.loading('Iniciando rastreo...');
+            const success = await TrackingService.startTracking((location, error) => {
+                if (location) {
+                    // In the future: Send to WebSocket
+                    console.log('Sending location to server:', location);
+                }
+            });
+
+            toast.dismiss();
+            if (success) {
+                setIsTracking(true);
+                toast.success('Rastreo activo en segundo plano');
+            } else {
+                toast.error('No se pudo activar el GPS');
+            }
+        }
+    };
 
     const handleMarkDelivered = (index) => {
         const newCompleted = [...completedStops, index];
