@@ -46,7 +46,19 @@ const initDB = async () => {
                 location GEOMETRY(POINT, 4326)
             );
         `);
-        console.log('✅ Table driver_locations ready');
+        // Create drivers table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS drivers (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                status TEXT DEFAULT 'idle',
+                assigned_routes TEXT[] DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table drivers ready');
         client.release();
     } catch (err) {
         console.error('❌ Database connection error:', err);
@@ -54,6 +66,65 @@ const initDB = async () => {
 };
 
 initDB();
+
+// API Routes for Drivers
+app.get('/drivers', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM drivers ORDER BY created_at DESC');
+        // Convert snake_case to camelCase for frontend compatibility if needed, 
+        // or just ensure frontend handles it. 
+        // Map assigned_routes to assignedRoutes
+        const drivers = result.rows.map(d => ({
+            ...d,
+            assignedRoutes: d.assigned_routes || []
+        }));
+        res.json(drivers);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch drivers' });
+    }
+});
+
+app.post('/drivers', async (req, res) => {
+    const { name, email, phone } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    try {
+        const result = await pool.query(
+            'INSERT INTO drivers (name, email, phone) VALUES ($1, $2, $3) RETURNING *',
+            [name, email, phone]
+        );
+        const driver = result.rows[0];
+        res.status(201).json({ ...driver, assignedRoutes: [] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create driver' });
+    }
+});
+
+app.patch('/drivers/:id/routes', async (req, res) => {
+    const { routeId } = req.body;
+    if (!routeId) return res.status(400).json({ error: 'routeId is required' });
+    try {
+        await pool.query(
+            'UPDATE drivers SET assigned_routes = array_append(assigned_routes, $1) WHERE id = $2',
+            [routeId.toString(), req.params.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update driver routes' });
+    }
+});
+
+app.delete('/drivers/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM drivers WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete driver' });
+    }
+});
 
 // Socket.io Real-time Logic
 io.on('connection', (socket) => {

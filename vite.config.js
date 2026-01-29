@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "./src"),
+      "socket.io-client": "socket.io-client/dist/socket.io.js",
     },
     // Fix for Capacitor packages in Vite
     mainFields: ['module', 'main', 'jsnext:main', 'jsnext'],

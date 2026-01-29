@@ -7,13 +7,11 @@ import Dashboard from './Dashboard';
 import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
 import { recordRouteCreated } from '../utils/metricsService';
 import { getGoogleRoute } from '../utils/googleDirectionsService';
+import { getDrivers, createDriver, deleteDriver, assignRouteToDriver } from '../utils/backendService';
 
 function AdminDashboard() {
     const [waypoints, setWaypoints] = useState([]);
-    const [agents, setAgents] = useState(() => {
-        const saved = localStorage.getItem('logisticsAgents');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [agents, setAgents] = useState([]);
     const [selectedAgent, setSelectedAgent] = useState(null);
     const [savedRoutes, setSavedRoutes] = useState(() => {
         const saved = localStorage.getItem('logisticsRoutes');
@@ -49,10 +47,14 @@ function AdminDashboard() {
         localStorage.setItem('returnToStart', returnToStart);
     }, [returnToStart]);
 
-    // Save agents to localStorage
+    // Load agents from Backend
     useEffect(() => {
-        localStorage.setItem('logisticsAgents', JSON.stringify(agents));
-    }, [agents]);
+        const loadAgents = async () => {
+            const data = await getDrivers();
+            setAgents(data);
+        };
+        loadAgents();
+    }, []);
 
     // Save routes to localStorage
     useEffect(() => {
@@ -80,16 +82,25 @@ function AdminDashboard() {
         ...(returnToStart && fixedStart ? [fixedStart] : [])
     ];
 
-    const handleAddAgent = (agent) => {
-        const newAgent = { ...agent, id: Date.now(), assignedRoutes: [] };
-        setAgents(prev => [...prev, newAgent]);
-        toast.success(`Agente ${agent.name} agregado`);
+    const handleAddAgent = async (agent) => {
+        try {
+            const newAgent = await createDriver(agent);
+            setAgents(prev => [newAgent, ...prev]);
+            toast.success(`Agente ${agent.name} agregado`);
+        } catch (error) {
+            toast.error('Error al guardar agente');
+        }
     };
 
-    const handleDeleteAgent = (agentId) => {
-        setAgents(prev => prev.filter(a => a.id !== agentId));
-        if (selectedAgent?.id === agentId) setSelectedAgent(null);
-        toast.info('Agente eliminado');
+    const handleDeleteAgent = async (agentId) => {
+        try {
+            await deleteDriver(agentId);
+            setAgents(prev => prev.filter(a => a.id !== agentId));
+            if (selectedAgent?.id === agentId) setSelectedAgent(null);
+            toast.info('Agente eliminado');
+        } catch (error) {
+            toast.error('Error al eliminar agente');
+        }
     };
 
     const handleSaveRoute = async (routeName) => {
@@ -218,6 +229,9 @@ function AdminDashboard() {
             const result = await sendToN8N(payload);
 
             if (result.success) {
+                // Update Backend
+                await assignRouteToDriver(selectedAgent.id, routeId);
+
                 // We still save to localStorage for Admin view persistence/debugging
                 const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
                 const routeToSave = {
@@ -232,7 +246,7 @@ function AdminDashboard() {
                 savedRoutes.push(routeToSave);
                 localStorage.setItem('logisticsRoutes', JSON.stringify(savedRoutes));
 
-                // Update agent's assigned routes
+                // Update agent's assigned routes locally
                 setAgents(prev => prev.map(a =>
                     a.id === selectedAgent.id
                         ? { ...a, assignedRoutes: [...(a.assignedRoutes || []), routeId] }

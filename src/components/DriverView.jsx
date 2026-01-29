@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigation, CheckCircle, Radio } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
 
@@ -9,6 +10,11 @@ const DriverView = ({ params }) => {
     const [loading, setLoading] = useState(true);
     const [completedStops, setCompletedStops] = useState([]);
     const [isTracking, setIsTracking] = useState(false);
+    const [mapStyle, setMapStyle] = useState('https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json');
+    const mapContainer = useRef(null);
+    const map = useRef(null);
+    const driverMarkerRef = useRef(null);
+    const [viewMode, setViewMode] = useState('map'); // 'map' or 'list'
 
     // Check if we are native
     const isNative = window.Capacitor && window.Capacitor.isNative;
@@ -45,6 +51,124 @@ const DriverView = ({ params }) => {
         setLoading(false);
     }, [routeId]);
 
+    // Initialize Map
+    useEffect(() => {
+        if (!mapContainer.current || !route || loading) return;
+        if (map.current) return;
+
+        map.current = new maplibregl.Map({
+            container: mapContainer.current,
+            style: mapStyle, // Default dark
+            center: [-74.8061, 10.9961], // Barranquilla default
+            zoom: 12,
+            attributionControl: false
+        });
+
+        map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        // Add Geolocation Control
+        const geolocateControl = new maplibregl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+            showUserHeading: true
+        });
+        map.current.addControl(geolocateControl, 'top-right');
+
+
+        map.current.on('load', () => {
+            // Add Route Line
+            if (route.waypoints && route.waypoints.length > 1) {
+                const coordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+
+                // Fit bounds
+                const bounds = new maplibregl.LngLatBounds();
+                coordinates.forEach(coord => bounds.extend(coord));
+                map.current.fitBounds(bounds, { padding: 50 });
+
+                map.current.addSource('route', {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'properties': {},
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': coordinates
+                        }
+                    }
+                });
+
+                map.current.addLayer({
+                    'id': 'route',
+                    'type': 'line',
+                    'source': 'route',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#3b82f6',
+                        'line-width': 4
+                    }
+                });
+
+                // Add Waypoint Markers
+                route.waypoints.forEach((wp, index) => {
+                    const el = document.createElement('div');
+                    el.className = 'waypoint-marker';
+                    el.innerHTML = `<div style="background: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white;">${index + 1}</div>`;
+
+                    new maplibregl.Marker({ element: el })
+                        .setLngLat([wp.lng, wp.lat])
+                        .setPopup(new maplibregl.Popup().setHTML(`<b>Parada ${index + 1}</b><br>${wp.address || ''}`))
+                        .addTo(map.current);
+                });
+            }
+        });
+
+        return () => {
+            map.current?.remove();
+            map.current = null;
+        };
+    }, [route, loading]);
+
+    // Update Map Style
+    useEffect(() => {
+        if (map.current) {
+            map.current.setStyle(mapStyle);
+            // Re-add layers after style change would be needed in a real robust impl, 
+            // usually better to add sources/layers on 'style.load' event. 
+            // For simplicity in this quick impl, we might lose layers on switch or need to reload.
+            // A quick fix is to persist layers or just warn. 
+            // Better approach:
+            map.current.once('style.load', () => {
+                if (route && route.waypoints && route.waypoints.length > 1) {
+                    const coordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+                    if (!map.current.getSource('route')) {
+                        map.current.addSource('route', {
+                            'type': 'geojson',
+                            'data': {
+                                'type': 'Feature',
+                                'properties': {},
+                                'geometry': {
+                                    'type': 'LineString',
+                                    'coordinates': coordinates
+                                }
+                            }
+                        });
+                        map.current.addLayer({
+                            'id': 'route',
+                            'type': 'line',
+                            'source': 'route',
+                            'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                            'paint': { 'line-color': '#3b82f6', 'line-width': 4 }
+                        });
+                    }
+                }
+            });
+        }
+    }, [mapStyle]);
+
+
     const toggleTracking = async () => {
         if (isTracking) {
             await TrackingService.stopTracking();
@@ -54,8 +178,34 @@ const DriverView = ({ params }) => {
             toast.loading('Iniciando rastreo...');
             const success = await TrackingService.startTracking((location, error) => {
                 if (location) {
-                    // In the future: Send to WebSocket
-                    console.log('Sending location to server:', location);
+                    // Send to Production Backend
+                    if (!window.socket) {
+                        window.socket = io('https://dashboard-backend.zvkdyr.easypanel.host');
+                    }
+
+                    const payload = {
+                        driverId: 'TEST-DRIVER', // TODO: Use actual agent ID
+                        lat: location.latitude,
+                        lng: location.longitude,
+                        speed: location.speed,
+                        heading: location.heading || 0
+                    };
+
+                    console.log('📡 Sending to Global Backend:', payload);
+                    window.socket.emit('driver:location', payload);
+
+                    // Update local user marker on map
+                    if (map.current) {
+                        if (!driverMarkerRef.current) {
+                            const el = document.createElement('div');
+                            el.innerHTML = '<div style="background: #10b981; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(16,185,129,0.5);"></div>';
+                            driverMarkerRef.current = new maplibregl.Marker({ element: el })
+                                .setLngLat([location.longitude, location.latitude])
+                                .addTo(map.current);
+                        } else {
+                            driverMarkerRef.current.setLngLat([location.longitude, location.latitude]);
+                        }
+                    }
                 }
             });
 
@@ -123,192 +273,132 @@ const DriverView = ({ params }) => {
     const progress = (completedCount / totalStops) * 100;
 
     return (
-        <div style={{ background: '#020617', height: '100dvh', overflowY: 'auto', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <div style={{ background: '#020617', height: '100dvh', display: 'flex', flexDirection: 'column', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
             <Toaster position="top-center" richColors />
 
             {/* Header */}
             <div style={{
-                padding: '16px 20px',
-                background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-                position: 'sticky',
-                top: 0,
+                padding: '12px 16px',
+                background: '#0f172a',
                 zIndex: 50,
                 boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                borderBottom: '1px solid rgba(255,255,255,0.05)'
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                flexShrink: 0
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <div style={{
-                        width: 44, height: 44,
-                        background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                        borderRadius: 14,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)'
-                    }}>
-                        <Navigation size={22} color="white" />
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                     <div style={{ flex: 1 }}>
-                        <h1 style={{ fontSize: '1.1rem', fontWeight: '700', margin: 0, color: 'white' }}>{route.name}</h1>
-                        <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '2px 0 0' }}>
+                        <h1 style={{ fontSize: '1rem', fontWeight: '700', margin: 0, color: 'white' }}>{route.name}</h1>
+                        <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '2px 0 0' }}>
                             {completedCount}/{totalStops} paradas • {route.distanceKm || 0} km
                         </p>
                     </div>
+                    <button
+                        onClick={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
+                        style={{ background: '#334155', color: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                        {viewMode === 'map' ? 'Ver Lista' : 'Ver Mapa'}
+                    </button>
                 </div>
-
                 {/* Progress Bar */}
-                <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 999, height: 6, overflow: 'hidden' }}>
-                    <div style={{
-                        width: `${progress}%`,
-                        height: '100%',
-                        background: 'linear-gradient(90deg, #10b981, #34d399)',
-                        borderRadius: 999,
-                        transition: 'width 0.5s ease'
-                    }} />
+                <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 999, height: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: '#10b981', transition: 'width 0.5s ease' }} />
                 </div>
             </div>
 
-            {/* Stops List */}
-            <div style={{ padding: '20px 16px', maxWidth: 600, margin: '0 auto', paddingBottom: 100 }}>
-                {route.waypoints.map((wp, i) => {
-                    const isCompleted = completedStops.includes(i);
-                    const isNext = !isCompleted && (i === 0 || completedStops.includes(i - 1));
+            {/* Content Area */}
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-                    return (
-                        <div key={i} style={{
-                            background: isCompleted ? 'rgba(16, 185, 129, 0.08)' : '#1e293b',
-                            borderRadius: 16,
-                            padding: 16,
-                            marginBottom: 20, // Increased spacing for badges
-                            border: isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : (isNext ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.06)'),
-                            position: 'relative',
-                            boxShadow: isNext ? '0 0 0 4px rgba(59, 130, 246, 0.15)' : 'none',
-                            opacity: isCompleted ? 0.7 : 1,
-                            transition: 'all 0.3s ease'
-                        }}>
-                            {isNext && (
-                                <div style={{
-                                    position: 'absolute', top: -10, left: 16,
-                                    background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                                    color: 'white',
-                                    fontSize: '0.65rem',
-                                    fontWeight: 'bold',
-                                    padding: '3px 10px',
-                                    borderRadius: 999,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.5px'
-                                }}>
-                                    Siguiente
-                                </div>
-                            )}
+                {/* MAP VIEW */}
+                <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    visibility: viewMode === 'map' ? 'visible' : 'hidden',
+                    display: 'flex', flexDirection: 'column'
+                }}>
+                    <div ref={mapContainer} style={{ flex: 1, width: '100%' }} />
 
-                            <div style={{ display: 'flex', gap: 14 }}>
-                                <div style={{
-                                    width: 40, height: 40, borderRadius: 12,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: isCompleted ? '#10b981' : (isNext ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : '#334155'),
-                                    color: 'white',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.95rem',
-                                    flexShrink: 0
-                                }}>
-                                    {isCompleted ? <CheckCircle size={22} /> : i + 1}
-                                </div>
+                    {/* Map Controls Overlay */}
+                    <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <select
+                            onChange={(e) => setMapStyle(e.target.value)}
+                            style={{ background: 'rgba(15, 23, 42, 0.9)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '6px', borderRadius: 8, fontSize: '0.8rem' }}
+                        >
+                            <option value="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json">🌙 Oscuro</option>
+                            <option value="https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL">🛰️ Satélite (Demo)</option>
+                            {/* Note: Google Satellite/Terrain requires Raster source which is tricky in pure Vector MapLibre without API Keys often. 
+                                Using Carto/OSM standard styles for stability unless we have keys. 
+                                For "Terrain" specifically, often needs a specific style URL. */}
+                            <option value="https://demotiles.maplibre.org/style.json">⛰️ Terreno (Demo)</option>
+                        </select>
+                    </div>
 
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{
-                                        margin: '0 0 4px',
-                                        fontWeight: isNext ? '600' : '500',
-                                        fontSize: '0.95rem',
-                                        color: isCompleted ? '#94a3b8' : 'white',
-                                        textDecoration: isCompleted ? 'line-through' : 'none',
-                                        lineHeight: 1.4
+                    <div style={{ position: 'absolute', bottom: 20, left: 20, right: 20 }}>
+                        <button
+                            onClick={toggleTracking}
+                            style={{
+                                width: '100%',
+                                padding: '14px',
+                                background: isTracking ? '#ef4444' : '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 12,
+                                fontWeight: 'bold',
+                                fontSize: '1rem',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                            }}
+                        >
+                            <Radio size={20} className={isTracking ? "animate-pulse" : ""} />
+                            {isTracking ? 'DETENER RASTREO' : 'INICIAR RUTA'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* LIST VIEW (Already existing logic, just wrapped) */}
+                <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    overflowY: 'auto', padding: '16px',
+                    visibility: viewMode === 'list' ? 'visible' : 'hidden',
+                    background: '#020617'
+                }}>
+                    {route.waypoints.map((wp, i) => {
+                        const isCompleted = completedStops.includes(i);
+                        return (
+                            <div key={i} style={{
+                                background: isCompleted ? 'rgba(16, 185, 129, 0.08)' : '#1e293b',
+                                borderRadius: 12, padding: 16, marginBottom: 12,
+                                border: isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
+                                opacity: isCompleted ? 0.7 : 1
+                            }}>
+                                <div style={{ display: 'flex', gap: 12 }}>
+                                    <div style={{
+                                        width: 32, height: 32, borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: isCompleted ? '#10b981' : '#334155',
+                                        color: 'white', fontWeight: 'bold'
                                     }}>
-                                        {wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}
-                                    </p>
-
-                                    {!isCompleted && (
-                                        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                                            <button
-                                                onClick={() => openNavigation(wp.lat, wp.lng)}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '14px 16px',
-                                                    borderRadius: 12,
-                                                    border: 'none',
-                                                    background: '#334155',
-                                                    color: 'white',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: 8,
-                                                    cursor: 'pointer',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9rem'
-                                                }}
-                                            >
-                                                <Navigation size={18} /> Navegar
-                                            </button>
-                                            <button
-                                                onClick={() => handleMarkDelivered(i)}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '14px 16px',
-                                                    borderRadius: 12,
-                                                    border: 'none',
-                                                    background: isNext ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(16, 185, 129, 0.15)',
-                                                    color: isNext ? 'white' : '#10b981',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: 8,
-                                                    cursor: 'pointer',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9rem',
-                                                    boxShadow: isNext ? '0 4px 15px rgba(16, 185, 129, 0.3)' : 'none'
-                                                }}
-                                            >
-                                                <CheckCircle size={18} /> Entregar
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {isCompleted && (
-                                        <div style={{
-                                            marginTop: 8,
-                                            background: 'rgba(16, 185, 129, 0.1)',
-                                            color: '#10b981',
-                                            padding: '6px 12px',
-                                            borderRadius: 8,
-                                            fontSize: '0.8rem',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6
-                                        }}>
-                                            <CheckCircle size={14} /> Completado
-                                        </div>
-                                    )}
+                                        {isCompleted ? <CheckCircle size={18} /> : i + 1}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ margin: '0 0 4px', fontSize: '0.9rem', color: isCompleted ? '#94a3b8' : 'white' }}>
+                                            {wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}
+                                        </p>
+                                        {!isCompleted && (
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                                <button onClick={() => openNavigation(wp.lat, wp.lng)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#334155', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                    <Navigation size={16} /> Navegar
+                                                </button>
+                                                <button onClick={() => handleMarkDelivered(i)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                    <CheckCircle size={16} /> Entregar
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
-
-                {completedCount === totalStops && (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '40px 20px',
-                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.05))',
-                        borderRadius: 20,
-                        border: '1px solid rgba(16, 185, 129, 0.2)'
-                    }}>
-                        <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-                        <h2 style={{ margin: '0 0 8px', color: '#10b981' }}>¡Ruta Completada!</h2>
-                        <p style={{ color: '#94a3b8', margin: 0 }}>Todas las entregas han sido realizadas.</p>
-                    </div>
-                )}
-
-                <div style={{ textAlign: 'center', marginTop: 24, paddingBottom: 40, color: '#475569', fontSize: '0.8rem' }}>
-                    Conduce con precaución 🛡️
+                        );
+                    })}
                 </div>
+
             </div>
         </div>
     );

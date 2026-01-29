@@ -378,7 +378,6 @@ const Sidebar = ({
                             <button onClick={() => togglePanel('config')} style={{ ...styles.iconBtn, background: activePanel === 'config' ? '#10b981' : 'rgba(16,185,129,0.15)' }} title="Configuración"><Settings size={18} color={activePanel === 'config' ? 'white' : '#10b981'} /></button>
                             <button onClick={() => togglePanel('routes')} style={{ ...styles.iconBtn, background: activePanel === 'routes' ? '#6366f1' : 'rgba(99,102,241,0.15)' }} title="Rutas guardadas"><FolderOpen size={18} color={activePanel === 'routes' ? 'white' : '#6366f1'} /></button>
                             <button onClick={() => togglePanel('import')} style={{ ...styles.iconBtn, background: activePanel === 'import' ? '#f59e0b' : 'rgba(245,158,11,0.15)' }} title="Importar"><Upload size={18} color={activePanel === 'import' ? 'white' : '#f59e0b'} /></button>
-                            <button onClick={() => togglePanel('ai')} style={{ ...styles.iconBtn, background: activePanel === 'ai' ? '#ec4899' : 'rgba(236,72,153,0.15)' }} title="Asistente IA"><Bot size={18} color={activePanel === 'ai' ? 'white' : '#ec4899'} /></button>
                             <button onClick={onOpenAgents} style={{ ...styles.iconBtn, background: 'rgba(59,130,246,0.15)' }} title="Agentes"><Users size={18} color="#3b82f6" /></button>
                             <button onClick={onOpenDashboard} style={{ ...styles.iconBtn, background: 'rgba(245,158,11,0.15)' }} title="Dashboard"><BarChart3 size={18} color="#f59e0b" /></button>
                         </div>
@@ -517,166 +516,7 @@ const Sidebar = ({
                         </div>
                     )}
 
-                    {/* AI Chat Panel - Sidebar on desktop, fullscreen on mobile */}
-                    {activePanel === 'ai' && (
-                        <>
-                            {/* Overlay */}
-                            <div
-                                onClick={() => setActivePanel(null)}
-                                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 299 }}
-                            />
-                            <div className="ai-chat-panel" style={{
-                                position: 'fixed', top: 0, right: 0,
-                                width: '420px', maxWidth: '100%', height: '100vh',
-                                background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-                                borderLeft: '1px solid rgba(255,255,255,0.1)',
-                                display: 'flex', flexDirection: 'column',
-                                fontFamily: 'system-ui', color: 'white', zIndex: 300,
-                                boxSizing: 'border-box'
-                            }}>
-                                {/* Header */}
-                                <div style={{
-                                    padding: '16px 20px',
-                                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    background: 'rgba(236,72,153,0.1)'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <div style={{ width: 40, height: 40, background: 'linear-gradient(135deg, #ec4899, #be185d)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Bot size={22} />
-                                        </div>
-                                        <div>
-                                            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>RouteBot IA</h3>
-                                            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Asistente de rutas</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setActivePanel(null)} style={{
-                                        width: 40, height: 40, borderRadius: 12, border: 'none',
-                                        background: 'rgba(239,68,68,0.2)', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <X size={22} color="#ef4444" />
-                                    </button>
-                                </div>
 
-                                {/* Messages Area */}
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-                                    {chatMessages.map((m, i) => (
-                                        <div key={i} style={{
-                                            padding: '12px 16px', borderRadius: 16, marginBottom: 12,
-                                            fontSize: 14, lineHeight: 1.5,
-                                            maxWidth: '85%',
-                                            background: m.role === 'user'
-                                                ? 'linear-gradient(135deg, #3b82f6, #6366f1)'
-                                                : 'rgba(255,255,255,0.08)',
-                                            marginLeft: m.role === 'user' ? 'auto' : 0,
-                                            borderBottomRightRadius: m.role === 'user' ? 4 : 16,
-                                            borderBottomLeftRadius: m.role === 'user' ? 16 : 4,
-                                        }}>
-                                            <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
-                                            {m.type === 'places' && (
-                                                <div style={{ display: 'flex', overflowX: 'auto', gap: 12, marginTop: 12, paddingBottom: 8 }}>
-                                                    {m.places.map((p, idx) => (
-                                                        <div key={idx} style={{
-                                                            minWidth: 180, width: 180,
-                                                            background: 'rgba(0,0,0,0.4)',
-                                                            borderRadius: 12, overflow: 'hidden', flexShrink: 0,
-                                                            border: '1px solid rgba(255,255,255,0.1)'
-                                                        }}>
-                                                            <div style={{ width: '100%', height: 100, position: 'relative', background: '#222' }}>
-                                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <MapPin size={24} color="#666" />
-                                                                </div>
-                                                                {p.photoUrl && (
-                                                                    <img
-                                                                        src={p.photoUrl}
-                                                                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 10 }}
-                                                                        alt={p.name}
-                                                                        onError={(e) => { e.target.style.display = 'none'; }}
-                                                                    />
-                                                                )}
-                                                                {p.openStatus && (
-                                                                    <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 20, padding: '3px 6px', borderRadius: 4, fontSize: 9, fontWeight: 600, background: p.openStatus === 'Abierto' ? '#10b981' : '#ef4444', color: 'white' }}>{p.openStatus}</div>
-                                                                )}
-                                                                {p.priceLevel && (
-                                                                    <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 20, padding: '3px 6px', borderRadius: 4, fontSize: 9, fontWeight: 600, background: 'rgba(0,0,0,0.7)', color: '#10b981' }}>{p.priceLevel}</div>
-                                                                )}
-                                                            </div>
-                                                            <div style={{ padding: 12 }}>
-                                                                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.vicinity || p.displayName?.split(',')[0] || ''}</div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                                                                    <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>{p.rating || 0} ⭐</span>
-                                                                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>({p.user_ratings_total || 0})</span>
-                                                                </div>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setWaypoints(prev => [...prev, { lng: p.lng, lat: p.lat, address: p.name }]);
-                                                                        setChatMessages(prev => [...prev, { role: 'assistant', content: `✅ Agregado a la ruta: ${p.name}` }]);
-                                                                    }}
-                                                                    style={{
-                                                                        width: '100%', border: 'none',
-                                                                        background: 'linear-gradient(135deg, #ec4899, #be185d)',
-                                                                        color: 'white', fontSize: 12, fontWeight: 600,
-                                                                        padding: '10px 0', borderRadius: 8, cursor: 'pointer'
-                                                                    }}
-                                                                >
-                                                                    + Agregar a ruta
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                    {isAiThinking && (
-                                        <div style={{
-                                            padding: '12px 16px', borderRadius: 16,
-                                            background: 'rgba(255,255,255,0.08)',
-                                            display: 'inline-flex', alignItems: 'center', gap: 8
-                                        }}>
-                                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ec4899', animation: 'pulse 1s infinite' }} />
-                                            <span style={{ color: 'rgba(255,255,255,0.6)' }}>Pensando...</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Input Area - Sticky Bottom */}
-                                <div style={{
-                                    padding: '16px 20px',
-                                    borderTop: '1px solid rgba(255,255,255,0.1)',
-                                    background: 'rgba(15,23,42,0.95)'
-                                }}>
-                                    <div style={{ display: 'flex', gap: 12 }}>
-                                        <input
-                                            value={chatInput}
-                                            onChange={e => setChatInput(e.target.value)}
-                                            placeholder="Buscar lugares, agregar direcciones..."
-                                            style={{
-                                                flex: 1, padding: '14px 18px',
-                                                background: 'rgba(255,255,255,0.08)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                borderRadius: 14, fontSize: 15, color: 'white', outline: 'none'
-                                            }}
-                                            onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                                        />
-                                        <button
-                                            onClick={handleSendChat}
-                                            style={{
-                                                width: 52, height: 52, borderRadius: 14, border: 'none',
-                                                background: 'linear-gradient(135deg, #ec4899, #be185d)',
-                                                color: 'white', cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}
-                                        >
-                                            <Send size={22} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
 
                     {/* Route Options - Desktop List / Mobile Logic */}
                     {!isMobile && showRouteOptions && (
@@ -888,7 +728,7 @@ const Sidebar = ({
                 isCarouselMode && (
                     <div style={{
                         position: 'fixed',
-                        bottom: 20,
+                        bottom: 'calc(20px + env(safe-area-inset-bottom))',
                         left: 0,
                         right: 0,
                         zIndex: 2000,
