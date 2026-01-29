@@ -3,7 +3,7 @@ import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff } from 'lucide-re
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
-import { getDriverRoutes } from '../utils/backendService';
+import { getDriverRoutes, getDrivers } from '../utils/backendService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -12,6 +12,7 @@ const DriverView = ({ params }) => {
     const { routeId } = params;
     const [route, setRoute] = useState(null);
     const [availableRoutes, setAvailableRoutes] = useState([]); // Multiple routes fallback
+    const [driversList, setDriversList] = useState([]); // For Login Screen
     const [loading, setLoading] = useState(true);
     const [completedStops, setCompletedStops] = useState([]);
     const [isTracking, setIsTracking] = useState(false);
@@ -30,13 +31,15 @@ const DriverView = ({ params }) => {
 
     // Get driverId from URL params or generate one
     const searchParams = new URLSearchParams(window.location.search);
-    const driverId = searchParams.get('driverId') || `driver-${Date.now()}`;
+    const driverId = searchParams.get('driverId');
 
     // Check if we are native
     const isNative = window.Capacitor && window.Capacitor.isNative;
 
     useEffect(() => {
         const load = async () => {
+            setLoading(true);
+
             // 1. Try URL query 'data' (Stateless mode for mobile)
             const searchParams = new URLSearchParams(window.location.search);
             const dataParam = searchParams.get('data');
@@ -54,42 +57,63 @@ const DriverView = ({ params }) => {
             }
 
             // 2. Try fetching Active Routes for Driver ID (Persistent Link)
-            const driverIdParam = searchParams.get('driverId');
-            if (driverIdParam && !routeId) {
+            // If we have a driverId (from URL or LocalStorage fallback/check)
+            // Note: We don't check localStorage for ID here because we want to force Login if URL is clean
+            // BUT for better UX, we could check localStorage 'traceops_driver_id'
+
+            let effectiveDriverId = driverId;
+            if (!effectiveDriverId) {
+                effectiveDriverId = localStorage.getItem('traceops_driver_id');
+            }
+
+            if (effectiveDriverId && !routeId) {
                 try {
-                    const routes = await getDriverRoutes(driverIdParam);
+                    const routes = await getDriverRoutes(effectiveDriverId);
                     if (routes && routes.length > 0) {
-                        // If only one route, auto-select it
                         if (routes.length === 1) {
                             setRoute(routes[0]);
                         } else {
-                            // If multiple, show selection
                             setAvailableRoutes(routes);
                         }
                         setLoading(false);
                         return;
                     }
+                    // If ID exists but no routes, we might still want to show "No routes assigned" for specific driver
+                    // or allow changing driver. For now, let's just fall through.
                 } catch (e) {
                     console.error('Error fetching driver routes:', e);
                 }
             }
 
-            // 3. Fallback: Try localStorage (Works only on same device as Admin)
+            // 3. Fallback: Try localStorage Route (Works only on same device as Admin/Legacy)
             const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
             const foundRoute = savedRoutes.find(r => r.id.toString() === routeId);
 
             if (foundRoute) {
                 setRoute(foundRoute);
             } else {
-                if (!dataParam && (!driverIdParam || availableRoutes.length === 0)) {
-                    // Only error if we really found nothing
-                    // toast.error('Ruta no encontrada'); 
+                // If we are here: No Route URL, No Driver ID (or no routes for it), No Legacy Route
+                // Fetch drivers list to show Login Screen
+                if (!effectiveDriverId && !dataParam && !routeId) {
+                    try {
+                        const drivers = await getDrivers();
+                        setDriversList(drivers);
+                    } catch (e) {
+                        console.error('Error fetching drivers for login:', e);
+                    }
                 }
             }
             setLoading(false);
         };
         load();
     }, [routeId]);
+
+    const handleDriverLogin = (selectedId) => {
+        if (!selectedId) return;
+        localStorage.setItem('traceops_driver_id', selectedId);
+        // Reload with driverId param to trigger flow
+        window.location.replace(`/driver?driverId=${selectedId}`);
+    };
 
     // Initialize Map
     useEffect(() => {
@@ -365,6 +389,59 @@ const DriverView = ({ params }) => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        if (driversList.length > 0) {
+            return (
+                <div style={{ background: '#020617', minHeight: '100dvh', padding: 20, color: '#e2e8f0', fontFamily: 'system-ui' }}>
+                    <Toaster position="top-center" richColors />
+                    <div style={{ textAlign: 'center', marginBottom: 30, paddingTop: 20 }}>
+                        <div style={{ fontSize: 40, marginBottom: 10 }}>👋</div>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Bienvenido a TraceOps</h2>
+                        <p style={{ color: '#94a3b8', marginTop: 8 }}>Selecciona tu perfil para continuar</p>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {driversList.map(d => (
+                            <div
+                                key={d.id}
+                                onClick={() => handleDriverLogin(d.id)}
+                                style={{
+                                    background: '#1e293b',
+                                    borderRadius: 16,
+                                    padding: '16px',
+                                    cursor: 'pointer',
+                                    border: '1px solid #334155',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 16,
+                                    transition: 'transform 0.2s'
+                                }}
+                            >
+                                <div style={{
+                                    width: 44, height: 44,
+                                    borderRadius: '50%',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 'bold', fontSize: '1.1rem'
+                                }}>
+                                    {d.name.substring(0, 2).toUpperCase()}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'white' }}>{d.name}</h3>
+                                    {d.cuadrilla && (
+                                        <div style={{ fontSize: '0.8rem', color: '#fbbf24', marginTop: 2 }}>
+                                            {d.cuadrilla}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ color: '#64748b' }}>➜</div>
                             </div>
                         ))}
                     </div>
