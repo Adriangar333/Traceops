@@ -1,4 +1,4 @@
-const CACHE_NAME = 'route-assigner-v1';
+const CACHE_NAME = 'route-assigner-v2';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -38,21 +38,52 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - network first, fallback to cache
 self.addEventListener('fetch', (event) => {
+    const request = event.request;
+    const url = new URL(request.url);
+
+    // Skip non-GET requests (POST, PUT, etc. cannot be cached)
+    if (request.method !== 'GET') {
+        return;
+    }
+
+    // Skip external APIs and third-party resources
+    const skipUrls = [
+        'maps.googleapis.com',
+        'maps.google.com',
+        'fonts.googleapis.com',
+        'fonts.gstatic.com',
+        'basemaps.cartocdn.com',
+        'api.maptiler.com',
+        'socket.io',
+        'easypanel.host/api',  // Skip API calls
+        'n8n'
+    ];
+
+    if (skipUrls.some(skip => url.href.includes(skip))) {
+        return;
+    }
+
+    // Only cache assets from our own origin
+    if (url.origin !== location.origin) {
+        return;
+    }
+
     event.respondWith(
-        fetch(event.request)
+        fetch(request)
             .then((response) => {
-                // Clone and cache successful responses
-                if (response && response.status === 200) {
+                // Only cache successful responses for GET requests
+                if (response && response.status === 200 && response.type === 'basic') {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseClone);
+                        cache.put(request, responseClone);
                     });
                 }
                 return response;
             })
             .catch(() => {
-                // Fallback to cache
-                return caches.match(event.request);
+                // Fallback to cache for offline support
+                return caches.match(request);
             })
     );
 });
+
