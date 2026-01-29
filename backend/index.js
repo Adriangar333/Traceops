@@ -59,6 +59,24 @@ const initDB = async () => {
             );
         `);
         console.log('✅ Table drivers ready');
+
+        // Create delivery_proofs table for POD
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS delivery_proofs (
+                id SERIAL PRIMARY KEY,
+                route_id TEXT NOT NULL,
+                waypoint_index INTEGER NOT NULL,
+                driver_id TEXT NOT NULL,
+                photo TEXT,
+                signature TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table delivery_proofs ready');
+
         client.release();
     } catch (err) {
         console.error('❌ Database connection error:', err);
@@ -123,6 +141,53 @@ app.delete('/drivers/:id', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to delete driver' });
+    }
+});
+
+// POD - Proof of Delivery
+app.post('/pod', async (req, res) => {
+    const { routeId, waypointIndex, driverId, photo, signature, location, notes } = req.body;
+
+    if (!routeId || waypointIndex === undefined || !driverId) {
+        return res.status(400).json({ error: 'routeId, waypointIndex, and driverId are required' });
+    }
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO delivery_proofs 
+             (route_id, waypoint_index, driver_id, photo, signature, latitude, longitude, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id`,
+            [
+                routeId,
+                waypointIndex,
+                driverId,
+                photo || null,  // Base64 can be large, consider storing in S3 for production
+                signature || null,
+                location?.lat || null,
+                location?.lng || null,
+                notes || ''
+            ]
+        );
+
+        console.log(`✅ POD saved for route ${routeId}, waypoint ${waypointIndex}`);
+        res.json({ success: true, podId: result.rows[0].id });
+    } catch (err) {
+        console.error('POD save error:', err);
+        res.status(500).json({ error: 'Failed to save POD' });
+    }
+});
+
+app.get('/pod/:routeId', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM delivery_proofs WHERE route_id = $1 ORDER BY waypoint_index',
+            [req.params.routeId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch PODs' });
     }
 });
 

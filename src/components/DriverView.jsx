@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Navigation, CheckCircle, Radio } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Navigation, CheckCircle, Radio, Camera } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
+import PODModal from './PODModal';
 
 const DriverView = ({ params }) => {
     const { routeId } = params;
@@ -15,6 +16,13 @@ const DriverView = ({ params }) => {
     const map = useRef(null);
     const driverMarkerRef = useRef(null);
     const [viewMode, setViewMode] = useState('map'); // 'map' or 'list'
+
+    // POD Modal state
+    const [podModal, setPodModal] = useState({ isOpen: false, waypointIndex: null });
+
+    // Get driverId from URL params or generate one
+    const searchParams = new URLSearchParams(window.location.search);
+    const driverId = searchParams.get('driverId') || `driver-${Date.now()}`;
 
     // Check if we are native
     const isNative = window.Capacitor && window.Capacitor.isNative;
@@ -184,7 +192,7 @@ const DriverView = ({ params }) => {
                     }
 
                     const payload = {
-                        driverId: 'TEST-DRIVER', // TODO: Use actual agent ID
+                        driverId: driverId, // Dynamic driver ID from URL
                         lat: location.latitude,
                         lng: location.longitude,
                         speed: location.speed,
@@ -219,25 +227,31 @@ const DriverView = ({ params }) => {
         }
     };
 
-    const handleMarkDelivered = (index) => {
+    // Open POD modal for delivery
+    const openPODModal = (index) => {
+        setPodModal({ isOpen: true, waypointIndex: index });
+    };
+
+    const closePODModal = () => {
+        setPodModal({ isOpen: false, waypointIndex: null });
+    };
+
+    const handleDeliveryComplete = (index) => {
         const newCompleted = [...completedStops, index];
         setCompletedStops(newCompleted);
-        toast.success('¡Entrega completada!');
+        closePODModal();
+        toast.success('¡Entrega completada con prueba!');
 
         // Try to sync with localStorage (Works if Admin is on same browser)
         try {
             const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
             const updatedRoutes = savedRoutes.map(r => {
                 if (r.id.toString() === routeId) {
-                    // Update the specific route's waypoint status if we were storing it
-                    // Since we don't have per-waypoint status in the User object yet, we'll store it in a new field or just trigger an event
                     return { ...r, lastUpdate: Date.now(), completedCount: newCompleted.length };
                 }
                 return r;
             });
             localStorage.setItem('logisticsRoutes', JSON.stringify(updatedRoutes));
-
-            // Dispatch storage event for same-tab updates (though storage event triggers usually on OTHER tabs)
             window.dispatchEvent(new Event('storage'));
         } catch (e) {
             console.error('Sync error:', e);
@@ -387,8 +401,8 @@ const DriverView = ({ params }) => {
                                                 <button onClick={() => openNavigation(wp.lat, wp.lng)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#334155', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
                                                     <Navigation size={16} /> Navegar
                                                 </button>
-                                                <button onClick={() => handleMarkDelivered(i)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
-                                                    <CheckCircle size={16} /> Entregar
+                                                <button onClick={() => openPODModal(i)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                    <Camera size={16} /> Entregar
                                                 </button>
                                             </div>
                                         )}
@@ -400,6 +414,19 @@ const DriverView = ({ params }) => {
                 </div>
 
             </div>
+
+            {/* POD Modal */}
+            {route && podModal.waypointIndex !== null && (
+                <PODModal
+                    isOpen={podModal.isOpen}
+                    onClose={closePODModal}
+                    onComplete={handleDeliveryComplete}
+                    waypoint={route.waypoints[podModal.waypointIndex]}
+                    waypointIndex={podModal.waypointIndex}
+                    routeId={routeId}
+                    driverId={driverId}
+                />
+            )}
         </div>
     );
 };
