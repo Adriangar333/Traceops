@@ -7,7 +7,7 @@ import { getDriverHistory } from '../utils/backendService';
 
 const BACKEND_URL = 'https://dashboard-backend.zvkdyr.easypanel.host';
 
-const LiveTrackingPanel = ({ isOpen, onClose }) => {
+const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     const [activeDrivers, setActiveDrivers] = useState({});
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [arrivals, setArrivals] = useState([]);
@@ -19,6 +19,30 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
     const markers = useRef({});
     const historyLayerRef = useRef(null);
     const socketRef = useRef(null);
+
+    // Resolve driver name and cuadrilla
+    const resolveDriverInfo = (driverId) => {
+        if (!driversList.length) return { name: driverId, cuadrilla: '' };
+
+        // Handle various ID formats (123, "123", "driver-123")
+        const cleanId = driverId.toString().replace('driver-', '');
+
+        const agent = driversList.find(a =>
+            a.id.toString() === cleanId ||
+            a.id.toString() === driverId
+        );
+
+        if (agent) {
+            return {
+                name: agent.name,
+                cuadrilla: agent.cuadrilla || 'General',
+                phone: agent.phone
+            };
+        }
+
+        // If no match, return ID
+        return { name: driverId, cuadrilla: 'Externo' };
+    };
 
     // Initialize map
     useEffect(() => {
@@ -141,11 +165,17 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
         } else {
             // Create new marker
             const el = document.createElement('div');
+            const info = resolveDriverInfo(driver.driverId);
+            // Get initials or fallback to ID
+            const initials = info.name === driver.driverId
+                ? (typeof driver.driverId === 'string' ? driver.driverId.substring(0, 2) : 'D')
+                : info.name.split(' ').map(n => n[0]).join('').substring(0, 2);
+
             el.innerHTML = `
                 <div style="
-                    background: linear-gradient(135deg, #10b981, #059669);
-                    width: 36px;
-                    height: 36px;
+                    background: #10b981;
+                    width: 32px;
+                    height: 32px;
                     border-radius: 50%;
                     border: 3px solid white;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -153,10 +183,12 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
+                    font-size: 12px;
+                    font-weight: bold;
+                    color: white;
+                    text-transform: uppercase;
                 ">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                    </svg>
+                    ${initials}
                 </div>
             `;
 
@@ -291,9 +323,16 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
                                         background: '#10b981',
                                         boxShadow: '0 0 8px #10b981'
                                     }} />
-                                    <span style={{ color: 'white', fontWeight: 500 }}>
-                                        {driver.driverId}
-                                    </span>
+                                    <div>
+                                        <span style={{ color: 'white', fontWeight: 500, display: 'block' }}>
+                                            {resolveDriverInfo(driver.driverId).name}
+                                        </span>
+                                        {resolveDriverInfo(driver.driverId).cuadrilla && (
+                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 2 }}>
+                                                {resolveDriverInfo(driver.driverId).cuadrilla}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, color: '#94a3b8', fontSize: '0.8rem' }}>
                                     <MapPin size={12} />

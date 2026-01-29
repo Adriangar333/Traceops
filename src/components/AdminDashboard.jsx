@@ -8,7 +8,7 @@ import LiveTrackingPanel from './LiveTrackingPanel';
 import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
 import { recordRouteCreated } from '../utils/metricsService';
 import { getGoogleRoute } from '../utils/googleDirectionsService';
-import { getDrivers, createDriver, deleteDriver, assignRouteToDriver } from '../utils/backendService';
+import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 
 function AdminDashboard() {
     const [waypoints, setWaypoints] = useState([]);
@@ -231,8 +231,15 @@ function AdminDashboard() {
             const result = await sendToN8N(payload);
 
             if (result.success) {
-                // Update Backend
-                await assignRouteToDriver(selectedAgent.id, routeId);
+                // Update Backend (Persistent Route)
+                await createRoute({
+                    id: routeId,
+                    name: route.name,
+                    driverId: selectedAgent.id,
+                    waypoints: allPoints,
+                    distanceKm: stats?.distanceKm || 0,
+                    duration: stats?.duration || 0
+                });
 
                 // We still save to localStorage for Admin view persistence/debugging
                 const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
@@ -352,6 +359,7 @@ function AdminDashboard() {
             <LiveTrackingPanel
                 isOpen={showTracking}
                 onClose={() => setShowTracking(false)}
+                driversList={agents}
             />
 
             {/* Floating Tracking Button */}

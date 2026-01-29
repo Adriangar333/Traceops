@@ -3,6 +3,7 @@ import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff } from 'lucide-re
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
+import { getDriverRoutes } from '../utils/backendService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -10,6 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 const DriverView = ({ params }) => {
     const { routeId } = params;
     const [route, setRoute] = useState(null);
+    const [availableRoutes, setAvailableRoutes] = useState([]); // Multiple routes fallback
     const [loading, setLoading] = useState(true);
     const [completedStops, setCompletedStops] = useState([]);
     const [isTracking, setIsTracking] = useState(false);
@@ -34,35 +36,59 @@ const DriverView = ({ params }) => {
     const isNative = window.Capacitor && window.Capacitor.isNative;
 
     useEffect(() => {
-        // Try getting data from URL query params first (Stateless mode for mobile)
-        const searchParams = new URLSearchParams(window.location.search);
-        const dataParam = searchParams.get('data');
+        const load = async () => {
+            // 1. Try URL query 'data' (Stateless mode for mobile)
+            const searchParams = new URLSearchParams(window.location.search);
+            const dataParam = searchParams.get('data');
 
-        if (dataParam) {
-            try {
-                const decodedData = JSON.parse(decodeURIComponent(dataParam));
-                setRoute(decodedData);
-                setLoading(false);
-                return;
-            } catch (e) {
-                console.error('Error parsing route data from URL:', e);
-                toast.error('Error al leer datos de la ruta');
+            if (dataParam) {
+                try {
+                    const decodedData = JSON.parse(decodeURIComponent(dataParam));
+                    setRoute(decodedData);
+                    setLoading(false);
+                    return;
+                } catch (e) {
+                    console.error('Error parsing route data from URL:', e);
+                    toast.error('Error al leer datos de la ruta');
+                }
             }
-        }
 
-        // Fallback: Try localStorage (Works only on same device as Admin)
-        const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
-        const foundRoute = savedRoutes.find(r => r.id.toString() === routeId);
-
-        if (foundRoute) {
-            setRoute(foundRoute);
-        } else {
-            // Only show error if we also failed to get data from URL
-            if (!dataParam) {
-                toast.error('Ruta no encontrada (Intenta abrir el link desde el mismo dispositivo o pide reenviar)');
+            // 2. Try fetching Active Routes for Driver ID (Persistent Link)
+            const driverIdParam = searchParams.get('driverId');
+            if (driverIdParam && !routeId) {
+                try {
+                    const routes = await getDriverRoutes(driverIdParam);
+                    if (routes && routes.length > 0) {
+                        // If only one route, auto-select it
+                        if (routes.length === 1) {
+                            setRoute(routes[0]);
+                        } else {
+                            // If multiple, show selection
+                            setAvailableRoutes(routes);
+                        }
+                        setLoading(false);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error fetching driver routes:', e);
+                }
             }
-        }
-        setLoading(false);
+
+            // 3. Fallback: Try localStorage (Works only on same device as Admin)
+            const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
+            const foundRoute = savedRoutes.find(r => r.id.toString() === routeId);
+
+            if (foundRoute) {
+                setRoute(foundRoute);
+            } else {
+                if (!dataParam && (!driverIdParam || availableRoutes.length === 0)) {
+                    // Only error if we really found nothing
+                    // toast.error('Ruta no encontrada'); 
+                }
+            }
+            setLoading(false);
+        };
+        load();
     }, [routeId]);
 
     // Initialize Map
@@ -295,15 +321,67 @@ const DriverView = ({ params }) => {
         </div>
     );
 
-    if (!route) return (
-        <div style={{ background: '#020617', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', padding: 20, textAlign: 'center' }}>
-            <div>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
-                <h2 style={{ margin: '0 0 8px' }}>Ruta no encontrada</h2>
-                <p style={{ color: '#94a3b8', margin: 0 }}>El enlace puede haber expirado o la ruta fue eliminada.</p>
+    if (!route) {
+        if (availableRoutes.length > 0) {
+            return (
+                <div style={{ background: '#020617', minHeight: '100dvh', padding: 20, color: '#e2e8f0', fontFamily: 'system-ui' }}>
+                    <Toaster position="top-center" richColors />
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 20, textAlign: 'center' }}>
+                        Tus Rutas Asignadas 📦
+                    </h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {availableRoutes.map(r => (
+                            <div
+                                key={r.id}
+                                onClick={() => setRoute(r)}
+                                style={{
+                                    background: '#1e293b',
+                                    borderRadius: 16,
+                                    padding: '16px 20px',
+                                    cursor: 'pointer',
+                                    border: '1px solid #334155',
+                                    transition: 'transform 0.2s',
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'white' }}>{r.name || 'Ruta sin nombre'}</h3>
+                                    <span style={{ background: '#3b82f6', fontSize: '0.75rem', padding: '4px 8px', borderRadius: 999, color: 'white' }}>
+                                        Activa
+                                    </span>
+                                </div>
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#94a3b8' }}>
+                                    📅 {new Date(r.created_at || Date.now()).toLocaleDateString()}
+                                </p>
+                                <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+                                        {(r.waypoints?.length || 0)} Paradas
+                                    </div>
+                                    {r.distance_km > 0 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+                                            {Number(r.distance_km).toFixed(1)} km
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div style={{ background: '#020617', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', padding: 20, textAlign: 'center' }}>
+                <div>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
+                    <h2 style={{ margin: '0 0 8px' }}>Ruta no encontrada</h2>
+                    <p style={{ color: '#94a3b8', margin: 0 }}>El enlace puede haber expirado o la ruta fue eliminada.</p>
+                </div>
             </div>
-        </div>
-    );
+        );
+    }
 
     const completedCount = completedStops.length;
     const totalStops = route.waypoints.length;

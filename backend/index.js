@@ -62,10 +62,16 @@ const initDB = async () => {
                 name TEXT NOT NULL,
                 email TEXT,
                 phone TEXT,
+                cuadrilla TEXT,
                 status TEXT DEFAULT 'idle',
                 assigned_routes TEXT[] DEFAULT '{}',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+        `);
+        // Ensure column exists (migration)
+        await client.query(`
+            ALTER TABLE drivers 
+            ADD COLUMN IF NOT EXISTS cuadrilla TEXT;
         `);
         console.log('✅ Table drivers ready');
 
@@ -85,6 +91,21 @@ const initDB = async () => {
             );
         `);
         console.log('✅ Table delivery_proofs ready');
+
+        // Create routes table for Persistent Links
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS routes (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                driver_id TEXT,
+                status TEXT DEFAULT 'active',
+                waypoints JSONB,
+                distance_km FLOAT,
+                duration_min FLOAT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table routes ready');
 
         // Create route_waypoints table for geofencing
         await client.query(`
@@ -139,13 +160,55 @@ app.get('/drivers', async (req, res) => {
     }
 });
 
+// Get routes assigned to a specific driver
+app.get('/drivers/:id/routes', async (req, res) => {
+    try {
+        const result = await pool.query(
+            "SELECT * FROM routes WHERE driver_id = $1 AND status != 'completed' ORDER BY created_at DESC",
+            [req.params.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch driver routes' });
+    }
+});
+
+// Create/Assign a route
+app.post('/routes', async (req, res) => {
+    const { id, name, driverId, waypoints, distanceKm, duration } = req.body;
+
+    if (!id || !driverId) return res.status(400).json({ error: 'Route ID and Driver ID required' });
+
+    try {
+        // 1. Save Route Metadata
+        await pool.query(
+            `INSERT INTO routes (id, name, driver_id, waypoints, distance_km, duration_min)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (id) DO NOTHING`,
+            [id.toString(), name, driverId, JSON.stringify(waypoints), distanceKm, duration]
+        );
+
+        // 2. Also update drivers table for redundancy/legacy support
+        await pool.query(
+            'UPDATE drivers SET assigned_routes = array_append(assigned_routes, $1) WHERE id = $2',
+            [id.toString(), driverId]
+        );
+
+        res.status(201).json({ success: true, message: 'Route created and assigned' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create route' });
+    }
+});
+
 app.post('/drivers', async (req, res) => {
-    const { name, email, phone } = req.body;
+    const { name, email, phone, cuadrilla } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     try {
         const result = await pool.query(
-            'INSERT INTO drivers (name, email, phone) VALUES ($1, $2, $3) RETURNING *',
-            [name, email, phone]
+            'INSERT INTO drivers (name, email, phone, cuadrilla) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, email, phone, cuadrilla]
         );
         const driver = result.rows[0];
         res.status(201).json({ ...driver, assignedRoutes: [] });

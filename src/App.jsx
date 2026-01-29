@@ -27,6 +27,7 @@ function App() {
   return (
     <Switch>
       <Route path="/" component={AdminDashboard} />
+      <Route path="/driver" component={DriverView} />
       <Route path="/driver/:routeId" component={DriverView} />
 
       {/* Fallback for unknown routes */}

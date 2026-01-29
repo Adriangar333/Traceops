@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Mail, Phone, Trash2, Plus, X, Users } from 'lucide-react';
 
 const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
-    const [newAgent, setNewAgent] = useState({ name: '', email: '', phone: '' });
+    const [newAgent, setNewAgent] = useState({ name: '', email: '', phone: '', cuadrilla: '' });
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -11,7 +11,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
             return;
         }
         onAddAgent(newAgent);
-        setNewAgent({ name: '', email: '', phone: '' });
+        setNewAgent({ name: '', email: '', phone: '', cuadrilla: '' });
     };
 
     // Desktop: sidebar on right. Mobile: CSS overrides to fullscreen
@@ -116,6 +116,16 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                             style={{ ...inputStyle, paddingLeft: '40px' }}
                         />
                     </div>
+                    <div style={{ position: 'relative' }}>
+                        <Users style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', width: '16px' }} />
+                        <input
+                            type="text"
+                            placeholder="Cuadrilla (Ej: Norte, Sur, Express)"
+                            value={newAgent.cuadrilla}
+                            onChange={(e) => setNewAgent(p => ({ ...p, cuadrilla: e.target.value }))}
+                            style={{ ...inputStyle, paddingLeft: '40px' }}
+                        />
+                    </div>
                     <button
                         type="submit"
                         style={{
@@ -149,6 +159,20 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                                     <div style={{ fontWeight: '600', fontSize: '14px' }}>{agent.name}</div>
                                     <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>{agent.email}</div>
                                     <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{agent.phone}</div>
+                                    {agent.cuadrilla && (
+                                        <div style={{
+                                            display: 'inline-block',
+                                            fontSize: '10px',
+                                            background: 'rgba(255,255,255,0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            marginTop: '4px',
+                                            marginRight: '8px',
+                                            color: '#fbbf24'
+                                        }}>
+                                            {agent.cuadrilla}
+                                        </div>
+                                    )}
                                     <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
                                         {agent.assignedRoutes?.length || 0} rutas asignadas
                                     </div>
