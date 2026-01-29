@@ -23,11 +23,20 @@ const pool = new Pool({
     ssl: false // Disable SSL for now as requested in query string
 });
 
+// Set timezone for all pool connections to Colombia
+pool.on('connect', (client) => {
+    client.query("SET timezone = 'America/Bogota';");
+});
+
 // Initialize Database Schema
 const initDB = async () => {
     try {
         const client = await pool.connect();
         console.log('✅ Connected to PostgreSQL + PostGIS');
+
+        // Set timezone to Colombia
+        await client.query("SET timezone = 'America/Bogota';");
+        console.log('✅ Timezone set to America/Bogota');
 
         // Activate PostGIS (Required even if image has it installed)
         await client.query('CREATE EXTENSION IF NOT EXISTS postgis;');
