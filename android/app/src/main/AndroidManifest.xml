@@ -18,6 +18,24 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            
+            <!-- Deep Link: Open driver URLs in this app -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" 
+                      android:host="dashboard-frontend.zvkdyr.easypanel.host" 
+                      android:pathPrefix="/driver/" />
+            </intent-filter>
+            
+            <!-- Custom scheme for direct app opening -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="traceops" android:host="driver" />
+            </intent-filter>
         </activity>
 
         <provider

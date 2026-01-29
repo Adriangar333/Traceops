@@ -4,6 +4,7 @@ import MapComponent from './MapComponent';
 import Sidebar from './Sidebar';
 import AgentsPanel from './AgentsPanel';
 import Dashboard from './Dashboard';
+import LiveTrackingPanel from './LiveTrackingPanel';
 import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
 import { recordRouteCreated } from '../utils/metricsService';
 import { getGoogleRoute } from '../utils/googleDirectionsService';
@@ -19,6 +20,7 @@ function AdminDashboard() {
     });
     const [showAgentsPanel, setShowAgentsPanel] = useState(false);
     const [showDashboard, setShowDashboard] = useState(false);
+    const [showTracking, setShowTracking] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [previewRoute, setPreviewRoute] = useState(null);
 
@@ -345,6 +347,36 @@ function AdminDashboard() {
                     onClose={() => setShowDashboard(false)}
                 />
             )}
+
+            {/* Live Tracking Panel */}
+            <LiveTrackingPanel
+                isOpen={showTracking}
+                onClose={() => setShowTracking(false)}
+            />
+
+            {/* Floating Tracking Button */}
+            <button
+                onClick={() => setShowTracking(true)}
+                style={{
+                    position: 'fixed',
+                    bottom: 20,
+                    right: 20,
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    border: 'none',
+                    borderRadius: 50,
+                    padding: '14px 20px',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 20px rgba(16,185,129,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    zIndex: 100
+                }}
+            >
+                <span style={{ fontSize: '1.2rem' }}>📡</span> Rastreo en Vivo
+            </button>
         </div>
     );
 }
