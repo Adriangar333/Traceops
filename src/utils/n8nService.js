@@ -74,8 +74,8 @@ export const sendToN8NPOST = async (action, payload) => {
 // Notify driver about new route assignment
 export const notifyDriverAssignment = async (driver, route, waypoints) => {
     try {
-        // Use env variable if set (for network access), otherwise fallback to current origin
-        const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+        // ALWAYS use the production URL for notifications to ensure drivers can access it
+        const baseUrl = 'https://dashboard-frontend.zvkdyr.easypanel.host';
         const driverLink = `${baseUrl}/driver/${route.id}`;
 
         // Simple message format
