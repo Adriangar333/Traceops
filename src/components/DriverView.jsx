@@ -4,6 +4,8 @@ import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
 import PODModal from './PODModal';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const DriverView = ({ params }) => {
     const { routeId } = params;

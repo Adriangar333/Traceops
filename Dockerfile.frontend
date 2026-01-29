@@ -3,6 +3,18 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build arguments for Vite env vars (passed from EasyPanel)
+ARG VITE_GOOGLE_MAPS_API_KEY
+ARG VITE_BACKEND_URL=https://dashboard-backend.zvkdyr.easypanel.host
+ARG VITE_N8N_WEBHOOK_URL=https://n8n-n8n.zvkdyr.easypanel.host/webhook/proyecto-rutas
+ARG VITE_APP_URL=https://dashboard-frontend.zvkdyr.easypanel.host
+
+# Set as environment variables for the build
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+ENV VITE_N8N_WEBHOOK_URL=$VITE_N8N_WEBHOOK_URL
+ENV VITE_APP_URL=$VITE_APP_URL
+
 # Copy package files
 COPY package*.json ./
 
