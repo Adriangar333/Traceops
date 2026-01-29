@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, CheckCircle, Radio, Camera } from 'lucide-react';
+import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
@@ -18,6 +18,10 @@ const DriverView = ({ params }) => {
     const map = useRef(null);
     const driverMarkerRef = useRef(null);
     const [viewMode, setViewMode] = useState('map'); // 'map' or 'list'
+
+    // GPS Status for debugging (especially iOS)
+    const [gpsPings, setGpsPings] = useState(0);
+    const [lastGpsError, setLastGpsError] = useState(null);
 
     // POD Modal state
     const [podModal, setPodModal] = useState({ isOpen: false, waypointIndex: null });
@@ -183,11 +187,26 @@ const DriverView = ({ params }) => {
         if (isTracking) {
             await TrackingService.stopTracking();
             setIsTracking(false);
+            setGpsPings(0);
+            setLastGpsError(null);
             toast.info('Rastreo detenido');
         } else {
-            toast.loading('Iniciando rastreo...');
+            toast.loading('Solicitando permiso de ubicación...');
             const success = await TrackingService.startTracking((location, error) => {
+                if (error) {
+                    // Capture error for display (especially useful for iOS debugging)
+                    setLastGpsError(error.message || 'Error de GPS');
+                    console.error('🚫 GPS Error:', error);
+                    return;
+                }
+
                 if (location) {
+                    // Clear any previous error
+                    setLastGpsError(null);
+
+                    // Increment ping counter for visual feedback
+                    setGpsPings(prev => prev + 1);
+
                     // Send to Production Backend
                     if (!window.socket) {
                         window.socket = io('https://dashboard-backend.zvkdyr.easypanel.host');
@@ -222,12 +241,14 @@ const DriverView = ({ params }) => {
             toast.dismiss();
             if (success) {
                 setIsTracking(true);
-                toast.success('Rastreo activo en segundo plano');
+                toast.success('📡 GPS activo - Compartiendo ubicación');
             } else {
-                toast.error('No se pudo activar el GPS');
+                setLastGpsError('Permiso denegado o GPS no disponible');
+                toast.error('No se pudo activar el GPS. Verifica los permisos.');
             }
         }
     };
+
 
     // Open POD modal for delivery
     const openPODModal = (index) => {
@@ -308,6 +329,25 @@ const DriverView = ({ params }) => {
                             {completedCount}/{totalStops} paradas • {route.distanceKm || 0} km
                         </p>
                     </div>
+
+                    {/* GPS Status Indicator */}
+                    {isTracking && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            background: lastGpsError ? '#dc2626' : '#10b981',
+                            color: 'white',
+                            padding: '4px 8px',
+                            borderRadius: 6,
+                            fontSize: '0.7rem',
+                            fontWeight: 600
+                        }}>
+                            {lastGpsError ? <WifiOff size={12} /> : <Wifi size={12} />}
+                            {lastGpsError ? '⚠️' : `📡 ${gpsPings}`}
+                        </div>
+                    )}
+
                     <button
                         onClick={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
                         style={{ background: '#334155', color: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
