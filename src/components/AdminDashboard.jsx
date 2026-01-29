@@ -210,7 +210,7 @@ function AdminDashboard() {
 
             const encodedData = encodeURIComponent(JSON.stringify(routeDataForUrl));
             // Use query param 'data' so we don't rely on localStorage
-            const driverLink = `${baseUrl}/driver/${routeId}?data=${encodedData}`;
+            const driverLink = `${baseUrl}/driver/${routeId}?driverId=${selectedAgent.id}&data=${encodedData}`;
 
             const payload = {
                 route: {
