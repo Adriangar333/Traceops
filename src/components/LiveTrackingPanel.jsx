@@ -45,7 +45,7 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
             console.log('📡 Connected to tracking server');
         });
 
-        socketRef.current.on('driver:update', (data) => {
+        socketRef.current.on('admin:driver-update', (data) => {
             console.log('🚗 Driver update:', data);
             setActiveDrivers(prev => ({
                 ...prev,
