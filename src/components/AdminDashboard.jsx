@@ -179,8 +179,9 @@ function AdminDashboard() {
                 duration: stats?.duration || 0
             };
 
-            // Build stateless driver link (encode data in URL to avoid database requirement)
-            const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+            // Build stateless driver link
+            // ALWAYS use the production URL so links work for drivers anywhere
+            const baseUrl = 'https://dashboard-frontend.zvkdyr.easypanel.host';
 
             // Minimal data for URL to keep length down
             const routeDataForUrl = {
