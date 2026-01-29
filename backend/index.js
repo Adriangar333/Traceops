@@ -77,6 +77,33 @@ const initDB = async () => {
         `);
         console.log('✅ Table delivery_proofs ready');
 
+        // Create route_waypoints table for geofencing
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS route_waypoints (
+                id SERIAL PRIMARY KEY,
+                route_id TEXT NOT NULL,
+                driver_id TEXT NOT NULL,
+                waypoint_index INTEGER NOT NULL,
+                address TEXT,
+                location GEOMETRY(POINT, 4326),
+                arrived BOOLEAN DEFAULT FALSE,
+                arrived_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table route_waypoints ready');
+
+        // Create indexes for faster geospatial queries
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_waypoints_location 
+            ON route_waypoints USING GIST(location);
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_locations_driver_date 
+            ON driver_locations(driver_id, timestamp);
+        `);
+        console.log('✅ Geospatial indexes ready');
+
         client.release();
     } catch (err) {
         console.error('❌ Database connection error:', err);
@@ -191,6 +218,102 @@ app.get('/pod/:routeId', async (req, res) => {
     }
 });
 
+// ======================================
+// HISTORICAL TRACKING & GEOFENCING APIs
+// ======================================
+
+// Get driver's historical route for a specific date
+app.get('/drivers/:driverId/history', async (req, res) => {
+    const { driverId } = req.params;
+    const { date } = req.query; // YYYY-MM-DD format
+
+    if (!date) {
+        return res.status(400).json({ error: 'Date parameter required (YYYY-MM-DD)' });
+    }
+
+    try {
+        const result = await pool.query(`
+            SELECT 
+                ST_AsGeoJSON(ST_MakeLine(location ORDER BY timestamp)) as route_geojson,
+                COALESCE(ST_Length(ST_MakeLine(location ORDER BY timestamp)::geography) / 1000, 0) as distance_km,
+                MIN(timestamp) as start_time,
+                MAX(timestamp) as end_time,
+                COUNT(*) as point_count
+            FROM driver_locations 
+            WHERE driver_id = $1 
+              AND DATE(timestamp) = $2
+              AND location IS NOT NULL
+        `, [driverId, date]);
+
+        const data = result.rows[0];
+
+        // Also get individual points for detailed playback
+        const pointsResult = await pool.query(`
+            SELECT latitude, longitude, speed, heading, timestamp
+            FROM driver_locations
+            WHERE driver_id = $1 AND DATE(timestamp) = $2
+            ORDER BY timestamp
+        `, [driverId, date]);
+
+        res.json({
+            route: data.route_geojson ? JSON.parse(data.route_geojson) : null,
+            distanceKm: parseFloat(data.distance_km) || 0,
+            startTime: data.start_time,
+            endTime: data.end_time,
+            pointCount: parseInt(data.point_count),
+            points: pointsResult.rows
+        });
+    } catch (err) {
+        console.error('History fetch error:', err);
+        res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
+// Assign route waypoints for geofencing
+app.post('/routes/assign', async (req, res) => {
+    const { routeId, driverId, waypoints } = req.body;
+
+    if (!routeId || !driverId || !waypoints?.length) {
+        return res.status(400).json({ error: 'routeId, driverId, and waypoints are required' });
+    }
+
+    try {
+        // Clear previous waypoints for this route
+        await pool.query('DELETE FROM route_waypoints WHERE route_id = $1', [routeId]);
+
+        // Insert new waypoints
+        for (let i = 0; i < waypoints.length; i++) {
+            const wp = waypoints[i];
+            await pool.query(`
+                INSERT INTO route_waypoints (route_id, driver_id, waypoint_index, address, location)
+                VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326))
+            `, [routeId, driverId, i, wp.address || '', wp.lng, wp.lat]);
+        }
+
+        console.log(`✅ Assigned ${waypoints.length} waypoints to driver ${driverId} for route ${routeId}`);
+        res.json({ success: true, waypointCount: waypoints.length });
+    } catch (err) {
+        console.error('Route assign error:', err);
+        res.status(500).json({ error: 'Failed to assign route' });
+    }
+});
+
+// Get waypoint status for a route
+app.get('/routes/:routeId/status', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT waypoint_index, address, arrived, arrived_at
+            FROM route_waypoints
+            WHERE route_id = $1
+            ORDER BY waypoint_index
+        `, [req.params.routeId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch route status' });
+    }
+});
+
 // Socket.io Real-time Logic
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -218,6 +341,45 @@ io.on('connection', (socket) => {
             );
         } catch (err) {
             console.error('Error saving location:', err);
+        }
+
+        // 3. Geofencing Check: Is driver within 100m of any assigned waypoint?
+        try {
+            const arrivalCheck = await pool.query(`
+                SELECT id, route_id, waypoint_index, address
+                FROM route_waypoints
+                WHERE driver_id = $1
+                  AND arrived = FALSE
+                  AND ST_DWithin(
+                      location::geography,
+                      ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography,
+                      100  -- 100 meters radius
+                  )
+            `, [driverId, lng, lat]);
+
+            if (arrivalCheck.rows.length > 0) {
+                for (const waypoint of arrivalCheck.rows) {
+                    // Mark as arrived
+                    await pool.query(`
+                        UPDATE route_waypoints 
+                        SET arrived = TRUE, arrived_at = CURRENT_TIMESTAMP 
+                        WHERE id = $1
+                    `, [waypoint.id]);
+
+                    // Emit arrival event to Admin
+                    io.emit('driver:arrived', {
+                        driverId,
+                        routeId: waypoint.route_id,
+                        waypointIndex: waypoint.waypoint_index,
+                        address: waypoint.address,
+                        arrivedAt: new Date().toISOString()
+                    });
+
+                    console.log(`🚩 Driver ${driverId} arrived at waypoint ${waypoint.waypoint_index} (${waypoint.address})`);
+                }
+            }
+        } catch (err) {
+            console.error('Geofencing check error:', err);
         }
     });
 

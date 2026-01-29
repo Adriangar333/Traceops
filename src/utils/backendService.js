@@ -53,3 +53,43 @@ export const assignRouteToDriver = async (driverId, routeId) => {
         // We don't throw here to avoid blocking the main flow if just the counter update fails
     }
 };
+
+// Assign route waypoints for geofencing
+export const assignRouteWaypoints = async (routeId, driverId, waypoints) => {
+    try {
+        const res = await fetch(`${API_URL}/routes/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ routeId, driverId, waypoints })
+        });
+        if (!res.ok) throw new Error('Error assigning waypoints');
+        return await res.json();
+    } catch (error) {
+        console.error('Assign Waypoints Error:', error);
+        throw error;
+    }
+};
+
+// Get driver's historical route for a date
+export const getDriverHistory = async (driverId, date) => {
+    try {
+        const res = await fetch(`${API_URL}/drivers/${driverId}/history?date=${date}`);
+        if (!res.ok) throw new Error('Error fetching history');
+        return await res.json();
+    } catch (error) {
+        console.error('Get History Error:', error);
+        return null;
+    }
+};
+
+// Get route waypoint status
+export const getRouteStatus = async (routeId) => {
+    try {
+        const res = await fetch(`${API_URL}/routes/${routeId}/status`);
+        if (!res.ok) throw new Error('Error fetching route status');
+        return await res.json();
+    } catch (error) {
+        console.error('Route Status Error:', error);
+        return [];
+    }
+};

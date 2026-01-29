@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Radio, MapPin, Clock, RefreshCw } from 'lucide-react';
+import { Users, Radio, MapPin, Clock, RefreshCw, Calendar, Route, Bell } from 'lucide-react';
 import { io } from 'socket.io-client';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { getDriverHistory } from '../utils/backendService';
 
 const BACKEND_URL = 'https://dashboard-backend.zvkdyr.easypanel.host';
 
 const LiveTrackingPanel = ({ isOpen, onClose }) => {
     const [activeDrivers, setActiveDrivers] = useState({});
     const [selectedDriver, setSelectedDriver] = useState(null);
+    const [arrivals, setArrivals] = useState([]);
+    const [historyDate, setHistoryDate] = useState('');
+    const [historyData, setHistoryData] = useState(null);
+    const [showHistory, setShowHistory] = useState(false);
     const mapContainer = useRef(null);
     const map = useRef(null);
     const markers = useRef({});
+    const historyLayerRef = useRef(null);
     const socketRef = useRef(null);
 
     // Initialize map
@@ -59,12 +65,70 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
             updateDriverMarker(data);
         });
 
+        // Listen for arrival notifications
+        socketRef.current.on('driver:arrived', (data) => {
+            console.log('🚩 Arrival:', data);
+            setArrivals(prev => [data, ...prev].slice(0, 10)); // Keep last 10
+        });
+
         return () => {
             if (socketRef.current) {
                 socketRef.current.disconnect();
             }
         };
     }, [isOpen]);
+
+    // Load history when date or driver changes
+    const loadHistory = async () => {
+        if (!selectedDriver || !historyDate) return;
+
+        const data = await getDriverHistory(selectedDriver, historyDate);
+        if (data && data.route) {
+            setHistoryData(data);
+            setShowHistory(true);
+            drawHistoryRoute(data.route);
+        } else {
+            setHistoryData(null);
+            alert('No hay datos para esta fecha');
+        }
+    };
+
+    const drawHistoryRoute = (routeGeoJson) => {
+        if (!map.current) return;
+
+        // Remove existing history layer
+        if (historyLayerRef.current) {
+            if (map.current.getLayer('history-route')) map.current.removeLayer('history-route');
+            if (map.current.getSource('history-route')) map.current.removeSource('history-route');
+        }
+
+        map.current.addSource('history-route', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                properties: {},
+                geometry: routeGeoJson
+            }
+        });
+
+        map.current.addLayer({
+            id: 'history-route',
+            type: 'line',
+            source: 'history-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#f59e0b', 'line-width': 4, 'line-opacity': 0.8 }
+        });
+
+        historyLayerRef.current = true;
+
+        // Fit map to route bounds
+        if (routeGeoJson.coordinates?.length > 0) {
+            const bounds = routeGeoJson.coordinates.reduce((bounds, coord) => {
+                return bounds.extend(coord);
+            }, new maplibregl.LngLatBounds(routeGeoJson.coordinates[0], routeGeoJson.coordinates[0]));
+            map.current.fitBounds(bounds, { padding: 50 });
+        }
+    };
 
     const updateDriverMarker = (driver) => {
         if (!map.current) return;
@@ -252,6 +316,112 @@ const LiveTrackingPanel = ({ isOpen, onClose }) => {
                 {/* Map */}
                 <div style={{ flex: 1, position: 'relative' }}>
                     <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+
+                    {/* History Stats Overlay */}
+                    {showHistory && historyData && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 16,
+                            left: 16,
+                            background: 'rgba(30,41,59,0.95)',
+                            padding: 16,
+                            borderRadius: 12,
+                            border: '1px solid #334155',
+                            color: 'white'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <Route size={18} color="#f59e0b" />
+                                <span style={{ fontWeight: 600 }}>Historial de Ruta</span>
+                                <button
+                                    onClick={() => {
+                                        setShowHistory(false);
+                                        if (map.current?.getLayer('history-route')) {
+                                            map.current.removeLayer('history-route');
+                                            map.current.removeSource('history-route');
+                                        }
+                                    }}
+                                    style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                                >✕</button>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
+                                <p style={{ margin: '4px 0' }}>📏 Distancia: <strong style={{ color: '#10b981' }}>{historyData.distanceKm.toFixed(2)} km</strong></p>
+                                <p style={{ margin: '4px 0' }}>📍 Puntos: {historyData.pointCount}</p>
+                                {historyData.startTime && (
+                                    <p style={{ margin: '4px 0' }}>🕐 {new Date(historyData.startTime).toLocaleTimeString()} - {new Date(historyData.endTime).toLocaleTimeString()}</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Arrivals Notifications */}
+                    {arrivals.length > 0 && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 16,
+                            right: 60,
+                            maxWidth: 300,
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                            background: 'rgba(30,41,59,0.95)',
+                            borderRadius: 12,
+                            border: '1px solid #10b981',
+                            padding: 12
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#10b981', marginBottom: 8 }}>
+                                <Bell size={16} />
+                                <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Llegadas Recientes</span>
+                            </div>
+                            {arrivals.map((a, i) => (
+                                <div key={i} style={{ padding: '6px 0', borderBottom: '1px solid #334155', fontSize: '0.8rem', color: '#e2e8f0' }}>
+                                    🚩 <strong>{a.driverId.slice(-8)}</strong> llegó a Punto #{a.waypointIndex + 1}
+                                    <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{a.address?.slice(0, 40) || 'Sin dirección'}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Date Picker for History */}
+                    {selectedDriver && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: 16,
+                            left: 16,
+                            background: 'rgba(30,41,59,0.95)',
+                            padding: 12,
+                            borderRadius: 8,
+                            display: 'flex',
+                            gap: 8,
+                            alignItems: 'center'
+                        }}>
+                            <Calendar size={18} color="#94a3b8" />
+                            <input
+                                type="date"
+                                value={historyDate}
+                                onChange={(e) => setHistoryDate(e.target.value)}
+                                style={{
+                                    background: '#0f172a',
+                                    border: '1px solid #334155',
+                                    borderRadius: 6,
+                                    padding: '6px 10px',
+                                    color: 'white'
+                                }}
+                            />
+                            <button
+                                onClick={loadHistory}
+                                style={{
+                                    background: '#f59e0b',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '6px 12px',
+                                    color: '#0f172a',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Ver Historial
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
