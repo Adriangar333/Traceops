@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { getDriverHistory } from '../utils/backendService';
+import { getDriverHistory, optimizeRoutePath } from '../utils/backendService';
 
 // Vehicle Icons (SVG Strings)
 // Vehicle Icons (SVG Strings)
@@ -234,6 +234,19 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             setHistoryData(data);
             setShowHistory(true);
             drawHistoryRoute(data.route);
+
+            // Attempt optimization (Snap to Road)
+            toast.promise(optimizeRoutePath(data.route), {
+                loading: 'Suavizando ruta con IA...',
+                success: (optimized) => {
+                    if (optimized) {
+                        drawHistoryRoute({ type: 'LineString', coordinates: optimized });
+                        return '✅ Ruta ajustada a calles';
+                    }
+                    throw new Error('No optimization');
+                },
+                error: 'ℹ️ Mostrando ruta original (GPS)'
+            });
         } else {
             setHistoryData(null);
             alert('No hay datos para esta fecha');
