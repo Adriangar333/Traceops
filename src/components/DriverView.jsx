@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff } from 'lucide-react';
+import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
 import { getDriverRoutes, getDrivers } from '../utils/backendService';
+import { initAutoSync, getPendingCount, syncPending, onSyncEvent, isOnline } from '../utils/offlineSyncService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -28,6 +29,11 @@ const DriverView = ({ params }) => {
 
     // POD Modal state
     const [podModal, setPodModal] = useState({ isOpen: false, waypointIndex: null });
+
+    // Offline sync state
+    const [pendingCount, setPendingCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
 
     // Get driverId from URL params or generate one
     const searchParams = new URLSearchParams(window.location.search);
@@ -107,6 +113,54 @@ const DriverView = ({ params }) => {
         };
         load();
     }, [routeId]);
+
+    // Initialize offline sync and listen for events
+    useEffect(() => {
+        initAutoSync();
+        setPendingCount(getPendingCount());
+
+        // Listen for sync events
+        const unsubscribe = onSyncEvent((event) => {
+            if (event.type === 'queued') {
+                setPendingCount(event.count);
+                toast.info(`📦 Entrega guardada (${event.count} pendientes)`);
+            } else if (event.type === 'syncing') {
+                setIsSyncing(true);
+                toast.loading(`Sincronizando ${event.count} entregas...`);
+            } else if (event.type === 'complete') {
+                setIsSyncing(false);
+                setPendingCount(event.remaining);
+                toast.dismiss();
+                if (event.synced > 0) {
+                    toast.success(`✅ ${event.synced} entregas sincronizadas`);
+                }
+                if (event.failed > 0) {
+                    toast.warning(`⚠️ ${event.failed} entregas fallaron`);
+                }
+            } else if (event.type === 'offline') {
+                setNetworkStatus(false);
+            }
+        });
+
+        // Listen for online/offline changes
+        const handleOnline = () => {
+            setNetworkStatus(true);
+            toast.success('📶 Conexión restaurada!');
+        };
+        const handleOffline = () => {
+            setNetworkStatus(false);
+            toast.warning('📵 Sin conexión - Las entregas se guardarán localmente');
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     const handleDriverLogin = (selectedId) => {
         if (!selectedId) return;
@@ -514,6 +568,44 @@ const DriverView = ({ params }) => {
                 <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 999, height: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${progress}%`, height: '100%', background: '#10b981', transition: 'width 0.5s ease' }} />
                 </div>
+
+                {/* Pending Deliveries Banner */}
+                {pendingCount > 0 && (
+                    <div
+                        onClick={async () => {
+                            if (networkStatus && !isSyncing) {
+                                setIsSyncing(true);
+                                await syncPending();
+                                setPendingCount(getPendingCount());
+                                setIsSyncing(false);
+                            }
+                        }}
+                        style={{
+                            marginTop: 8,
+                            padding: '8px 12px',
+                            background: networkStatus ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            border: `1px solid ${networkStatus ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                            borderRadius: 8,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: networkStatus ? 'pointer' : 'default'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {networkStatus ? <CloudOff size={16} style={{ color: '#f59e0b' }} /> : <WifiOff size={16} style={{ color: '#ef4444' }} />}
+                            <span style={{ fontSize: '0.8rem', color: networkStatus ? '#f59e0b' : '#ef4444' }}>
+                                {pendingCount} entrega{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''}
+                            </span>
+                        </div>
+                        {networkStatus && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: '#f59e0b' }}>
+                                <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                                {isSyncing ? 'Sincronizando...' : 'Toca para sincronizar'}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Content Area */}

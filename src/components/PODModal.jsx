@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Camera, MapPin, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { X, Camera, MapPin, AlertTriangle, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 import SignaturePad from './SignaturePad';
 import { capturePhoto, getCurrentLocation, validateGeofence, submitPOD } from '../utils/podService';
+import { isOnline, queueDelivery, getPendingCount } from '../utils/offlineSyncService';
 
 /**
  * POD Modal - Complete delivery with proof
@@ -99,22 +100,36 @@ const PODModal = ({
             location
         };
 
+        // Check if online before attempting to submit
+        if (!isOnline()) {
+            console.log('📵 Offline - queuing delivery for later sync');
+            const queued = queueDelivery(podData);
+            if (queued) {
+                setError('Sin conexión. Entrega guardada para sincronizar después.');
+            } else {
+                setError('Error al guardar localmente.');
+            }
+            setIsLoading(false);
+            // Still mark as complete locally
+            setTimeout(() => onComplete(waypointIndex), 1500);
+            return;
+        }
+
+        // Online - attempt to submit
         const success = await submitPOD(podData);
 
         if (success) {
             onComplete(waypointIndex);
         } else {
-            setError('Error al enviar. Guardado localmente para reintento.');
-            // Save locally for retry
-            try {
-                const pending = JSON.parse(localStorage.getItem('pendingPOD') || '[]');
-                pending.push(podData);
-                localStorage.setItem('pendingPOD', JSON.stringify(pending));
-            } catch (e) {
-                console.error('Local save failed:', e);
+            // Submission failed even though online - queue for retry
+            const queued = queueDelivery(podData);
+            if (queued) {
+                setError('Error de red. Guardado para sincronizar después.');
+            } else {
+                setError('Error al enviar y guardar.');
             }
-            // Still mark as complete locally
-            onComplete(waypointIndex);
+            // Still mark as complete locally since we have the data saved
+            setTimeout(() => onComplete(waypointIndex), 1500);
         }
 
         setIsLoading(false);
