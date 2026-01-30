@@ -399,9 +399,9 @@ const Sidebar = ({
 
                             {/* Start Point */}
                             <div style={{ marginBottom: 12 }}>
-                                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6, display: 'block' }}>Punto de inicio</label>
+                                <label style={{ fontSize: 11, color: '#64748b', marginBottom: 6, display: 'block' }}>Punto de inicio</label>
                                 {fixedStart ? (
-                                    <div style={{ ...styles.badge, background: 'rgba(16,185,129,0.15)', color: '#10b981', justifyContent: 'space-between', width: '100%' }}>
+                                    <div style={{ ...styles.badge, background: '#ecfdf5', color: '#10b981', justifyContent: 'space-between', width: '100%' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Home size={14} /> {fixedStart.address}</span>
                                         <button onClick={() => setFixedStart(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
                                     </div>
@@ -420,13 +420,13 @@ const Sidebar = ({
 
                                         {/* Config Suggestions Dropdown */}
                                         {showConfigSuggestions && configSuggestions.length > 0 && configType === 'start' && (
-                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 50 }}>
+                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', borderRadius: '0 0 12px 12px', border: '1px solid #e2e8f0', maxHeight: 200, overflowY: 'auto', zIndex: 50, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                                                 {configSuggestions.map((s, i) => (
-                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = '#ecfdf5'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                                         <Home size={16} color="#10b981" />
                                                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.shortName}</div>
-                                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{s.shortName}</div>
+                                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -440,9 +440,9 @@ const Sidebar = ({
 
                             {/* End Point */}
                             <div style={{ marginBottom: 12 }}>
-                                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6, display: 'block' }}>Punto de fin</label>
+                                <label style={{ fontSize: 11, color: '#64748b', marginBottom: 6, display: 'block' }}>Punto de fin</label>
                                 {fixedEnd && !returnToStart ? (
-                                    <div style={{ ...styles.badge, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', justifyContent: 'space-between', width: '100%' }}>
+                                    <div style={{ ...styles.badge, background: '#fffbeb', color: '#f59e0b', justifyContent: 'space-between', width: '100%' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Flag size={14} /> {fixedEnd.address}</span>
                                         <button onClick={() => setFixedEnd(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
                                     </div>
@@ -461,13 +461,13 @@ const Sidebar = ({
 
                                         {/* Config Suggestions Dropdown */}
                                         {showConfigSuggestions && configSuggestions.length > 0 && configType === 'end' && (
-                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 50 }}>
+                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', borderRadius: '0 0 12px 12px', border: '1px solid #e2e8f0', maxHeight: 200, overflowY: 'auto', zIndex: 50, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                                                 {configSuggestions.map((s, i) => (
-                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = '#fffbeb'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                                         <Flag size={16} color="#f59e0b" />
                                                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.shortName}</div>
-                                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{s.shortName}</div>
+                                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -480,9 +480,9 @@ const Sidebar = ({
                             </div>
 
                             {/* Round Trip */}
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, cursor: 'pointer' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(0,0,0,0.02)', borderRadius: 10, cursor: 'pointer' }}>
                                 <input type="checkbox" checked={returnToStart} onChange={e => { setReturnToStart(e.target.checked); if (e.target.checked) setFixedEnd(null); }} style={{ width: 18, height: 18, cursor: 'pointer' }} />
-                                <span style={{ fontSize: 13 }}>🔄 Regresar al punto de inicio</span>
+                                <span style={{ fontSize: 13, color: '#0f172a' }}>🔄 Regresar al punto de inicio</span>
                             </label>
                         </div>
                     )}
@@ -527,12 +527,12 @@ const Sidebar = ({
 
                     {/* Route Options - Desktop List / Mobile Logic */}
                     {!isMobile && showRouteOptions && (
-                        <div style={{ ...styles.section, background: 'rgba(16,185,129,0.08)' }}>
+                        <div style={{ ...styles.section, background: 'rgba(16,185,129,0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                                 <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#10b981' }}>⚡ Elige una Ruta</h3>
-                                <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><X size={16} /></button>
+                                <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16} /></button>
                             </div>
-                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
+                            <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
                             {routeOptions.map((opt, i) => (
                                 <button
                                     key={i}
@@ -543,32 +543,32 @@ const Sidebar = ({
                                         padding: '16px',
                                         marginBottom: 12,
                                         background: selectedRouteOption === opt
-                                            ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(6,95,70,0.3))'
-                                            : 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
-                                        border: selectedRouteOption === opt ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.08)',
+                                            ? '#f0fdf4'  // Green-50 for selected
+                                            : '#ffffff', // White for unselected
+                                        border: selectedRouteOption === opt ? '1px solid #10b981' : '1px solid #e2e8f0',
                                         borderRadius: 16,
                                         cursor: 'pointer',
                                         textAlign: 'left',
-                                        color: 'white',
+                                        color: '#0f172a',
                                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                         transform: selectedRouteOption === opt ? 'scale(1.02)' : 'scale(1)',
-                                        boxShadow: selectedRouteOption === opt ? '0 10px 20px -5px rgba(16,185,129,0.2)' : 'none',
+                                        boxShadow: selectedRouteOption === opt ? '0 10px 20px -5px rgba(16,185,129,0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
                                         overflow: 'hidden'
                                     }}
-                                    onMouseEnter={e => { if (selectedRouteOption !== opt) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                                    onMouseLeave={e => { if (selectedRouteOption !== opt) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                                    onMouseEnter={e => { if (selectedRouteOption !== opt) e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                                    onMouseLeave={e => { if (selectedRouteOption !== opt) e.currentTarget.style.borderColor = '#e2e8f0'; }}
                                 >
-                                    {/* Abstract decorative circle */}
-                                    <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', borderRadius: '50%' }} />
+                                    {/* Abstract decorative circle - clearer for light theme */}
+                                    <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
 
                                     <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: selectedRouteOption === opt ? '#34d399' : '#f8fafc', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {selectedRouteOption === opt ? <Check size={16} /> : (i === 0 ? <Zap size={16} color="#fbbf24" /> : <Route size={16} color="rgba(255,255,255,0.4)" />)}
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: selectedRouteOption === opt ? '#15803d' : '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            {selectedRouteOption === opt ? <Check size={16} /> : (i === 0 ? <Zap size={16} color="#eab308" /> : <Route size={16} color="#94a3b8" />)}
                                             {opt.name}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             {opt.hasTrafficData && (
-                                                <span style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(59,130,246,0.2)', color: '#60a5fa', borderRadius: 10, fontWeight: 600 }}>Trafico Real</span>
+                                                <span style={{ fontSize: 10, padding: '2px 8px', background: '#eff6ff', color: '#3b82f6', borderRadius: 10, fontWeight: 600 }}>Trafico Real</span>
                                             )}
                                             <div
                                                 onClick={(e) => {
@@ -580,32 +580,32 @@ const Sidebar = ({
                                                 onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
                                                 title="Ver detalles del algoritmo"
                                             >
-                                                <Info size={16} color="#60a5fa" />
+                                                <Info size={16} color="#3b82f6" />
                                             </div>
                                         </div>
                                     </div>
 
                                     <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Clock size={14} color="rgba(255,255,255,0.5)" />
-                                            <span style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{opt.durationInTrafficFormatted || opt.durationFormatted}</span>
+                                            <Clock size={14} color="#64748b" />
+                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{opt.durationInTrafficFormatted || opt.durationFormatted}</span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <MapPin size={14} color="rgba(255,255,255,0.5)" />
-                                            <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{opt.distanceKm} km</span>
+                                            <MapPin size={14} color="#64748b" />
+                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{opt.distanceKm} km</span>
                                         </div>
                                     </div>
 
-                                    <div style={{ fontSize: 11, lineHeight: 1.4, color: 'rgba(255,255,255,0.5)', paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ fontSize: 11, lineHeight: 1.4, color: '#64748b', paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
                                         {opt.description}
                                     </div>
 
                                     {expandedInfo === i && (
-                                        <div style={{ marginTop: 12, padding: '10px', background: 'rgba(59,130,246,0.15)', borderRadius: 8, borderLeft: '3px solid #60a5fa', animation: 'fadeIn 0.2s' }} onClick={e => e.stopPropagation()}>
-                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#93c5fd', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{ marginTop: 12, padding: '10px', background: '#eff6ff', borderRadius: 8, borderLeft: '3px solid #3b82f6', animation: 'fadeIn 0.2s' }} onClick={e => e.stopPropagation()}>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                                                 <Info size={12} /> ¿Cómo funciona?
                                             </div>
-                                            <div style={{ fontSize: 11, color: '#bfdbfe', lineHeight: 1.5 }}>
+                                            <div style={{ fontSize: 11, color: '#1e40af', lineHeight: 1.5 }}>
                                                 {opt.longDescription}
                                             </div>
                                         </div>
@@ -646,20 +646,20 @@ const Sidebar = ({
 
                     {/* Search */}
                     <div style={{ ...styles.section, position: 'relative' }}>
-                        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>🔍 Agregar Entrega</h3>
+                        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#64748b' }}>🔍 Agregar Entrega</h3>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <input value={addressInput} onChange={e => setAddressInput(e.target.value)} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} placeholder="Buscar dirección..." style={{ ...styles.input, flex: 1 }} onKeyDown={e => e.key === 'Enter' && handleAddAddress()} />
                             <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn }}>{isGeocoding ? '...' : <Search size={18} />}</button>
                         </div>
 
                         {showSuggestions && suggestions.length > 0 && (
-                            <div style={{ position: 'absolute', top: '100%', left: 20, right: 20, background: '#1e293b', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 10 }}>
+                            <div style={{ position: 'absolute', top: '100%', left: 20, right: 20, background: '#ffffff', borderRadius: '0 0 12px 12px', border: '1px solid #e2e8f0', maxHeight: 200, overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
                                 {suggestions.map((s, i) => (
-                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                         <MapPin size={16} color="#3b82f6" />
                                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.shortName}</div>
-                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{s.shortName}</div>
+                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -670,10 +670,10 @@ const Sidebar = ({
                     {/* Waypoints List */}
                     <div style={styles.section}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>📦 Entregas ({waypoints.length})</h3>
+                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#64748b' }}>📦 Entregas ({waypoints.length})</h3>
                             {waypoints.length > 0 && (
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                    <button onClick={() => setWaypoints([])} style={{ ...styles.btn, background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '8px 10px' }} title="Borrar todo">
+                                    <button onClick={() => setWaypoints([])} style={{ ...styles.btn, background: '#fef2f2', color: '#ef4444', padding: '8px 10px' }} title="Borrar todo">
                                         <Trash2 size={14} />
                                     </button>
                                     {waypoints.length >= 2 && (
@@ -712,14 +712,14 @@ const Sidebar = ({
 
                     {/* Assign */}
                     <div style={{ ...styles.section, borderBottom: 'none' }}>
-                        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>👤 Asignar Ruta</h3>
+                        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#64748b' }}>👤 Asignar Ruta</h3>
                         {agents.length === 0 ? (
                             <button onClick={onOpenAgents} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Users size={16} /> Crear agente</button>
                         ) : (
                             <>
-                                <select value={selectedAgent?.id || ''} onChange={e => setSelectedAgent(agents.find(a => a.id == e.target.value) || null)} style={{ ...styles.input, cursor: 'pointer', marginBottom: 12, backgroundColor: '#1e293b', color: 'white' }}>
-                                    <option value="" style={{ background: '#1e293b', color: 'white' }}>Selecciona un agente...</option>
-                                    {agents.map(a => <option key={a.id} value={a.id} style={{ background: '#1e293b', color: 'white' }}>{a.name}</option>)}
+                                <select value={selectedAgent?.id || ''} onChange={e => setSelectedAgent(agents.find(a => a.id == e.target.value) || null)} style={{ ...styles.input, cursor: 'pointer', marginBottom: 12, backgroundColor: '#ffffff', color: '#0f172a' }}>
+                                    <option value="" style={{ background: '#ffffff', color: '#0f172a' }}>Selecciona un agente...</option>
+                                    {agents.map(a => <option key={a.id} value={a.id} style={{ background: '#ffffff', color: '#0f172a' }}>{a.name}</option>)}
                                 </select>
                                 <button onClick={onAssign} disabled={isSubmitting || !selectedAgent || waypoints.length === 0} style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', opacity: (!selectedAgent || isSubmitting || waypoints.length === 0) ? 0.5 : 1 }}>
                                     <Play size={16} /> {isSubmitting ? 'Enviando...' : 'INICIAR RUTA'}
@@ -791,12 +791,12 @@ const Sidebar = ({
                                     onClick={() => handlePreviewRouteOption(opt)}
                                     style={{
                                         minWidth: '260px',
-                                        background: selectedRouteOption === opt ? '#1e293b' : 'rgba(30, 41, 59, 0.95)',
-                                        border: selectedRouteOption === opt ? '2px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                                        background: selectedRouteOption === opt ? '#ffffff' : 'rgba(255, 255, 255, 0.95)',
+                                        border: selectedRouteOption === opt ? '2px solid #10b981' : '1px solid #e2e8f0',
                                         borderRadius: 16,
                                         padding: 16,
                                         scrollSnapAlign: 'center',
-                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                         backdropFilter: 'blur(10px)',
                                         cursor: 'pointer',
                                         position: 'relative'
