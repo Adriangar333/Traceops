@@ -272,7 +272,22 @@ const initDB = async () => {
             CREATE INDEX IF NOT EXISTS idx_locations_driver_date 
             ON driver_locations(driver_id, timestamp);
         `);
-        console.log('✅ Geospatial indexes ready');
+        // Create alerts table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS alerts (
+                id SERIAL PRIMARY KEY,
+                driver_id TEXT NOT NULL,
+                type TEXT DEFAULT 'SOS',
+                latitude FLOAT,
+                longitude FLOAT,
+                details JSONB,
+                status TEXT DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table alerts ready');
+
+        // Create indexes for faster geospatial queries
 
         client.release();
 
@@ -625,16 +640,33 @@ io.on('connection', (socket) => {
     });
 
     // Panic Button Alert
-    socket.on('driver:panic', (data) => {
+    socket.on('driver:panic', async (data) => {
         console.warn(`🚨 PANIC ALERT received from Driver ${data.driverId}`, data);
+        const serverTimestamp = new Date().toISOString();
 
         // Broadcast to all admins
         io.emit('admin:panic-alert', {
             ...data,
-            serverTimestamp: new Date().toISOString()
+            serverTimestamp
         });
 
-        // Optional: Persist to a database table specifically for alerts
+        // Persist to database
+        try {
+            await pool.query(`
+                INSERT INTO alerts (driver_id, type, latitude, longitude, details, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [
+                data.driverId,
+                data.type || 'SOS',
+                data.location?.lat,
+                data.location?.lng,
+                JSON.stringify(data), // Save full payload
+                serverTimestamp
+            ]);
+            console.log('💾 Alert saved to DB');
+        } catch (err) {
+            console.error('Error saving alert:', err);
+        }
     });
 
 
