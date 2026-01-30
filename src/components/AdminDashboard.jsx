@@ -148,6 +148,24 @@ function AdminDashboard() {
         setFixedStart(route.fixedStart || null);
         setFixedEnd(route.fixedEnd || null);
         setReturnToStart(route.returnToStart || false);
+
+        // If route has geometry, show it nicely
+        if (route.geometry && route.geometry.coordinates) {
+            setPreviewRoute({
+                ...route,
+                coordinates: route.geometry.coordinates,
+                distanceKm: route.distanceKm,
+                durationFormatted: route.durationFormatted || (route.duration ? Math.round(route.duration / 60) + ' min' : '')
+            });
+        } else if (route.route_geometry && route.route_geometry.coordinates) {
+            setPreviewRoute({
+                ...route,
+                coordinates: route.route_geometry.coordinates,
+                distanceKm: route.distanceKm,
+                durationFormatted: route.durationFormatted
+            });
+        }
+
         toast.info(`Ruta "${route.name}" cargada`);
     };
 
@@ -251,6 +269,8 @@ function AdminDashboard() {
                     fixedEnd,
                     returnToStart,
                     assignedAgent: selectedAgent,
+                    assignedAgent: selectedAgent,
+                    geometry: { type: 'LineString', coordinates: stats?.coordinates || [] }, // Save geometry locally too
                     createdAt: new Date().toISOString()
                 };
                 savedRoutes.push(routeToSave);
