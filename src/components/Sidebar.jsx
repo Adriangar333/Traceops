@@ -38,6 +38,17 @@ const Sidebar = ({
     const [activePanel, setActivePanel] = useState(null); // 'config', 'routes', 'import', 'ai'
     const [mobileCollapsed, setMobileCollapsed] = useState(true); // For mobile view
 
+    // Module expand/collapse states
+    const [expandedModules, setExpandedModules] = useState({
+        search: true,
+        deliveries: true,
+        assign: true
+    });
+
+    const toggleModule = (module) => {
+        setExpandedModules(prev => ({ ...prev, [module]: !prev[module] }));
+    };
+
     const [configInput, setConfigInput] = useState('');
     const [configType, setConfigType] = useState(null);
     const [configSuggestions, setConfigSuggestions] = useState([]);
@@ -298,41 +309,97 @@ const Sidebar = ({
 
     // Styles
     const styles = {
+        // Modular Container - no longer one big box
         sidebar: {
-            position: 'absolute', top: 16, left: 16, zIndex: 100, width: 380,
-            maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
-            background: '#ffffff', // White corporate background
-            borderRadius: 16, boxShadow: '0 10px 30px -5px rgba(0,0,0,0.1)', // Softer shadow
-            border: '1px solid #e2e8f0', fontFamily: 'Inter, system-ui', color: '#0f172a',
-            transition: 'all 0.3s ease'
+            position: 'absolute', top: 16, left: 16, zIndex: 100, width: 360,
+            display: 'flex', flexDirection: 'column', gap: 12,
+            fontFamily: 'Inter, system-ui',
+            pointerEvents: 'none' // Allow click-through except on children
         },
-        header: {
-            padding: isMobile ? 'calc(env(safe-area-inset-top) + 12px) 16px 12px' : '20px 24px',
-            background: isMobile ? (mobileCollapsed ? 'transparent' : '#ffffff') : '#ffffff',
-            borderBottom: isMobile && mobileCollapsed ? 'none' : '1px solid #f1f5f9',
+        // Compact floating header
+        headerCard: {
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: 16,
+            padding: '14px 18px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            pointerEvents: 'auto'
+        },
+        // Individual module card
+        moduleCard: {
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: 14,
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden',
+            pointerEvents: 'auto',
+            transition: 'all 0.25s ease'
+        },
+        moduleHeader: {
+            padding: '12px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            pointerEvents: 'auto'
+            cursor: 'pointer',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            transition: 'background 0.2s'
         },
-        section: { padding: '16px 20px', borderBottom: '1px solid #f1f5f9' },
+        moduleContent: {
+            padding: '14px 16px'
+        },
         input: {
-            width: '100%', padding: '12px 16px', background: '#f8fafc',
-            border: '1px solid #e2e8f0', borderRadius: 12,
-            fontSize: 14, color: '#0f172a', outline: 'none', boxSizing: 'border-box',
-            transition: 'border-color 0.2s',
+            width: '100%', padding: '11px 14px',
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: 10,
+            fontSize: 13, color: '#e2e8f0', outline: 'none', boxSizing: 'border-box',
+            transition: 'border-color 0.2s, background 0.2s',
         },
         btn: {
             padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s'
+            fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'all 0.2s'
         },
-        primaryBtn: { background: '#9DBD39', color: 'white', boxShadow: '0 2px 5px rgba(157, 189, 57, 0.3)' }, // ISES Green
-        secondaryBtn: { background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' },
-        successBtn: { background: '#9DBD39', color: 'white' },
-        iconBtn: { width: 40, height: 40, borderRadius: 12, border: '1px solid #f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-        stat: { flex: 1, padding: '14px 16px', background: '#f8fafc', borderRadius: 14, textAlign: 'center', border: '1px solid #e2e8f0' },
-        waypoint: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'white', border: '1px solid #f1f5f9', borderRadius: 10, marginBottom: 6 },
-        badge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600 }
+        primaryBtn: {
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+        },
+        secondaryBtn: {
+            background: 'rgba(255, 255, 255, 0.08)',
+            color: '#94a3b8',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+        },
+        iconBtn: {
+            width: 38, height: 38, borderRadius: 10,
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'rgba(255, 255, 255, 0.05)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.2s'
+        },
+        waypoint: {
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 12px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 10, marginBottom: 6,
+            color: '#e2e8f0'
+        },
+        badge: {
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600
+        },
+        stat: {
+            flex: 1, padding: '12px 14px',
+            background: 'rgba(255, 255, 255, 0.06)',
+            borderRadius: 12, textAlign: 'center',
+            border: '1px solid rgba(255, 255, 255, 0.08)'
+        }
     };
 
     const togglePanel = (panel) => setActivePanel(activePanel === panel ? null : panel);
@@ -346,379 +413,457 @@ const Sidebar = ({
             {/* Standard Sidebar Content - Hide in Carousel Mode */}
             {!isCarouselMode && (
                 <>
-                    {/* Header */}
-                    <div style={styles.header}>
-                        {/* Mobile Toggle Button */}
-                        <button
-                            className="mobile-toggle-btn"
-                            onClick={() => setMobileCollapsed(!mobileCollapsed)}
-                            style={{
-                                display: 'none', // Hidden by default, shown via CSS on mobile
-                                position: 'absolute', top: 16, right: 16,
-                                width: 40, height: 40, borderRadius: 12, border: 'none',
-                                background: 'rgba(59,130,246,0.2)', cursor: 'pointer',
-                                alignItems: 'center', justifyContent: 'center'
-                            }}
-                        >
-                            {mobileCollapsed ? <Menu size={20} color="#3b82f6" /> : <X size={20} color="#3b82f6" />}
-                        </button>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    {/* === COMPACT FLOATING HEADER === */}
+                    <div style={styles.headerCard}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.35)' }}>
-                                    <Navigation size={22} color="white" />
+                                <div style={{
+                                    width: 40, height: 40,
+                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                    borderRadius: 12,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                                }}>
+                                    <Navigation size={20} color="white" />
                                 </div>
                                 <div>
-                                    <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>Traceops</h1>
-                                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Logistics Intelligence</p>
+                                    <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Traceops</h1>
+                                    <p style={{ margin: 0, fontSize: 10, color: '#64748b' }}>Logistics Intelligence</p>
                                 </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                    onClick={() => togglePanel('config')}
+                                    style={{
+                                        ...styles.iconBtn,
+                                        background: activePanel === 'config' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: activePanel === 'config' ? '#10b981' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    title="Mi Negocio"
+                                >
+                                    <Settings size={16} color={activePanel === 'config' ? '#10b981' : '#94a3b8'} />
+                                </button>
+                                <button
+                                    onClick={() => togglePanel('routes')}
+                                    style={{
+                                        ...styles.iconBtn,
+                                        background: activePanel === 'routes' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: activePanel === 'routes' ? '#6366f1' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    title="Rutas Guardadas"
+                                >
+                                    <FolderOpen size={16} color={activePanel === 'routes' ? '#818cf8' : '#94a3b8'} />
+                                </button>
+                                <button
+                                    onClick={() => togglePanel('import')}
+                                    style={{
+                                        ...styles.iconBtn,
+                                        background: activePanel === 'import' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: activePanel === 'import' ? '#f59e0b' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    title="Importar"
+                                >
+                                    <Upload size={16} color={activePanel === 'import' ? '#fbbf24' : '#94a3b8'} />
+                                </button>
+                                <button onClick={onOpenAgents} style={styles.iconBtn} title="Agentes">
+                                    <Users size={16} color="#10b981" />
+                                </button>
+                                <button onClick={onOpenDashboard} style={styles.iconBtn} title="Dashboard">
+                                    <BarChart3 size={16} color="#10b981" />
+                                </button>
                             </div>
                         </div>
 
-                        {/* Quick Actions */}
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => togglePanel('config')} style={{ ...styles.iconBtn, background: activePanel === 'config' ? '#9DBD39' : 'white', boxShadow: activePanel === 'config' ? '0 4px 10px rgba(157,189,57,0.4)' : 'none' }} title="Configuración"><Settings size={18} color={activePanel === 'config' ? 'white' : '#64748b'} /></button>
-                            <button onClick={() => togglePanel('routes')} style={{ ...styles.iconBtn, background: activePanel === 'routes' ? '#3b82f6' : 'white' }} title="Rutas guardadas"><FolderOpen size={18} color={activePanel === 'routes' ? 'white' : '#64748b'} /></button>
-                            <button onClick={() => togglePanel('import')} style={{ ...styles.iconBtn, background: activePanel === 'import' ? '#f59e0b' : 'white' }} title="Importar"><Upload size={18} color={activePanel === 'import' ? 'white' : '#64748b'} /></button>
-                            <button onClick={onOpenAgents} style={{ ...styles.iconBtn, background: 'white' }} title="Agentes"><Users size={18} color="#9DBD39" /></button>
-                            <button onClick={onOpenDashboard} style={{ ...styles.iconBtn, background: 'white' }} title="Dashboard"><BarChart3 size={18} color="#9DBD39" /></button>
-                        </div>
+                        {/* Stats Row - Only show when has data */}
+                        {routeStats && (
+                            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                                <div style={styles.stat}>
+                                    <Route size={16} color="#10b981" style={{ marginBottom: 4 }} />
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{routeStats.distanceKm}</div>
+                                    <div style={{ fontSize: 10, color: '#64748b' }}>km</div>
+                                </div>
+                                <div style={styles.stat}>
+                                    <Clock size={16} color="#3b82f6" style={{ marginBottom: 4 }} />
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{routeStats.durationFormatted}</div>
+                                    <div style={{ fontSize: 10, color: '#64748b' }}>estimado</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {activePanel === 'config' && (
-                        <div className="panel-modal" style={{ ...styles.section, background: 'rgba(16,185,129,0.05)' }}>
-                            <div className="panel-modal-header">
-                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: 8 }}><Home size={18} /> Mi Negocio</h3>
-                                <button className="panel-modal-close" onClick={() => setActivePanel(null)}><X size={20} /></button>
+                        <div style={styles.moduleCard}>
+                            <div style={styles.moduleHeader} onClick={() => setActivePanel(null)}>
+                                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: 8 }}><Home size={16} /> Mi Negocio</h3>
+                                <X size={18} color="#64748b" />
                             </div>
-
-                            {/* Start Point */}
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ fontSize: 11, color: '#64748b', marginBottom: 6, display: 'block' }}>Punto de inicio</label>
-                                {fixedStart ? (
-                                    <div style={{ ...styles.badge, background: '#ecfdf5', color: '#10b981', justifyContent: 'space-between', width: '100%' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Home size={14} /> {fixedStart.address}</span>
-                                        <button onClick={() => setFixedStart(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
-                                    </div>
-                                ) : configType === 'start' ? (
-                                    <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
-                                        <input
-                                            value={configInput}
-                                            onChange={e => setConfigInput(e.target.value)}
-                                            onFocus={() => configSuggestions.length > 0 && setShowConfigSuggestions(true)}
-                                            onBlur={() => setTimeout(() => setShowConfigSuggestions(false), 200)}
-                                            placeholder="Buscar dirección..."
-                                            style={{ ...styles.input, flex: 1 }}
-                                            onKeyDown={e => e.key === 'Enter' && handleSetConfig()}
-                                        />
-                                        <button onClick={handleSetConfig} style={{ ...styles.btn, ...styles.successBtn }}><Check size={16} /></button>
-
-                                        {/* Config Suggestions Dropdown */}
-                                        {showConfigSuggestions && configSuggestions.length > 0 && configType === 'start' && (
-                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', borderRadius: '0 0 12px 12px', border: '1px solid #e2e8f0', maxHeight: 200, overflowY: 'auto', zIndex: 50, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                                                {configSuggestions.map((s, i) => (
-                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = '#ecfdf5'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                                        <Home size={16} color="#10b981" />
-                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{s.shortName}</div>
-                                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                            <div style={styles.moduleContent}>
+                                {/* Start Point */}
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, display: 'block' }}>Punto de inicio</label>
+                                    {fixedStart ? (
+                                        <div style={{ ...styles.badge, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', justifyContent: 'space-between', width: '100%' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Home size={14} /> {fixedStart.address}</span>
+                                            <button onClick={() => setFixedStart(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
+                                        </div>
+                                    ) : configType === 'start' ? (
+                                        <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+                                            <input
+                                                value={configInput}
+                                                onChange={e => setConfigInput(e.target.value)}
+                                                onFocus={() => configSuggestions.length > 0 && setShowConfigSuggestions(true)}
+                                                onBlur={() => setTimeout(() => setShowConfigSuggestions(false), 200)}
+                                                placeholder="Buscar dirección..."
+                                                style={{ ...styles.input, flex: 1 }}
+                                                onKeyDown={e => e.key === 'Enter' && handleSetConfig()}
+                                            />
+                                            <button onClick={handleSetConfig} style={{ ...styles.btn, ...styles.primaryBtn }}><Check size={16} /></button>
+                                            {showConfigSuggestions && configSuggestions.length > 0 && configType === 'start' && (
+                                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'rgba(15, 23, 42, 0.98)', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 50 }}>
+                                                    {configSuggestions.map((s, i) => (
+                                                        <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                            <Home size={16} color="#10b981" />
+                                                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                                <div style={{ fontSize: 13, fontWeight: 500, color: '#e2e8f0' }}>{s.shortName}</div>
+                                                                <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <button onClick={() => setConfigType('start')} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Home size={14} /> Configurar inicio</button>
-                                )}
-                            </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setConfigType('start')} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Home size={14} /> Configurar inicio</button>
+                                    )}
+                                </div>
 
-                            {/* End Point */}
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ fontSize: 11, color: '#64748b', marginBottom: 6, display: 'block' }}>Punto de fin</label>
-                                {fixedEnd && !returnToStart ? (
-                                    <div style={{ ...styles.badge, background: '#fffbeb', color: '#f59e0b', justifyContent: 'space-between', width: '100%' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Flag size={14} /> {fixedEnd.address}</span>
-                                        <button onClick={() => setFixedEnd(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
-                                    </div>
-                                ) : configType === 'end' ? (
-                                    <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
-                                        <input
-                                            value={configInput}
-                                            onChange={e => setConfigInput(e.target.value)}
-                                            onFocus={() => configSuggestions.length > 0 && setShowConfigSuggestions(true)}
-                                            onBlur={() => setTimeout(() => setShowConfigSuggestions(false), 200)}
-                                            placeholder="Buscar dirección..."
-                                            style={{ ...styles.input, flex: 1 }}
-                                            onKeyDown={e => e.key === 'Enter' && handleSetConfig()}
-                                        />
-                                        <button onClick={handleSetConfig} style={{ ...styles.btn, background: '#f59e0b', color: 'white' }}><Check size={16} /></button>
-
-                                        {/* Config Suggestions Dropdown */}
-                                        {showConfigSuggestions && configSuggestions.length > 0 && configType === 'end' && (
-                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', borderRadius: '0 0 12px 12px', border: '1px solid #e2e8f0', maxHeight: 200, overflowY: 'auto', zIndex: 50, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                                                {configSuggestions.map((s, i) => (
-                                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = '#fffbeb'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                                        <Flag size={16} color="#f59e0b" />
-                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{s.shortName}</div>
-                                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                {/* End Point */}
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, display: 'block' }}>Punto de fin</label>
+                                    {fixedEnd && !returnToStart ? (
+                                        <div style={{ ...styles.badge, background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', justifyContent: 'space-between', width: '100%' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Flag size={14} /> {fixedEnd.address}</span>
+                                            <button onClick={() => setFixedEnd(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
+                                        </div>
+                                    ) : configType === 'end' ? (
+                                        <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+                                            <input
+                                                value={configInput}
+                                                onChange={e => setConfigInput(e.target.value)}
+                                                onFocus={() => configSuggestions.length > 0 && setShowConfigSuggestions(true)}
+                                                onBlur={() => setTimeout(() => setShowConfigSuggestions(false), 200)}
+                                                placeholder="Buscar dirección..."
+                                                style={{ ...styles.input, flex: 1 }}
+                                                onKeyDown={e => e.key === 'Enter' && handleSetConfig()}
+                                            />
+                                            <button onClick={handleSetConfig} style={{ ...styles.btn, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white' }}><Check size={16} /></button>
+                                            {showConfigSuggestions && configSuggestions.length > 0 && configType === 'end' && (
+                                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'rgba(15, 23, 42, 0.98)', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 50 }}>
+                                                    {configSuggestions.map((s, i) => (
+                                                        <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectConfigSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                            <Flag size={16} color="#f59e0b" />
+                                                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                                <div style={{ fontSize: 13, fontWeight: 500, color: '#e2e8f0' }}>{s.shortName}</div>
+                                                                <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : !returnToStart && (
-                                    <button onClick={() => setConfigType('end')} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Flag size={14} /> Configurar fin</button>
-                                )}
-                            </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : !returnToStart && (
+                                        <button onClick={() => setConfigType('end')} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Flag size={14} /> Configurar fin</button>
+                                    )}
+                                </div>
 
-                            {/* Round Trip */}
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(0,0,0,0.02)', borderRadius: 10, cursor: 'pointer' }}>
-                                <input type="checkbox" checked={returnToStart} onChange={e => { setReturnToStart(e.target.checked); if (e.target.checked) setFixedEnd(null); }} style={{ width: 18, height: 18, cursor: 'pointer' }} />
-                                <span style={{ fontSize: 13, color: '#0f172a' }}>🔄 Regresar al punto de inicio</span>
-                            </label>
+                                {/* Round Trip */}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.05)', borderRadius: 10, cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={returnToStart} onChange={e => { setReturnToStart(e.target.checked); if (e.target.checked) setFixedEnd(null); }} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                                    <span style={{ fontSize: 13, color: '#e2e8f0' }}>🔄 Regresar al punto de inicio</span>
+                                </label>
+                            </div>
                         </div>
                     )}
 
                     {activePanel === 'routes' && (
-                        <div className="panel-modal" style={{ ...styles.section, background: 'rgba(99,102,241,0.05)' }}>
-                            <div className="panel-modal-header">
-                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#6366f1' }}>📁 Rutas Guardadas</h3>
-                                <button className="panel-modal-close" onClick={() => setActivePanel(null)}><X size={20} /></button>
+                        <div style={styles.moduleCard}>
+                            <div style={styles.moduleHeader} onClick={() => setActivePanel(null)}>
+                                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 8 }}>📁 Rutas Guardadas</h3>
+                                <X size={18} color="#64748b" />
                             </div>
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                                <input value={routeName} onChange={e => setRouteName(e.target.value)} placeholder="Nombre de la ruta" style={{ ...styles.input, flex: 1 }} />
-                                <button onClick={() => { onSaveRoute(routeName); setRouteName(''); }} style={{ ...styles.btn, ...styles.primaryBtn }}><Save size={16} /></button>
-                            </div>
-                            <div style={{ maxHeight: 120, overflowY: 'auto' }}>
-                                {savedRoutes.length === 0 ? (
-                                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: '20px 0' }}>No hay rutas guardadas</p>
-                                ) : savedRoutes.map(r => (
-                                    <div key={r.id} style={{ ...styles.waypoint, justifyContent: 'space-between' }}>
-                                        <span onClick={() => onLoadRoute(r)} style={{ cursor: 'pointer', flex: 1, fontSize: 13 }}>{r.name} <span style={{ color: 'rgba(255,255,255,0.4)' }}>({r.waypoints.length})</span></span>
-                                        <button onClick={() => onDeleteRoute(r.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                                    </div>
-                                ))}
+                            <div style={styles.moduleContent}>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                                    <input value={routeName} onChange={e => setRouteName(e.target.value)} placeholder="Nombre de la ruta" style={{ ...styles.input, flex: 1 }} />
+                                    <button onClick={() => { onSaveRoute(routeName); setRouteName(''); }} style={{ ...styles.btn, ...styles.primaryBtn }}><Save size={16} /></button>
+                                </div>
+                                <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+                                    {savedRoutes.length === 0 ? (
+                                        <p style={{ fontSize: 12, color: '#64748b', textAlign: 'center', margin: '20px 0' }}>No hay rutas guardadas</p>
+                                    ) : savedRoutes.map(r => (
+                                        <div key={r.id} style={{ ...styles.waypoint, justifyContent: 'space-between' }}>
+                                            <span onClick={() => onLoadRoute(r)} style={{ cursor: 'pointer', flex: 1, fontSize: 13 }}>{r.name} <span style={{ color: '#64748b' }}>({r.waypoints.length})</span></span>
+                                            <button onClick={() => onDeleteRoute(r.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {activePanel === 'import' && (
-                        <div className="panel-modal" style={{ ...styles.section, background: 'rgba(245,158,11,0.05)' }}>
-                            <div className="panel-modal-header">
-                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#f59e0b' }}>📋 Importar Direcciones</h3>
-                                <button className="panel-modal-close" onClick={() => setActivePanel(null)}><X size={20} /></button>
+                        <div style={styles.moduleCard}>
+                            <div style={styles.moduleHeader} onClick={() => setActivePanel(null)}>
+                                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 8 }}>📋 Importar Direcciones</h3>
+                                <X size={18} color="#64748b" />
                             </div>
-                            <textarea value={bulkInput} onChange={e => setBulkInput(e.target.value)} placeholder="Una dirección por línea..." style={{ ...styles.input, height: 100, resize: 'none' }} />
-                            <button onClick={handleBulkImport} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', marginTop: 10 }}>
-                                {isGeocoding ? 'Procesando...' : 'Importar todas'}
-                            </button>
+                            <div style={styles.moduleContent}>
+                                <textarea value={bulkInput} onChange={e => setBulkInput(e.target.value)} placeholder="Una dirección por línea..." style={{ ...styles.input, height: 100, resize: 'none' }} />
+                                <button onClick={handleBulkImport} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', marginTop: 10 }}>
+                                    {isGeocoding ? 'Procesando...' : 'Importar todas'}
+                                </button>
+                            </div>
                         </div>
                     )}
 
 
 
-                    {/* Route Options - Desktop List / Mobile Logic */}
+                    {/* Route Options - Desktop List */}
                     {!isMobile && showRouteOptions && (
-                        <div style={{ ...styles.section, background: 'rgba(16,185,129,0.05)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#10b981' }}>⚡ Elige una Ruta</h3>
-                                <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16} /></button>
+                        <div style={styles.moduleCard}>
+                            <div style={{ ...styles.moduleHeader, borderBottom: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Zap size={16} color="#10b981" /> Elige una Ruta
+                                </h3>
+                                <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
                             </div>
-                            <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
-                            {routeOptions.map((opt, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => handlePreviewRouteOption(opt)}
-                                    style={{
-                                        width: '100%',
-                                        position: 'relative',
-                                        padding: '16px',
-                                        marginBottom: 12,
-                                        background: selectedRouteOption === opt
-                                            ? '#f0fdf4'  // Green-50 for selected
-                                            : '#ffffff', // White for unselected
-                                        border: selectedRouteOption === opt ? '1px solid #10b981' : '1px solid #e2e8f0',
-                                        borderRadius: 16,
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                        color: '#0f172a',
-                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        transform: selectedRouteOption === opt ? 'scale(1.02)' : 'scale(1)',
-                                        boxShadow: selectedRouteOption === opt ? '0 10px 20px -5px rgba(16,185,129,0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
-                                        overflow: 'hidden'
-                                    }}
-                                    onMouseEnter={e => { if (selectedRouteOption !== opt) e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                                    onMouseLeave={e => { if (selectedRouteOption !== opt) e.currentTarget.style.borderColor = '#e2e8f0'; }}
-                                >
-                                    {/* Abstract decorative circle - clearer for light theme */}
-                                    <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
-
-                                    <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: selectedRouteOption === opt ? '#15803d' : '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {selectedRouteOption === opt ? <Check size={16} /> : (i === 0 ? <Zap size={16} color="#eab308" /> : <Route size={16} color="#94a3b8" />)}
-                                            {opt.name}
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {opt.hasTrafficData && (
-                                                <span style={{ fontSize: 10, padding: '2px 8px', background: '#eff6ff', color: '#3b82f6', borderRadius: 10, fontWeight: 600 }}>Trafico Real</span>
-                                            )}
-                                            <div
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setExpandedInfo(expandedInfo === i ? null : i);
-                                                }}
-                                                style={{ padding: 4, cursor: 'pointer', opacity: 0.7, zIndex: 10 }}
-                                                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                                                onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
-                                                title="Ver detalles del algoritmo"
-                                            >
-                                                <Info size={16} color="#3b82f6" />
+                            <div style={styles.moduleContent}>
+                                <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
+                                {routeOptions.map((opt, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handlePreviewRouteOption(opt)}
+                                        style={{
+                                            width: '100%',
+                                            position: 'relative',
+                                            padding: '14px',
+                                            marginBottom: 10,
+                                            background: selectedRouteOption === opt
+                                                ? 'rgba(16, 185, 129, 0.15)'
+                                                : 'rgba(255, 255, 255, 0.05)',
+                                            border: selectedRouteOption === opt ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: 12,
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            color: '#e2e8f0',
+                                            transition: 'all 0.25s ease',
+                                            transform: selectedRouteOption === opt ? 'scale(1.02)' : 'scale(1)',
+                                            overflow: 'hidden'
+                                        }}
+                                        onMouseEnter={e => { if (selectedRouteOption !== opt) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                        onMouseLeave={e => { if (selectedRouteOption !== opt) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                    >
+                                        <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: selectedRouteOption === opt ? '#10b981' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                {selectedRouteOption === opt ? <Check size={16} /> : (i === 0 ? <Zap size={16} color="#eab308" /> : <Route size={16} color="#64748b" />)}
+                                                {opt.name}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                {opt.hasTrafficData && (
+                                                    <span style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', borderRadius: 10, fontWeight: 600 }}>Trafico Real</span>
+                                                )}
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); setExpandedInfo(expandedInfo === i ? null : i); }}
+                                                    style={{ padding: 4, cursor: 'pointer', opacity: 0.7 }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
+                                                    title="Ver detalles"
+                                                >
+                                                    <Info size={16} color="#60a5fa" />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Clock size={14} color="#64748b" />
-                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{opt.durationInTrafficFormatted || opt.durationFormatted}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <MapPin size={14} color="#64748b" />
-                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{opt.distanceKm} km</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ fontSize: 11, lineHeight: 1.4, color: '#64748b', paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
-                                        {opt.description}
-                                    </div>
-
-                                    {expandedInfo === i && (
-                                        <div style={{ marginTop: 12, padding: '10px', background: '#eff6ff', borderRadius: 8, borderLeft: '3px solid #3b82f6', animation: 'fadeIn 0.2s' }} onClick={e => e.stopPropagation()}>
-                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Info size={12} /> ¿Cómo funciona?
+                                        <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <Clock size={14} color="#64748b" />
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{opt.durationInTrafficFormatted || opt.durationFormatted}</span>
                                             </div>
-                                            <div style={{ fontSize: 11, color: '#1e40af', lineHeight: 1.5 }}>
-                                                {opt.longDescription}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <MapPin size={14} color="#64748b" />
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{opt.distanceKm} km</span>
                                             </div>
                                         </div>
-                                    )}
-                                </button>
-                            ))}
-                            {/* Apply Button */}
-                            {
-                                selectedRouteOption && (
+                                        <div style={{ fontSize: 11, lineHeight: 1.4, color: '#64748b', paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                            {opt.description}
+                                        </div>
+                                        {expandedInfo === i && (
+                                            <div style={{ marginTop: 10, padding: '10px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, borderLeft: '3px solid #3b82f6' }} onClick={e => e.stopPropagation()}>
+                                                <div style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <Info size={12} /> ¿Cómo funciona?
+                                                </div>
+                                                <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
+                                                    {opt.longDescription}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                                {selectedRouteOption && (
                                     <button
                                         onClick={handleApplySelectedRoute}
-                                        style={{ ...styles.btn, ...styles.successBtn, width: '100%', justifyContent: 'center', marginTop: 8 }}
+                                        style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', marginTop: 8 }}
                                     >
                                         ✓ Aplicar esta ruta
                                     </button>
-                                )
-                            }
-                        </div >
+                                )}
+                            </div>
+                        </div>
                     )}
 
-                    {/* Stats */}
-                    {
-                        routeStats && (
-                            <div style={{ ...styles.section, display: 'flex', gap: 12 }}>
-                                <div style={styles.stat}>
-                                    <Route size={20} color="#3b82f6" style={{ marginBottom: 4 }} />
-                                    <div style={{ fontSize: 22, fontWeight: 700 }}>{routeStats.distanceKm}</div>
-                                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>kilómetros</div>
-                                </div>
-                                <div style={styles.stat}>
-                                    <Clock size={20} color="#8b5cf6" style={{ marginBottom: 4 }} />
-                                    <div style={{ fontSize: 22, fontWeight: 700 }}>{routeStats.durationFormatted}</div>
-                                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>tiempo estimado</div>
-                                </div>
-                            </div>
-                        )
-                    }
 
-                    {/* Search */}
-                    <div style={{ ...styles.section, position: 'relative' }}>
-                        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#64748b' }}>🔍 Agregar Entrega</h3>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <input value={addressInput} onChange={e => setAddressInput(e.target.value)} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} placeholder="Buscar dirección..." style={{ ...styles.input, flex: 1 }} onKeyDown={e => e.key === 'Enter' && handleAddAddress()} />
-                            <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn }}>{isGeocoding ? '...' : <Search size={18} />}</button>
+                    {/* === SEARCH MODULE === */}
+                    <div style={styles.moduleCard}>
+                        <div
+                            style={styles.moduleHeader}
+                            onClick={() => toggleModule('search')}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Search size={16} color="#3b82f6" /> Agregar Entrega
+                            </h3>
+                            {expandedModules.search ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
                         </div>
-
-                        {showSuggestions && suggestions.length > 0 && (
-                            <div style={{ position: 'absolute', top: '100%', left: 20, right: 20, background: '#ffffff', borderRadius: '0 0 12px 12px', border: '1px solid #e2e8f0', maxHeight: 200, overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
-                                {suggestions.map((s, i) => (
-                                    <div key={i} onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                        <MapPin size={16} color="#3b82f6" />
-                                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{s.shortName}</div>
-                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Waypoints List */}
-                    <div style={styles.section}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#64748b' }}>📦 Entregas ({waypoints.length})</h3>
-                            {waypoints.length > 0 && (
+                        {expandedModules.search && (
+                            <div style={{ ...styles.moduleContent, position: 'relative' }}>
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                    <button onClick={() => setWaypoints([])} style={{ ...styles.btn, background: '#fef2f2', color: '#ef4444', padding: '8px 10px' }} title="Borrar todo">
-                                        <Trash2 size={14} />
+                                    <input
+                                        value={addressInput}
+                                        onChange={e => setAddressInput(e.target.value)}
+                                        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                        placeholder="Buscar dirección..."
+                                        style={{ ...styles.input, flex: 1 }}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddAddress()}
+                                    />
+                                    <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn }}>
+                                        {isGeocoding ? '...' : <Search size={18} />}
                                     </button>
-                                    {waypoints.length >= 2 && (
-                                        <button onClick={handleOptimize} disabled={isOptimizing} style={{ ...styles.btn, ...styles.successBtn, padding: '8px 14px' }}>
-                                            <Zap size={14} /> {isOptimizing ? '...' : 'Optimizar'}
-                                        </button>
-                                    )}
                                 </div>
-                            )}
-                        </div>
-
-                        {fixedStart && (
-                            <div style={{ ...styles.badge, background: 'rgba(16,185,129,0.1)', color: '#10b981', marginBottom: 8, width: '100%', justifyContent: 'flex-start' }}>
-                                <Home size={14} /> <span style={{ fontWeight: 600 }}>INICIO:</span> {fixedStart.address}
-                            </div>
-                        )}
-
-                        <div style={{ maxHeight: 150, overflowY: 'auto' }}>
-                            {waypoints.length === 0 ? (
-                                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: '20px 0' }}>Agrega direcciones de entrega</p>
-                            ) : waypoints.map((wp, i) => (
-                                <div key={i} style={styles.waypoint}>
-                                    <span style={{ width: 24, height: 24, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
-                                    <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}</span>
-                                    <button onClick={() => setWaypoints(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}><Trash2 size={14} /></button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {(fixedEnd || returnToStart) && (
-                            <div style={{ ...styles.badge, background: returnToStart ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: returnToStart ? '#10b981' : '#f59e0b', marginTop: 8, width: '100%', justifyContent: 'flex-start' }}>
-                                {returnToStart ? <Home size={14} /> : <Flag size={14} />} <span style={{ fontWeight: 600 }}>FIN:</span> {returnToStart ? fixedStart?.address : fixedEnd?.address}
+                                {showSuggestions && suggestions.length > 0 && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% - 8px)', left: 16, right: 16, background: 'rgba(15, 23, 42, 0.98)', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 10 }}>
+                                        {suggestions.map((s, i) => (
+                                            <div
+                                                key={i}
+                                                onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }}
+                                                style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <MapPin size={16} color="#3b82f6" />
+                                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 500, color: '#e2e8f0' }}>{s.shortName}</div>
+                                                    <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* Assign */}
-                    <div style={{ ...styles.section, borderBottom: 'none' }}>
-                        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#64748b' }}>👤 Asignar Ruta</h3>
-                        {agents.length === 0 ? (
-                            <button onClick={onOpenAgents} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Users size={16} /> Crear agente</button>
-                        ) : (
-                            <>
-                                <select value={selectedAgent?.id || ''} onChange={e => setSelectedAgent(agents.find(a => a.id == e.target.value) || null)} style={{ ...styles.input, cursor: 'pointer', marginBottom: 12, backgroundColor: '#ffffff', color: '#0f172a' }}>
-                                    <option value="" style={{ background: '#ffffff', color: '#0f172a' }}>Selecciona un agente...</option>
-                                    {agents.map(a => <option key={a.id} value={a.id} style={{ background: '#ffffff', color: '#0f172a' }}>{a.name}</option>)}
-                                </select>
-                                <button onClick={onAssign} disabled={isSubmitting || !selectedAgent || waypoints.length === 0} style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', opacity: (!selectedAgent || isSubmitting || waypoints.length === 0) ? 0.5 : 1 }}>
-                                    <Play size={16} /> {isSubmitting ? 'Enviando...' : 'INICIAR RUTA'}
-                                </button>
-                            </>
+                    {/* === DELIVERIES MODULE === */}
+                    <div style={styles.moduleCard}>
+                        <div
+                            style={styles.moduleHeader}
+                            onClick={() => toggleModule('deliveries')}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <MapPin size={16} color="#8b5cf6" /> Entregas
+                                <span style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{waypoints.length}</span>
+                            </h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {waypoints.length > 0 && (
+                                    <>
+                                        <button onClick={(e) => { e.stopPropagation(); setWaypoints([]); }} style={{ ...styles.btn, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '6px 8px' }} title="Borrar todo">
+                                            <Trash2 size={14} />
+                                        </button>
+                                        {waypoints.length >= 2 && (
+                                            <button onClick={(e) => { e.stopPropagation(); handleOptimize(); }} disabled={isOptimizing} style={{ ...styles.btn, ...styles.primaryBtn, padding: '6px 10px' }}>
+                                                <Zap size={14} /> {isOptimizing ? '...' : 'Optimizar'}
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                                {expandedModules.deliveries ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                            </div>
+                        </div>
+                        {expandedModules.deliveries && (
+                            <div style={styles.moduleContent}>
+                                {fixedStart && (
+                                    <div style={{ ...styles.badge, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', marginBottom: 8, width: '100%', justifyContent: 'flex-start' }}>
+                                        <Home size={14} /> <span style={{ fontWeight: 600 }}>INICIO:</span> {fixedStart.address}
+                                    </div>
+                                )}
+                                <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                                    {waypoints.length === 0 ? (
+                                        <p style={{ fontSize: 12, color: '#64748b', textAlign: 'center', margin: '20px 0' }}>Agrega direcciones de entrega</p>
+                                    ) : waypoints.map((wp, i) => (
+                                        <div key={i} style={styles.waypoint}>
+                                            <span style={{ width: 24, height: 24, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>{i + 1}</span>
+                                            <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}</span>
+                                            <button onClick={() => setWaypoints(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                {(fixedEnd || returnToStart) && (
+                                    <div style={{ ...styles.badge, background: returnToStart ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: returnToStart ? '#10b981' : '#f59e0b', marginTop: 8, width: '100%', justifyContent: 'flex-start' }}>
+                                        {returnToStart ? <Home size={14} /> : <Flag size={14} />} <span style={{ fontWeight: 600 }}>FIN:</span> {returnToStart ? fixedStart?.address : fixedEnd?.address}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* === ASSIGN MODULE === */}
+                    <div style={styles.moduleCard}>
+                        <div
+                            style={styles.moduleHeader}
+                            onClick={() => toggleModule('assign')}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Users size={16} color="#10b981" /> Asignar Ruta
+                            </h3>
+                            {expandedModules.assign ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                        </div>
+                        {expandedModules.assign && (
+                            <div style={styles.moduleContent}>
+                                {agents.length === 0 ? (
+                                    <button onClick={onOpenAgents} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Users size={16} /> Crear agente</button>
+                                ) : (
+                                    <>
+                                        <select
+                                            value={selectedAgent?.id || ''}
+                                            onChange={e => setSelectedAgent(agents.find(a => a.id == e.target.value) || null)}
+                                            style={{ ...styles.input, cursor: 'pointer', marginBottom: 12 }}
+                                        >
+                                            <option value="" style={{ background: '#0f172a', color: '#e2e8f0' }}>Selecciona un agente...</option>
+                                            {agents.map(a => <option key={a.id} value={a.id} style={{ background: '#0f172a', color: '#e2e8f0' }}>{a.name}</option>)}
+                                        </select>
+                                        <button
+                                            onClick={onAssign}
+                                            disabled={isSubmitting || !selectedAgent || waypoints.length === 0}
+                                            style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', opacity: (!selectedAgent || isSubmitting || waypoints.length === 0) ? 0.5 : 1 }}
+                                        >
+                                            <Play size={16} /> {isSubmitting ? 'Enviando...' : 'INICIAR RUTA'}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         )}
                     </div>
                 </>
