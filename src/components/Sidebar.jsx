@@ -636,7 +636,7 @@ const Sidebar = ({
                                 </h3>
                                 <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
                             </div>
-                            <div style={styles.moduleContent}>
+                            <div style={{ ...styles.moduleContent, maxHeight: 'calc(100vh - 350px)', overflowY: 'auto', paddingBottom: selectedRouteOption ? 60 : 16 }}>
                                 <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
                                 {routeOptions.map((opt, i) => (
                                     <button
@@ -707,15 +707,22 @@ const Sidebar = ({
                                         )}
                                     </button>
                                 ))}
-                                {selectedRouteOption && (
+                            </div>
+                            {selectedRouteOption && (
+                                <div style={{
+                                    padding: '12px 16px',
+                                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                                    background: 'rgba(15, 23, 42, 0.95)',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
                                     <button
                                         onClick={handleApplySelectedRoute}
-                                        style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', marginTop: 8 }}
+                                        style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center' }}
                                     >
                                         ✓ Aplicar esta ruta
                                     </button>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

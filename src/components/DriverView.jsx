@@ -196,11 +196,22 @@ const DriverView = ({ params }) => {
         map.current.on('load', () => {
             // Add Route Line
             if (route.waypoints && route.waypoints.length > 1) {
-                const coordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+                // Use actual route geometry if available (from optimized route), otherwise fallback to straight lines
+                let routeCoordinates;
+                if (route.routeGeometry && route.routeGeometry.coordinates && route.routeGeometry.coordinates.length > 0) {
+                    // Use the actual road geometry from the optimization
+                    routeCoordinates = route.routeGeometry.coordinates;
+                } else if (route.geometry && route.geometry.coordinates && route.geometry.coordinates.length > 0) {
+                    // Alternative geometry field
+                    routeCoordinates = route.geometry.coordinates;
+                } else {
+                    // Fallback: straight lines between waypoints
+                    routeCoordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+                }
 
                 // Fit bounds
                 const bounds = new maplibregl.LngLatBounds();
-                coordinates.forEach(coord => bounds.extend(coord));
+                routeCoordinates.forEach(coord => bounds.extend(coord));
                 map.current.fitBounds(bounds, { padding: 50 });
 
                 map.current.addSource('route', {
@@ -210,7 +221,7 @@ const DriverView = ({ params }) => {
                         'properties': {},
                         'geometry': {
                             'type': 'LineString',
-                            'coordinates': coordinates
+                            'coordinates': routeCoordinates
                         }
                     }
                 });
@@ -367,59 +378,68 @@ const DriverView = ({ params }) => {
             toast.info('Rastreo detenido');
         } else {
             const toastId = toast.loading('Solicitando permiso de ubicación...');
-            const success = await TrackingService.startTracking((location, error) => {
-                if (error) {
-                    // Capture error for display (especially useful for iOS debugging)
-                    setLastGpsError(error.message || 'Error de GPS');
-                    console.error('🚫 GPS Error:', error);
-                    return;
-                }
 
-                if (location) {
-                    // Clear any previous error
-                    setLastGpsError(null);
-
-                    // Increment ping counter for visual feedback
-                    setGpsPings(prev => prev + 1);
-
-                    // Send to Production Backend
-                    if (!window.socket) {
-                        window.socket = io('https://dashboard-backend.zvkdyr.easypanel.host');
+            try {
+                const success = await TrackingService.startTracking((location, error) => {
+                    if (error) {
+                        // Capture error for display (especially useful for iOS debugging)
+                        setLastGpsError(error.message || 'Error de GPS');
+                        console.error('🚫 GPS Error:', error);
+                        return;
                     }
 
-                    const payload = {
-                        driverId: driverId, // Dynamic driver ID from URL
-                        lat: location.latitude,
-                        lng: location.longitude,
-                        speed: location.speed,
-                        heading: location.heading || 0
-                    };
+                    if (location) {
+                        // Clear any previous error
+                        setLastGpsError(null);
 
-                    console.log('📡 Sending to Global Backend:', payload);
-                    window.socket.emit('driver:location', payload);
+                        // Increment ping counter for visual feedback
+                        setGpsPings(prev => prev + 1);
 
-                    // Update local user marker on map
-                    if (map.current) {
-                        if (!driverMarkerRef.current) {
-                            const el = document.createElement('div');
-                            el.innerHTML = '<div style="background: #10b981; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(16,185,129,0.5);"></div>';
-                            driverMarkerRef.current = new maplibregl.Marker({ element: el })
-                                .setLngLat([location.longitude, location.latitude])
-                                .addTo(map.current);
-                        } else {
-                            driverMarkerRef.current.setLngLat([location.longitude, location.latitude]);
+                        // Send to Production Backend
+                        if (!window.socket) {
+                            window.socket = io('https://dashboard-backend.zvkdyr.easypanel.host');
+                        }
+
+                        const payload = {
+                            driverId: driverId, // Dynamic driver ID from URL
+                            lat: location.latitude,
+                            lng: location.longitude,
+                            speed: location.speed,
+                            heading: location.heading || 0
+                        };
+
+                        console.log('📡 Sending to Global Backend:', payload);
+                        window.socket.emit('driver:location', payload);
+
+                        // Update local user marker on map
+                        if (map.current) {
+                            if (!driverMarkerRef.current) {
+                                const el = document.createElement('div');
+                                el.innerHTML = '<div style="background: #10b981; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(16,185,129,0.5);"></div>';
+                                driverMarkerRef.current = new maplibregl.Marker({ element: el })
+                                    .setLngLat([location.longitude, location.latitude])
+                                    .addTo(map.current);
+                            } else {
+                                driverMarkerRef.current.setLngLat([location.longitude, location.latitude]);
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            toast.dismiss(toastId);
-            if (success) {
-                setIsTracking(true);
-                toast.success('📡 GPS activo - Compartiendo ubicación');
-            } else {
-                setLastGpsError('Permiso denegado o GPS no disponible');
-                toast.error('No se pudo activar el GPS. Verifica los permisos.');
+                if (success) {
+                    setIsTracking(true);
+                    toast.success('📡 GPS activo - Compartiendo ubicación');
+                } else {
+                    setLastGpsError('Permiso denegado o GPS no disponible');
+                    toast.error('No se pudo activar el GPS. Verifica los permisos.');
+                }
+            } catch (err) {
+                console.error('Error starting tracking:', err);
+                setLastGpsError('Error al iniciar rastreo');
+                toast.error('Error al iniciar el rastreo GPS');
+            } finally {
+                // ALWAYS dismiss the loading toast
+                toast.dismiss(toastId);
             }
         }
     };
