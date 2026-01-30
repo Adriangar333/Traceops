@@ -83,6 +83,13 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     const markers = useRef({});
     const historyLayerRef = useRef(null);
     const socketRef = useRef(null);
+    const driversListRef = useRef(driversList);
+    const [panicDrivers, setPanicDrivers] = useState({});
+
+    // Keep ref synced with prop to avoid stale closures in socket listeners
+    useEffect(() => {
+        driversListRef.current = driversList;
+    }, [driversList]);
 
     // Map style options
     const MAP_STYLES = {
@@ -95,12 +102,13 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
 
     // Resolve driver name and cuadrilla
     const resolveDriverInfo = (driverId) => {
-        if (!driversList.length) return { name: driverId, cuadrilla: '' };
+        const list = driversListRef.current;
+        if (!list || !list.length) return { name: driverId, cuadrilla: '' };
 
         // Handle various ID formats (123, "123", "driver-123")
         const cleanId = driverId.toString().replace('driver-', '');
 
-        const agent = driversList.find(a =>
+        const agent = list.find(a =>
             a.id.toString() === cleanId ||
             a.id.toString() === driverId
         );
@@ -178,7 +186,22 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
         // Listen for Panic Alerts
         socketRef.current.on('admin:panic-alert', (data) => {
             console.error('🚨 PANIC ALERT RECEIVED:', data);
-            toast.error(`🚨 ALERTA SOS: Conductor ${data.driverId || 'Desconocido'} reporta emergencia!`, {
+
+            // Resolve Driver Name using Ref to get fresh data
+            const info = resolveDriverInfo(String(data.driverId));
+            const driverName = info.name && info.name !== String(data.driverId) ? info.name : `Conductor ${data.driverId}`;
+
+            // Set global panic state for this driver
+            setPanicDrivers(prev => ({ ...prev, [data.driverId]: true }));
+
+            // 1. Flash Marker immediately if it exists on map
+            if (markers.current[data.driverId]) {
+                const el = markers.current[data.driverId].getElement();
+                el.classList.add('panic-active');
+            }
+
+            // 2. Show Critical Toast
+            toast.error(`🚨 ALERTA SOS: ${driverName} reporta emergencia!`, {
                 duration: Infinity, // Requires manual dismissal
                 style: {
                     background: '#dc2626',
@@ -189,9 +212,9 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 },
                 description: `Hora: ${new Date().toLocaleTimeString()} - Revisar mapa ahora.`
             });
-
-            // Auto-focus logic could go here if we tracked map center state
         });
+
+
 
         return () => {
             if (socketRef.current) {
@@ -270,6 +293,11 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 : info.name.split(' ').map(n => n[0]).join('').substring(0, 2);
 
             el.className = 'driver-marker-container'; // Add class for potential CSS styling
+
+            // Apply Panic Animation if active
+            if (panicDrivers[driver.driverId]) {
+                el.classList.add('panic-active');
+            }
 
             const cuadrillaType = (info.cuadrilla || '').toLowerCase();
             let iconHtml = VEHICLE_ICONS.default(initials);

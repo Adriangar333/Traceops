@@ -310,7 +310,15 @@ app.get('/drivers/:id/routes', async (req, res) => {
             "SELECT * FROM routes WHERE driver_id = $1 AND status != 'completed' ORDER BY created_at DESC",
             [req.params.id]
         );
-        res.json(result.rows);
+        const rows = result.rows.map(r => {
+            // Ensure geometry is parsed correctly (Postgres sometimes returns string for json/text columns)
+            let geom = r.route_geometry;
+            if (typeof geom === 'string') {
+                try { geom = JSON.parse(geom); } catch (e) { console.error('Error parsing route geometry:', e); }
+            }
+            return { ...r, route_geometry: geom };
+        });
+        res.json(rows);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch driver routes' });
