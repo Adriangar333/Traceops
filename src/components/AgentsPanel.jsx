@@ -118,13 +118,17 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                     </div>
                     <div style={{ position: 'relative' }}>
                         <Users style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', width: '16px' }} />
-                        <input
-                            type="text"
-                            placeholder="Cuadrilla (Ej: Norte, Sur, Express)"
+                        <select
                             value={newAgent.cuadrilla}
                             onChange={(e) => setNewAgent(p => ({ ...p, cuadrilla: e.target.value }))}
-                            style={{ ...inputStyle, paddingLeft: '40px' }}
-                        />
+                            style={{ ...inputStyle, paddingLeft: '40px', appearance: 'none', cursor: 'pointer' }}
+                        >
+                            <option value="">Seleccionar tipo de cuadrilla...</option>
+                            <option value="Liviana">🏍️ Cuadrilla Liviana (Motos)</option>
+                            <option value="Mediana">🚙 Cuadrilla Mediana (Camionetas)</option>
+                            <option value="Pesada">🚚 Cuadrilla Pesada (Camiones/Canastilla)</option>
+                        </select>
+                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'rgba(255,255,255,0.4)' }}>▼</div>
                     </div>
                     <button
                         type="submit"
