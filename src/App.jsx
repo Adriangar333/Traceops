@@ -4,6 +4,9 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import AdminDashboard from './components/AdminDashboard';
 import DriverView from './components/DriverView';
+import MainLayout from './components/MainLayout';
+import DashboardHome from './components/DashboardHome';
+import InventoryPage from './components/InventoryPage';
 
 function App() {
   useEffect(() => {
@@ -26,19 +29,29 @@ function App() {
 
   return (
     <Switch>
-      <Route path="/" component={AdminDashboard} />
+      {/* Driver View (Standalone - Full Screen) */}
       <Route path="/driver" component={DriverView} />
       <Route path="/driver/:routeId" component={DriverView} />
 
-      {/* Fallback for unknown routes */}
+      {/* Admin Views (With Layout) */}
       <Route>
-        <div style={{
-          height: '100vh', background: '#f8fafc', color: '#0f172a',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
-        }}>
-          <h2>404 - Página no encontrada</h2>
-          <a href="/" style={{ color: '#9DBD39', marginTop: 10 }}>Volver al inicio</a>
-        </div>
+        <MainLayout>
+          <Switch>
+            <Route path="/" component={DashboardHome} />
+            <Route path="/operations" component={AdminDashboard} />
+            <Route path="/inventory" component={InventoryPage} />
+
+            {/* Fallback 404 within Layout */}
+            <Route>
+              <div style={{
+                height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#94a3b8'
+              }}>
+                <h2 style={{ color: '#f8fafc' }}>404 - Página no encontrada</h2>
+                <a href="/" style={{ color: '#10b981', marginTop: 10 }}>Volver al Panel Principal</a>
+              </div>
+            </Route>
+          </Switch>
+        </MainLayout>
       </Route>
     </Switch>
   );

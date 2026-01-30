@@ -37,6 +37,7 @@ const Sidebar = ({
     // Panel states
     const [activePanel, setActivePanel] = useState(null); // 'config', 'routes', 'import', 'ai'
     const [mobileCollapsed, setMobileCollapsed] = useState(true); // For mobile view
+    const [activeTab, setActiveTab] = useState('plan'); // 'plan', 'optimize', 'assign'
 
     // Module expand/collapse states
     const [expandedModules, setExpandedModules] = useState({
@@ -395,10 +396,16 @@ const Sidebar = ({
             padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600
         },
         stat: {
-            flex: 1, padding: '12px 14px',
-            background: 'rgba(255, 255, 255, 0.06)',
-            borderRadius: 12, textAlign: 'center',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+        },
+        tabBtn: {
+            flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600, color: '#64748b', background: 'transparent',
+            transition: 'all 0.2s', outline: 'none'
+        },
+        activeTabBtn: {
+            background: 'rgba(16, 185, 129, 0.15)', color: '#10b981',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)'
         }
     };
 
@@ -490,6 +497,37 @@ const Sidebar = ({
                             </div>
                         )}
                     </div>
+
+                    {/* === NAVIGATION TABS === */}
+                    {!activePanel && (
+                        <div style={{
+                            background: 'rgba(15, 23, 42, 0.92)',
+                            backdropFilter: 'blur(20px)',
+                            borderRadius: 14,
+                            padding: 6,
+                            display: 'flex',
+                            gap: 4,
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                            pointerEvents: 'auto'
+                        }}>
+                            <button onClick={() => setActiveTab('plan')} style={{ ...styles.tabBtn, ...(activeTab === 'plan' ? styles.activeTabBtn : {}) }}>
+                                <MapPin size={16} /> Puntos
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setActiveTab('optimize');
+                                    if (waypoints.length >= 2 && routeOptions.length === 0) handleOptimize();
+                                }}
+                                style={{ ...styles.tabBtn, ...(activeTab === 'optimize' ? styles.activeTabBtn : {}) }}
+                            >
+                                <Zap size={16} /> Optimizar
+                            </button>
+                            <button onClick={() => setActiveTab('assign')} style={{ ...styles.tabBtn, ...(activeTab === 'assign' ? styles.activeTabBtn : {}) }}>
+                                <Users size={16} /> Asignar
+                            </button>
+                        </div>
+                    )}
 
                     {activePanel === 'config' && (
                         <div style={styles.moduleCard}>
@@ -627,252 +665,276 @@ const Sidebar = ({
 
 
 
-                    {/* Route Options - Desktop List */}
-                    {!isMobile && showRouteOptions && (
-                        <div style={styles.moduleCard}>
-                            <div style={{ ...styles.moduleHeader, borderBottom: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Zap size={16} color="#10b981" /> Elige una Ruta
-                                </h3>
-                                <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
-                            </div>
-                            <div style={{ ...styles.moduleContent, maxHeight: 'calc(100vh - 350px)', overflowY: 'auto', paddingBottom: selectedRouteOption ? 60 : 16 }}>
-                                <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
-                                {routeOptions.map((opt, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => handlePreviewRouteOption(opt)}
-                                        style={{
-                                            width: '100%',
-                                            position: 'relative',
-                                            padding: '14px',
-                                            marginBottom: 10,
-                                            background: selectedRouteOption === opt
-                                                ? 'rgba(16, 185, 129, 0.15)'
-                                                : 'rgba(255, 255, 255, 0.05)',
-                                            border: selectedRouteOption === opt ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
-                                            borderRadius: 12,
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            color: '#e2e8f0',
-                                            transition: 'all 0.25s ease',
-                                            transform: selectedRouteOption === opt ? 'scale(1.02)' : 'scale(1)',
-                                            overflow: 'hidden'
-                                        }}
-                                        onMouseEnter={e => { if (selectedRouteOption !== opt) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                        onMouseLeave={e => { if (selectedRouteOption !== opt) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                                    >
-                                        <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ fontSize: 13, fontWeight: 700, color: selectedRouteOption === opt ? '#10b981' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                {selectedRouteOption === opt ? <Check size={16} /> : (i === 0 ? <Zap size={16} color="#eab308" /> : <Route size={16} color="#64748b" />)}
-                                                {opt.name}
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                {opt.hasTrafficData && (
-                                                    <span style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', borderRadius: 10, fontWeight: 600 }}>Trafico Real</span>
+                    {/* === OPTIMIZE TAB CONTENT === */}
+                    {activeTab === 'optimize' && !activePanel && (
+                        <div style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+
+                            {/* Route Options - Desktop List */}
+                            {(showRouteOptions || routeOptions.length > 0) && (
+                                <div style={styles.moduleCard}>
+                                    <div style={{ ...styles.moduleHeader, borderBottom: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <Zap size={16} color="#10b981" /> Elige una Ruta
+                                        </h3>
+                                        <button onClick={() => { setShowRouteOptions(false); setSelectedRouteOption(null); onPreviewRoute?.(null); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
+                                    </div>
+                                    <div style={{ ...styles.moduleContent, maxHeight: 'calc(100vh - 350px)', overflowY: 'auto', paddingBottom: selectedRouteOption ? 60 : 16 }}>
+                                        <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>👁️ Haz clic para ver preview en el mapa</p>
+                                        {routeOptions.map((opt, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => handlePreviewRouteOption(opt)}
+                                                style={{
+                                                    width: '100%',
+                                                    position: 'relative',
+                                                    padding: '14px',
+                                                    marginBottom: 10,
+                                                    background: selectedRouteOption === opt
+                                                        ? 'rgba(16, 185, 129, 0.15)'
+                                                        : 'rgba(255, 255, 255, 0.05)',
+                                                    border: selectedRouteOption === opt ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                                                    borderRadius: 12,
+                                                    cursor: 'pointer',
+                                                    textAlign: 'left',
+                                                    color: '#e2e8f0',
+                                                    transition: 'all 0.25s ease',
+                                                    transform: selectedRouteOption === opt ? 'scale(1.02)' : 'scale(1)',
+                                                    overflow: 'hidden'
+                                                }}
+                                                onMouseEnter={e => { if (selectedRouteOption !== opt) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                                onMouseLeave={e => { if (selectedRouteOption !== opt) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                            >
+                                                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: selectedRouteOption === opt ? '#10b981' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        {selectedRouteOption === opt ? <Check size={16} /> : (i === 0 ? <Zap size={16} color="#eab308" /> : <Route size={16} color="#64748b" />)}
+                                                        {opt.name}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        {opt.hasTrafficData && (
+                                                            <span style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', borderRadius: 10, fontWeight: 600 }}>Trafico Real</span>
+                                                        )}
+                                                        <div
+                                                            onClick={(e) => { e.stopPropagation(); setExpandedInfo(expandedInfo === i ? null : i); }}
+                                                            style={{ padding: 4, cursor: 'pointer', opacity: 0.7 }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                                                            onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
+                                                            title="Ver detalles"
+                                                        >
+                                                            <Info size={16} color="#60a5fa" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <Clock size={14} color="#64748b" />
+                                                        <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{opt.durationInTrafficFormatted || opt.durationFormatted}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <MapPin size={14} color="#64748b" />
+                                                        <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{opt.distanceKm} km</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize: 11, lineHeight: 1.4, color: '#64748b', paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    {opt.description}
+                                                </div>
+                                                {expandedInfo === i && (
+                                                    <div style={{ marginTop: 10, padding: '10px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, borderLeft: '3px solid #3b82f6' }} onClick={e => e.stopPropagation()}>
+                                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <Info size={12} /> ¿Cómo funciona?
+                                                        </div>
+                                                        <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
+                                                            {opt.longDescription}
+                                                        </div>
+                                                    </div>
                                                 )}
-                                                <div
-                                                    onClick={(e) => { e.stopPropagation(); setExpandedInfo(expandedInfo === i ? null : i); }}
-                                                    style={{ padding: 4, cursor: 'pointer', opacity: 0.7 }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
-                                                    title="Ver detalles"
-                                                >
-                                                    <Info size={16} color="#60a5fa" />
-                                                </div>
-                                            </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {selectedRouteOption && (
+                                        <div style={{
+                                            padding: '12px 16px',
+                                            borderTop: '1px solid rgba(255,255,255,0.1)',
+                                            background: 'rgba(15, 23, 42, 0.95)',
+                                            backdropFilter: 'blur(10px)'
+                                        }}>
+                                            <button
+                                                onClick={handleApplySelectedRoute}
+                                                style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center' }}
+                                            >
+                                                ✓ Aplicar esta ruta
+                                            </button>
                                         </div>
-                                        <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Clock size={14} color="#64748b" />
-                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{opt.durationInTrafficFormatted || opt.durationFormatted}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <MapPin size={14} color="#64748b" />
-                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{opt.distanceKm} km</span>
-                                            </div>
-                                        </div>
-                                        <div style={{ fontSize: 11, lineHeight: 1.4, color: '#64748b', paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                            {opt.description}
-                                        </div>
-                                        {expandedInfo === i && (
-                                            <div style={{ marginTop: 10, padding: '10px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, borderLeft: '3px solid #3b82f6' }} onClick={e => e.stopPropagation()}>
-                                                <div style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <Info size={12} /> ¿Cómo funciona?
-                                                </div>
-                                                <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
-                                                    {opt.longDescription}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                            {selectedRouteOption && (
-                                <div style={{
-                                    padding: '12px 16px',
-                                    borderTop: '1px solid rgba(255,255,255,0.1)',
-                                    background: 'rgba(15, 23, 42, 0.95)',
-                                    backdropFilter: 'blur(10px)'
-                                }}>
-                                    <button
-                                        onClick={handleApplySelectedRoute}
-                                        style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center' }}
-                                    >
-                                        ✓ Aplicar esta ruta
-                                    </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {(!showRouteOptions && routeOptions.length === 0) && (
+                                <div style={{ padding: 40, textAlign: 'center', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <Zap size={48} style={{ marginBottom: 16, opacity: 0.2 }} />
+                                    <p style={{ margin: 0 }}>No hay rutas generadas</p>
+                                    <p style={{ fontSize: 12, marginTop: 8 }}>Ve a "Puntos", agrega direcciones y presiona Optimizar.</p>
                                 </div>
                             )}
                         </div>
                     )}
 
 
-                    {/* === SEARCH MODULE === */}
-                    <div style={styles.moduleCard}>
-                        <div
-                            style={styles.moduleHeader}
-                            onClick={() => toggleModule('search')}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Search size={16} color="#3b82f6" /> Agregar Entrega
-                            </h3>
-                            {expandedModules.search ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
-                        </div>
-                        {expandedModules.search && (
-                            <div style={{ ...styles.moduleContent, position: 'relative' }}>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <input
-                                        value={addressInput}
-                                        onChange={e => setAddressInput(e.target.value)}
-                                        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                        placeholder="Buscar dirección..."
-                                        style={{ ...styles.input, flex: 1 }}
-                                        onKeyDown={e => e.key === 'Enter' && handleAddAddress()}
-                                    />
-                                    <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn }}>
-                                        {isGeocoding ? '...' : <Search size={18} />}
-                                    </button>
-                                </div>
-                                {showSuggestions && suggestions.length > 0 && (
-                                    <div style={{ position: 'absolute', top: 'calc(100% - 8px)', left: 16, right: 16, background: 'rgba(15, 23, 42, 0.98)', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 10 }}>
-                                        {suggestions.map((s, i) => (
-                                            <div
-                                                key={i}
-                                                onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }}
-                                                style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                            >
-                                                <MapPin size={16} color="#3b82f6" />
-                                                <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                    <div style={{ fontSize: 13, fontWeight: 500, color: '#e2e8f0' }}>{s.shortName}</div>
-                                                    <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    {/* === PLAN TAB CONTENT === */}
+                    {activeTab === 'plan' && !activePanel && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: 4 }}>
 
-                    {/* === DELIVERIES MODULE === */}
-                    <div style={styles.moduleCard}>
-                        <div
-                            style={styles.moduleHeader}
-                            onClick={() => toggleModule('deliveries')}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <MapPin size={16} color="#8b5cf6" /> Entregas
-                                <span style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{waypoints.length}</span>
-                            </h3>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                {waypoints.length > 0 && (
-                                    <>
-                                        <button onClick={(e) => { e.stopPropagation(); setWaypoints([]); }} style={{ ...styles.btn, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '6px 8px' }} title="Borrar todo">
-                                            <Trash2 size={14} />
-                                        </button>
-                                        {waypoints.length >= 2 && (
-                                            <button onClick={(e) => { e.stopPropagation(); handleOptimize(); }} disabled={isOptimizing} style={{ ...styles.btn, ...styles.primaryBtn, padding: '6px 10px' }}>
-                                                <Zap size={14} /> {isOptimizing ? '...' : 'Optimizar'}
+                            {/* === SEARCH MODULE === */}
+                            <div style={styles.moduleCard}>
+                                <div
+                                    style={styles.moduleHeader}
+                                    onClick={() => toggleModule('search')}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <Search size={16} color="#3b82f6" /> Agregar Entrega
+                                    </h3>
+                                    {expandedModules.search ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                                </div>
+                                {expandedModules.search && (
+                                    <div style={{ ...styles.moduleContent, position: 'relative' }}>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <input
+                                                value={addressInput}
+                                                onChange={e => setAddressInput(e.target.value)}
+                                                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                                placeholder="Buscar dirección..."
+                                                style={{ ...styles.input, flex: 1 }}
+                                                onKeyDown={e => e.key === 'Enter' && handleAddAddress()}
+                                            />
+                                            <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn }}>
+                                                {isGeocoding ? '...' : <Search size={18} />}
                                             </button>
+                                        </div>
+                                        {showSuggestions && suggestions.length > 0 && (
+                                            <div style={{ position: 'absolute', top: 'calc(100% - 8px)', left: 16, right: 16, background: 'rgba(15, 23, 42, 0.98)', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 10 }}>
+                                                {suggestions.map((s, i) => (
+                                                    <div
+                                                        key={i}
+                                                        onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }}
+                                                        style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                    >
+                                                        <MapPin size={16} color="#3b82f6" />
+                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#e2e8f0' }}>{s.shortName}</div>
+                                                            <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
-                                    </>
+                                    </div>
                                 )}
-                                {expandedModules.deliveries ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                            </div>
+
+                            {/* === DELIVERIES MODULE === */}
+                            <div style={styles.moduleCard}>
+                                <div
+                                    style={styles.moduleHeader}
+                                    onClick={() => toggleModule('deliveries')}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <MapPin size={16} color="#8b5cf6" /> Entregas
+                                        <span style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{waypoints.length}</span>
+                                    </h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        {waypoints.length > 0 && (
+                                            <>
+                                                <button onClick={(e) => { e.stopPropagation(); setWaypoints([]); }} style={{ ...styles.btn, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '6px 8px' }} title="Borrar todo">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                                {waypoints.length >= 2 && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleOptimize(); }} disabled={isOptimizing} style={{ ...styles.btn, ...styles.primaryBtn, padding: '6px 10px' }}>
+                                                        <Zap size={14} /> {isOptimizing ? '...' : 'Optimizar'}
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
+                                        {expandedModules.deliveries ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                                    </div>
+                                </div>
+                                {expandedModules.deliveries && (
+                                    <div style={styles.moduleContent}>
+                                        {fixedStart && (
+                                            <div style={{ ...styles.badge, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', marginBottom: 8, width: '100%', justifyContent: 'flex-start' }}>
+                                                <Home size={14} /> <span style={{ fontWeight: 600 }}>INICIO:</span> {fixedStart.address}
+                                            </div>
+                                        )}
+                                        <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                                            {waypoints.length === 0 ? (
+                                                <p style={{ fontSize: 12, color: '#64748b', textAlign: 'center', margin: '20px 0' }}>Agrega direcciones de entrega</p>
+                                            ) : waypoints.map((wp, i) => (
+                                                <div key={i} style={styles.waypoint}>
+                                                    <span style={{ width: 24, height: 24, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>{i + 1}</span>
+                                                    <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}</span>
+                                                    <button onClick={() => setWaypoints(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}><Trash2 size={14} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {(fixedEnd || returnToStart) && (
+                                            <div style={{ ...styles.badge, background: returnToStart ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: returnToStart ? '#10b981' : '#f59e0b', marginTop: 8, width: '100%', justifyContent: 'flex-start' }}>
+                                                {returnToStart ? <Home size={14} /> : <Flag size={14} />} <span style={{ fontWeight: 600 }}>FIN:</span> {returnToStart ? fixedStart?.address : fixedEnd?.address}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        {expandedModules.deliveries && (
-                            <div style={styles.moduleContent}>
-                                {fixedStart && (
-                                    <div style={{ ...styles.badge, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', marginBottom: 8, width: '100%', justifyContent: 'flex-start' }}>
-                                        <Home size={14} /> <span style={{ fontWeight: 600 }}>INICIO:</span> {fixedStart.address}
-                                    </div>
-                                )}
-                                <div style={{ maxHeight: 150, overflowY: 'auto' }}>
-                                    {waypoints.length === 0 ? (
-                                        <p style={{ fontSize: 12, color: '#64748b', textAlign: 'center', margin: '20px 0' }}>Agrega direcciones de entrega</p>
-                                    ) : waypoints.map((wp, i) => (
-                                        <div key={i} style={styles.waypoint}>
-                                            <span style={{ width: 24, height: 24, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>{i + 1}</span>
-                                            <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}</span>
-                                            <button onClick={() => setWaypoints(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}><Trash2 size={14} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                                {(fixedEnd || returnToStart) && (
-                                    <div style={{ ...styles.badge, background: returnToStart ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: returnToStart ? '#10b981' : '#f59e0b', marginTop: 8, width: '100%', justifyContent: 'flex-start' }}>
-                                        {returnToStart ? <Home size={14} /> : <Flag size={14} />} <span style={{ fontWeight: 600 }}>FIN:</span> {returnToStart ? fixedStart?.address : fixedEnd?.address}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    )}
 
                     {/* === ASSIGN MODULE === */}
-                    <div style={styles.moduleCard}>
-                        <div
-                            style={styles.moduleHeader}
-                            onClick={() => toggleModule('assign')}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Users size={16} color="#10b981" /> Asignar Ruta
-                            </h3>
-                            {expandedModules.assign ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
-                        </div>
-                        {expandedModules.assign && (
-                            <div style={styles.moduleContent}>
-                                {agents.length === 0 ? (
-                                    <button onClick={onOpenAgents} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Users size={16} /> Crear agente</button>
-                                ) : (
-                                    <>
-                                        <select
-                                            value={selectedAgent?.id || ''}
-                                            onChange={e => setSelectedAgent(agents.find(a => a.id == e.target.value) || null)}
-                                            style={{ ...styles.input, cursor: 'pointer', marginBottom: 12 }}
-                                        >
-                                            <option value="" style={{ background: '#0f172a', color: '#e2e8f0' }}>Selecciona un agente...</option>
-                                            {agents.map(a => <option key={a.id} value={a.id} style={{ background: '#0f172a', color: '#e2e8f0' }}>{a.name}</option>)}
-                                        </select>
-                                        <button
-                                            onClick={onAssign}
-                                            disabled={isSubmitting || !selectedAgent || waypoints.length === 0}
-                                            style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', opacity: (!selectedAgent || isSubmitting || waypoints.length === 0) ? 0.5 : 1 }}
-                                        >
-                                            <Play size={16} /> {isSubmitting ? 'Enviando...' : 'INICIAR RUTA'}
-                                        </button>
-                                    </>
+                    {activeTab === 'assign' && !activePanel && (
+                        <div style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+                            <div style={styles.moduleCard}>
+                                <div
+                                    style={styles.moduleHeader}
+                                    onClick={() => toggleModule('assign')}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <Users size={16} color="#10b981" /> Asignar Ruta
+                                    </h3>
+                                    {expandedModules.assign ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+                                </div>
+                                {expandedModules.assign && (
+                                    <div style={styles.moduleContent}>
+                                        {agents.length === 0 ? (
+                                            <button onClick={onOpenAgents} style={{ ...styles.btn, ...styles.secondaryBtn, width: '100%', justifyContent: 'center' }}><Users size={16} /> Crear agente</button>
+                                        ) : (
+                                            <>
+                                                <select
+                                                    value={selectedAgent?.id || ''}
+                                                    onChange={e => setSelectedAgent(agents.find(a => a.id == e.target.value) || null)}
+                                                    style={{ ...styles.input, cursor: 'pointer', marginBottom: 12 }}
+                                                >
+                                                    <option value="" style={{ background: '#0f172a', color: '#e2e8f0' }}>Selecciona un agente...</option>
+                                                    {agents.map(a => <option key={a.id} value={a.id} style={{ background: '#0f172a', color: '#e2e8f0' }}>{a.name}</option>)}
+                                                </select>
+                                                <button
+                                                    onClick={onAssign}
+                                                    disabled={isSubmitting || !selectedAgent || waypoints.length === 0}
+                                                    style={{ ...styles.btn, ...styles.primaryBtn, width: '100%', justifyContent: 'center', opacity: (!selectedAgent || isSubmitting || waypoints.length === 0) ? 0.5 : 1 }}
+                                                >
+                                                    <Play size={16} /> {isSubmitting ? 'Enviando...' : 'INICIAR RUTA'}
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </>
             )}
 
