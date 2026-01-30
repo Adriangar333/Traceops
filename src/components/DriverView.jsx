@@ -652,8 +652,17 @@ const DriverView = ({ params }) => {
                             fontSize: '0.7rem',
                             fontWeight: 600
                         }}>
-                            {lastGpsError ? <WifiOff size={12} /> : <Wifi size={12} />}
-                            {lastGpsError ? '⚠️' : `📡 ${gpsPings}`}
+                            {lastGpsError ? (
+                                <>
+                                    <WifiOff size={14} /> <span style={{ fontSize: '0.75rem' }}>Error GPS</span>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ width: 8, height: 8, background: 'white', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
+                                    <span style={{ fontSize: '0.75rem' }}>GPS ACTIVO</span>
+                                    <style>{`@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }`}</style>
+                                </>
+                            )}
                         </div>
                     )}
 
