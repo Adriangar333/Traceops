@@ -171,7 +171,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                                         <div style={{
                                             display: 'inline-block',
                                             fontSize: '10px',
-                                            fontSize: '10px',
+
                                             background: 'rgba(245, 158, 11, 0.1)',
                                             padding: '2px 6px',
                                             borderRadius: '4px',
