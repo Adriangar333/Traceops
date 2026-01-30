@@ -200,8 +200,24 @@ function AdminDashboard() {
             const routeId = Date.now();
             const formattedWaypoints = allPoints.map(transformCoordinates);
 
-            // Get route stats (using Google Directions) - Use optimize: false to respect current order
-            let stats = await getGoogleRoute(allPoints, { optimize: false });
+            // 1. Check if we already have a calculated route in preview (The "WYSIWYG" fix)
+            // If the user sees curves on screen, send THOSE curves.
+            let stats = null;
+            if (previewRoute && previewRoute.coordinates && previewRoute.coordinates.length > 0) {
+                console.log('Using geometry from Preview Route (WYSIWYG)');
+                stats = {
+                    success: true,
+                    distance: 0, // Not critical for geometry
+                    distanceKm: previewRoute.distanceKm,
+                    duration: previewRoute.duration || 0,
+                    coordinates: previewRoute.coordinates
+                };
+            }
+
+            // 2. If not found in preview, calculate fresh using Google Directions
+            if (!stats) {
+                stats = await getGoogleRoute(allPoints, { optimize: false });
+            }
 
             // Fallback to OSRM if Google fails to provide geometry
             if (!stats || !stats.success || !stats.coordinates || stats.coordinates.length === 0) {
