@@ -6,54 +6,62 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { getDriverHistory } from '../utils/backendService';
 
 // Vehicle Icons (SVG Strings)
+// Vehicle Icons (SVG Strings)
 const VEHICLE_ICONS = {
     // Moto (Cuadrilla Liviana)
     liviana: (initials) => `
         <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-            <div style="background:#10b981;border:2px solid white;border-radius:50%;width:36px;height:36px;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:2;">
+            <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);border:2px solid white;border-radius:50%;width:36px;height:36px;box-shadow:0 4px 12px rgba(16, 185, 129, 0.4);display:flex;align-items:center;justify-content:center;z-index:2;">
                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
             </div>
-            <div style="position:absolute;bottom:-6px;background:#064e3b;color:white;font-size:10px;padding:1px 4px;border-radius:4px;font-weight:bold;z-index:3;white-space:nowrap;border:1px solid white;">${initials}</div>
+            <div style="position:absolute;bottom:-8px;background:linear-gradient(to right, #064e3b, #047857);color:white;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:3;white-space:nowrap;border:1px solid rgba(255,255,255,0.3);box-shadow:0 2px 4px rgba(0,0,0,0.3);">${initials}</div>
+             <div style="position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #059669; z-index: 1;"></div>
         </div>`,
 
     // Camioneta/Pickup (Cuadrilla Mediana)
     mediana: (initials) => `
          <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-            <div style="background:#f59e0b;border:2px solid white;border-radius:50%;width:36px;height:36px;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:2;">
+            <div style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);border:2px solid white;border-radius:50%;width:36px;height:36px;box-shadow:0 4px 12px rgba(245, 158, 11, 0.4);display:flex;align-items:center;justify-content:center;z-index:2;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>
             </div>
-            <div style="position:absolute;bottom:-6px;background:#78350f;color:white;font-size:10px;padding:1px 4px;border-radius:4px;font-weight:bold;z-index:3;white-space:nowrap;border:1px solid white;">${initials}</div>
+            <div style="position:absolute;bottom:-8px;background:linear-gradient(to right, #78350f, #92400e);color:white;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:3;white-space:nowrap;border:1px solid rgba(255,255,255,0.3);box-shadow:0 2px 4px rgba(0,0,0,0.3);">${initials}</div>
+            <div style="position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #d97706; z-index: 1;"></div>
         </div>`,
 
     // Camión Canastilla (Cuadrilla Pesada)
     pesada: (initials) => `
          <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-             <div style="background:#ef4444;border:2px solid white;border-radius:50%;width:36px;height:36px;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:2;">
+             <div style="background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);border:2px solid white;border-radius:50%;width:36px;height:36px;box-shadow:0 4px 12px rgba(239, 68, 68, 0.4);display:flex;align-items:center;justify-content:center;z-index:2;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             </div>
-            <div style="position:absolute;top:-8px;right:-4px;background:#1e293b;color:#fbbf24;font-size:10px;padding:2px;border-radius:50%;border:1px solid white;z-index:4;">⚡</div>
-            <div style="position:absolute;bottom:-6px;background:#7f1d1d;color:white;font-size:10px;padding:1px 4px;border-radius:4px;font-weight:bold;z-index:3;white-space:nowrap;border:1px solid white;">${initials}</div>
+            <div style="position:absolute;top:-8px;right:-4px;background:#1e293b;color:#fbbf24;font-size:10px;padding:2px;border-radius:50%;border:1px solid white;z-index:4;box-shadow: 0 2px 4px rgba(0,0,0,0.3);">⚡</div>
+            <div style="position:absolute;bottom:-8px;background:linear-gradient(to right, #7f1d1d, #991b1b);color:white;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:3;white-space:nowrap;border:1px solid rgba(255,255,255,0.3);box-shadow:0 2px 4px rgba(0,0,0,0.3);">${initials}</div>
+             <div style="position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #dc2626; z-index: 1;"></div>
         </div>`,
 
     // Default (Generic Driver)
     default: (initials) => `
-        <div style="
-            background: #3b82f6;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            color: white;
-            text-transform: uppercase;
-        ">
-            ${initials}
+        <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+            <div style="
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                border: 2px solid white;
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: bold;
+                color: white;
+                text-transform: uppercase;
+                z-index: 2;
+            ">
+                ${initials}
+            </div>
+             <div style="position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #2563eb; z-index: 1;"></div>
         </div>
     `
 };
