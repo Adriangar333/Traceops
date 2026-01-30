@@ -262,14 +262,28 @@ export const getGoogleRoute = async (waypoints, options = {}) => {
                     });
 
                     const coordinates = [];
+
+                    // Try to get detailed path from steps
                     route.legs.forEach(l => {
                         l.steps.forEach(step => {
-                            const path = step.path || [];
+                            const path = step.path || step.lat_lngs || [];
                             path.forEach(point => {
-                                coordinates.push([point.lng(), point.lat()]);
+                                if (typeof point.lat === 'function') {
+                                    coordinates.push([point.lng(), point.lat()]);
+                                }
                             });
                         });
                     });
+
+                    // Fallback to overview_path if detailed steps are empty
+                    if (coordinates.length === 0 && route.overview_path) {
+                        console.warn('Using overview_path fallback for route geometry');
+                        route.overview_path.forEach(point => {
+                            if (typeof point.lat === 'function') {
+                                coordinates.push([point.lng(), point.lat()]);
+                            }
+                        });
+                    }
 
                     // Determine final order
                     let optimizedWaypoints = orderedWaypoints;
