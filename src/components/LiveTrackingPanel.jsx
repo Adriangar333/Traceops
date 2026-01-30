@@ -202,17 +202,45 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 target.classList.add('panic-active');
             }
 
+            // Determine Alert Style based on Type
+            const alertType = data.type || 'SOS';
+            let toastStyle = {
+                background: '#dc2626',
+                color: 'white',
+                border: '2px solid white',
+                fontSize: '1.2rem',
+                fontWeight: 'bold'
+            };
+            let title = 'ALERTA SOS';
+            let icon = '🚨';
+            let duration = Infinity;
+
+            if (alertType === 'Imposibilidad') {
+                toastStyle.background = '#f59e0b'; // Amber/Orange
+                title = 'Reporte de Imposibilidad';
+                icon = '⚠️';
+                duration = 10000; // Auto dismiss after 10s
+            } else if (alertType === 'Predio Cerrado') {
+                toastStyle.background = '#3b82f6'; // Blue
+                title = 'Predio Cerrado';
+                icon = '🏠';
+                duration = 8000;
+            } else if (alertType === 'Cliente Agresivo') {
+                title = 'CLIENTE AGRESIVO';
+                icon = '🤬';
+                // Keep Red
+            } else if (alertType === 'Falla Mecánica') {
+                toastStyle.background = '#ea580c'; // Dark Orange
+                title = 'Falla Mecánica';
+                icon = '🔧';
+                duration = 15000;
+            }
+
             // 2. Show Critical Toast
-            toast.error(`🚨 ALERTA SOS: ${driverName} reporta emergencia!`, {
-                duration: Infinity, // Requires manual dismissal
-                style: {
-                    background: '#dc2626',
-                    color: 'white',
-                    border: '2px solid white',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold'
-                },
-                description: `Hora: ${new Date().toLocaleTimeString()} - Revisar mapa ahora.`
+            toast.error(`${icon} ${title}: ${driverName}`, {
+                duration: duration,
+                style: toastStyle,
+                description: `Tipo: ${alertType} - Hora: ${new Date().toLocaleTimeString()}`
             });
         });
 
