@@ -196,8 +196,10 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
 
             // 1. Flash Marker immediately if it exists on map
             if (markers.current[data.driverId]) {
-                const el = markers.current[data.driverId].getElement();
-                el.classList.add('panic-active');
+                const markerEl = markers.current[data.driverId].getElement();
+                // Try to find inner wrapper, or fallback to element itself (backward comp)
+                const target = markerEl.querySelector('.driver-marker-inner') || markerEl;
+                target.classList.add('panic-active');
             }
 
             // 2. Show Critical Toast
@@ -283,20 +285,35 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
         if (markers.current[markerId]) {
             // Update existing marker
             markers.current[markerId].setLngLat([driver.lng, driver.lat]);
+
+            // Apply Panic Animation if active (update existing)
+            if (panicDrivers[driver.driverId]) {
+                const el = markers.current[markerId].getElement();
+                const inner = el.querySelector('.driver-marker-inner');
+                // Backward compatibility or inner update
+                if (inner) inner.classList.add('panic-active');
+                else el.classList.add('panic-active');
+            }
         } else {
             // Create new marker
             const el = document.createElement('div');
+            el.className = 'driver-marker-container';
+
+            // Inner wrapper for animation isolation (Fixes positioning bug)
+            const inner = document.createElement('div');
+            inner.className = 'driver-marker-inner';
+            inner.style.display = 'flex';
+            inner.style.alignItems = 'center';
+            inner.style.justifyContent = 'center';
+
             const info = resolveDriverInfo(driver.driverId);
-            // Get initials or fallback to ID
             const initials = info.name === driver.driverId
                 ? (typeof driver.driverId === 'string' ? driver.driverId.substring(0, 2) : 'D')
                 : info.name.split(' ').map(n => n[0]).join('').substring(0, 2);
 
-            el.className = 'driver-marker-container'; // Add class for potential CSS styling
-
-            // Apply Panic Animation if active
+            // Apply Panic Animation to INNER element
             if (panicDrivers[driver.driverId]) {
-                el.classList.add('panic-active');
+                inner.classList.add('panic-active');
             }
 
             const cuadrillaType = (info.cuadrilla || '').toLowerCase();
@@ -310,7 +327,8 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 iconHtml = VEHICLE_ICONS.pesada(initials);
             }
 
-            el.innerHTML = iconHtml;
+            inner.innerHTML = iconHtml;
+            el.appendChild(inner);
 
             const marker = new maplibregl.Marker({ element: el })
                 .setLngLat([driver.lng, driver.lat])

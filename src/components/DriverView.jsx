@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw, AlertTriangle, AlertOctagon, Lock, XCircle, Search, Siren } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
@@ -34,6 +34,7 @@ const DriverView = ({ params }) => {
     const [pendingCount, setPendingCount] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false);
     const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
+    const [showPanicMenu, setShowPanicMenu] = useState(false);
 
     // Get driverId from URL params or generate one
     const searchParams = new URLSearchParams(window.location.search);
@@ -42,7 +43,61 @@ const DriverView = ({ params }) => {
     // Check if we are native
     const isNative = window.Capacitor && window.Capacitor.isNative;
 
-    const handlePanic = () => {
+    const handlePanicOption = (type) => {
+        const typeConfig = {
+            'sos': { label: 'ALERTA SOS', msg: '🚨 ALERTA SOS ENVIADA 🚨' },
+            'aggressive': { label: 'Cliente Agresivo', msg: '🤬 Alerta: Cliente Agresivo' },
+            'closed': { label: 'Predio Cerrado', msg: '⛔ Alerta: Predio Cerrado' },
+            'impossible': { label: 'Imposibilidad', msg: '🚧 Alerta: Imposibilidad de Entrega' }
+        };
+
+        const config = typeConfig[type] || typeConfig['sos'];
+
+        if (window.confirm(`¿Enviar reporte de: ${config.label}?`)) {
+            try {
+                const socket = window.socket || io('https://dashboard-backend.zvkdyr.easypanel.host');
+                const activeDriverId = driverId || localStorage.getItem('traceops_driver_id');
+
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const payload = {
+                            driverId: activeDriverId,
+                            routeId: routeId,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            type: 'panic',
+                            subtype: type,
+                            details: config.label,
+                            timestamp: new Date().toISOString()
+                        };
+                        console.log(`🚨 Sending ${type} Alert:`, payload);
+                        socket.emit('driver:panic', payload);
+                        toast.error(config.msg, { duration: 5000 });
+                        setShowPanicMenu(false);
+                    },
+                    (err) => {
+                        console.warn('Location failed, sending basic alert', err);
+                        socket.emit('driver:panic', {
+                            driverId: activeDriverId,
+                            routeId,
+                            type: 'panic',
+                            subtype: type,
+                            details: config.label,
+                            error: 'No GPS'
+                        });
+                        toast.error(`${config.msg} (Sin GPS)`, { duration: 5000 });
+                        setShowPanicMenu(false);
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            } catch (error) {
+                console.error('Alert error:', error);
+                toast.error('Error al enviar alerta');
+            }
+        }
+    };
+
+    const handlePanic_OLD = () => {
         if (window.confirm("🚨 ¿ESTÁS SEGURO? \n\nSe enviará una ALERTA DE PÁNICO inmediata al administrador con tu ubicación.")) {
             try {
                 const socket = window.socket || io('https://dashboard-backend.zvkdyr.easypanel.host');
@@ -263,6 +318,11 @@ const DriverView = ({ params }) => {
                 if (!routeCoordinates || routeCoordinates.length === 0) {
                     console.warn('Using fallback straight lines (No valid geometry found)');
                     routeCoordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+                    // DEBUG TOAST FOR USER
+                    toast.info(`⚠️ Ruta: Geometría no encontrada. Usando modo simple. (ID: ${route.id})`, { duration: 8000 });
+                } else {
+                    // DEBUG SUCCESS
+                    // toast.success(`✅ Ruta cargada: ${routeCoordinates.length} puntos`, { duration: 3000 });
                 }
 
                 // Fit bounds
@@ -689,12 +749,12 @@ const DriverView = ({ params }) => {
         <div style={{ background: '#f8fafc', height: '100dvh', display: 'flex', flexDirection: 'column', color: '#0f172a', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
             <Toaster position="top-center" richColors />
 
-            {/* SOS / Panic Button - Always Visible */}
+            {/* SOS / Panic Button - Toggles Menu */}
             <button
-                onClick={handlePanic}
+                onClick={() => setShowPanicMenu(!showPanicMenu)}
                 style={{
                     position: 'fixed',
-                    bottom: 180, // Positioned above other FABs (if any)
+                    bottom: 180, // Positioned above other FABs
                     right: 16,
                     width: 56,
                     height: 56,
@@ -709,12 +769,42 @@ const DriverView = ({ params }) => {
                     justifyContent: 'center',
                     cursor: 'pointer',
                     outline: 'none',
-                    animation: 'pulse-red 2s infinite'
+                    animation: 'pulse-red 2s infinite',
+                    transform: showPanicMenu ? 'rotate(45deg)' : 'none',
+                    transition: 'transform 0.3s ease'
                 }}
-                aria-label="Botón de Pánico"
+                aria-label="Menú de Alertas"
             >
-                <AlertTriangle size={28} strokeWidth={3} />
+                {showPanicMenu ? <XCircle size={28} /> : <AlertTriangle size={28} strokeWidth={3} />}
             </button>
+
+            {/* Alert Menu Overlay */}
+            {showPanicMenu && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: 250,
+                    right: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    zIndex: 9998,
+                    animation: 'slide-up 0.3s ease-out'
+                }}>
+                    <button onClick={() => handlePanicOption('sos')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#dc2626', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                        <Siren size={20} /> SOS / EMERGENCIA
+                    </button>
+                    <button onClick={() => handlePanicOption('aggressive')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#ea580c', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                        <AlertOctagon size={20} /> Cliente Agresivo
+                    </button>
+                    <button onClick={() => handlePanicOption('closed')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#f59e0b', color: 'black', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                        <Lock size={20} /> Predio Cerrado
+                    </button>
+                    <button onClick={() => handlePanicOption('impossible')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#eab308', color: 'black', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                        <XCircle size={20} /> Imposibilidad
+                    </button>
+                    <style>{`@keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                </div>
+            )}
             <style>{`
                 @keyframes pulse-red {
                     0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
