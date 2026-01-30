@@ -298,6 +298,7 @@ body {
 .panic-active {
   animation: panic-pulse 1.5s infinite;
   z-index: 9999 !important;
+  border-radius: 50% !important;
 }
 
 .panic-active div {
