@@ -67,11 +67,22 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     const [historyDate, setHistoryDate] = useState('');
     const [historyData, setHistoryData] = useState(null);
     const [showHistory, setShowHistory] = useState(false);
+    const [mapStyle, setMapStyle] = useState('dark');
+    const [showStylePicker, setShowStylePicker] = useState(false);
     const mapContainer = useRef(null);
     const map = useRef(null);
     const markers = useRef({});
     const historyLayerRef = useRef(null);
     const socketRef = useRef(null);
+
+    // Map style options
+    const MAP_STYLES = {
+        dark: { name: '🌙 Oscuro', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
+        streets: { name: '🗺️ Google Maps', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+        satellite: { name: '🛰️ Satélite', url: 'https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL' },
+        hybrid: { name: '🌍 Híbrido', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
+        terrain: { name: '⛰️ Terreno', url: 'https://demotiles.maplibre.org/style.json' }
+    };
 
     // Resolve driver name and cuadrilla
     const resolveDriverInfo = (driverId) => {
@@ -103,7 +114,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
 
         map.current = new maplibregl.Map({
             container: mapContainer.current,
-            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+            style: MAP_STYLES[mapStyle].url,
             center: [-74.8061, 10.9961], // Barranquilla
             zoom: 12
         });
@@ -117,6 +128,13 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             }
         };
     }, [isOpen]);
+
+    // Update map style when changed
+    useEffect(() => {
+        if (map.current && MAP_STYLES[mapStyle]) {
+            map.current.setStyle(MAP_STYLES[mapStyle].url);
+        }
+    }, [mapStyle]);
 
     // Socket connection for real-time updates
     useEffect(() => {
@@ -276,29 +294,45 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             display: 'flex',
             flexDirection: 'column'
         }}>
-            {/* Header */}
+            {/* Header - Premium Traceops Branding */}
             <div style={{
-                padding: '16px 20px',
-                background: '#ffffff',
-                borderBottom: '1px solid #e2e8f0',
+                padding: '12px 20px',
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                borderBottom: '1px solid #334155',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
                 zIndex: 10
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Radio size={24} color="#9DBD39" />
-                    <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 700 }}>
-                        Rastreo en Vivo
-                    </h2>
-                    <span style={{
-                        background: '#9DBD39',
-                        color: 'white',
-                        padding: '4px 10px',
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                        width: 42,
+                        height: 42,
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                         borderRadius: 12,
-                        fontSize: '0.8rem',
-                        fontWeight: 600
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)'
+                    }}>
+                        <Radio size={22} color="white" />
+                    </div>
+                    <div>
+                        <h2 style={{ margin: 0, color: '#ffffff', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                            Traceops Live
+                        </h2>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Rastreo en tiempo real</p>
+                    </div>
+                    <span style={{
+                        background: driverList.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#475569',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: 20,
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        marginLeft: 8,
+                        boxShadow: driverList.length > 0 ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
                     }}>
                         {driverList.length} activo{driverList.length !== 1 ? 's' : ''}
                     </span>
@@ -306,107 +340,239 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 <button
                     onClick={onClose}
                     style={{
-                        background: '#f1f5f9',
-                        border: '1px solid #e2e8f0',
-                        color: '#64748b',
+                        background: 'rgba(255,255,255,0.1)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#e2e8f0',
                         padding: '8px 16px',
                         borderRadius: 8,
                         cursor: 'pointer',
-                        fontWeight: 500
+                        fontWeight: 500,
+                        transition: 'all 0.2s'
                     }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
                 >
                     Cerrar
                 </button>
             </div>
 
             {/* Content */}
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                {/* Driver List */}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+                {/* Floating Driver Panel - Glassmorphism */}
                 <div style={{
-                    width: 320,
-                    background: '#f8fafc',
-                    borderRight: '1px solid #e2e8f0',
+                    position: 'absolute',
+                    top: 16,
+                    left: 16,
+                    width: 300,
+                    maxHeight: 'calc(100% - 32px)',
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    borderRadius: 16,
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
                     overflowY: 'auto',
-                    padding: 16
+                    padding: 16,
+                    zIndex: 100
                 }}>
-                    <h3 style={{ color: '#64748b', margin: '0 0 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
-                        <Users size={16} /> Conductores Activos
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <h3 style={{ color: '#e2e8f0', margin: 0, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+                            <Users size={16} color="#10b981" />
+                            Conductores
+                        </h3>
+                        <span style={{
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            color: '#10b981',
+                            padding: '2px 8px',
+                            borderRadius: 10,
+                            fontSize: '0.7rem',
+                            fontWeight: 600
+                        }}>
+                            {driverList.length} en línea
+                        </span>
+                    </div>
 
                     {driverList.length === 0 ? (
                         <div style={{
-                            padding: 20,
+                            padding: 24,
                             textAlign: 'center',
                             color: '#64748b'
                         }}>
-                            <RefreshCw size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-                            <p style={{ margin: 0 }}>
-                                No hay conductores transmitiendo ubicación.
+                            <div style={{
+                                width: 48,
+                                height: 48,
+                                background: 'rgba(100, 116, 139, 0.2)',
+                                borderRadius: 12,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 12px'
+                            }}>
+                                <RefreshCw size={24} style={{ opacity: 0.5 }} />
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
+                                Sin conductores activos
                             </p>
-                            <p style={{ margin: '8px 0 0', fontSize: '0.85rem' }}>
-                                Aparecerán cuando inicien una ruta.
+                            <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                                Aparecerán al iniciar ruta
                             </p>
                         </div>
                     ) : (
-                        driverList.map(driver => (
-                            <div
-                                key={driver.driverId}
-                                onClick={() => {
-                                    setSelectedDriver(driver.driverId);
-                                    if (map.current) {
-                                        map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 15 });
-                                    }
-                                }}
-                                style={{
-                                    padding: 12,
-                                    background: selectedDriver === driver.driverId ? '#ffffff' : 'transparent',
-                                    borderRadius: 8,
-                                    marginBottom: 8,
-                                    cursor: 'pointer',
-                                    border: selectedDriver === driver.driverId ? '1px solid #9DBD39' : '1px solid transparent',
-                                    boxShadow: selectedDriver === driver.driverId ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <div style={{
-                                        width: 10,
-                                        height: 10,
-                                        borderRadius: '50%',
-                                        background: '#9DBD39',
-                                        boxShadow: '0 0 8px #9DBD39'
-                                    }} />
-                                    <div>
-                                        <span style={{ color: '#0f172a', fontWeight: 600, display: 'block' }}>
-                                            {resolveDriverInfo(driver.driverId).name}
-                                        </span>
-                                        {resolveDriverInfo(driver.driverId).cuadrilla && (
-                                            <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 2, border: '1px solid #e2e8f0' }}>
-                                                {resolveDriverInfo(driver.driverId).cuadrilla}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {driverList.map(driver => (
+                                <div
+                                    key={driver.driverId}
+                                    onClick={() => {
+                                        setSelectedDriver(driver.driverId);
+                                        if (map.current) {
+                                            map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 15 });
+                                        }
+                                    }}
+                                    style={{
+                                        padding: 12,
+                                        background: selectedDriver === driver.driverId
+                                            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%)'
+                                            : 'rgba(255, 255, 255, 0.05)',
+                                        borderRadius: 12,
+                                        cursor: 'pointer',
+                                        border: selectedDriver === driver.driverId
+                                            ? '1px solid rgba(16, 185, 129, 0.5)'
+                                            : '1px solid rgba(255, 255, 255, 0.08)',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={e => {
+                                        if (selectedDriver !== driver.driverId) {
+                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                                        }
+                                    }}
+                                    onMouseLeave={e => {
+                                        if (selectedDriver !== driver.driverId) {
+                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                                        }
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{
+                                            width: 10,
+                                            height: 10,
+                                            borderRadius: '50%',
+                                            background: '#10b981',
+                                            boxShadow: '0 0 10px rgba(16, 185, 129, 0.6)',
+                                            animation: 'pulse 2s infinite'
+                                        }} />
+                                        <div style={{ flex: 1 }}>
+                                            <span style={{ color: '#f1f5f9', fontWeight: 600, display: 'block', fontSize: '0.9rem' }}>
+                                                {resolveDriverInfo(driver.driverId).name}
+                                            </span>
+                                            {resolveDriverInfo(driver.driverId).cuadrilla && (
+                                                <span style={{
+                                                    fontSize: '0.7rem',
+                                                    color: '#f59e0b',
+                                                    background: 'rgba(245, 158, 11, 0.15)',
+                                                    padding: '2px 6px',
+                                                    borderRadius: 4,
+                                                    display: 'inline-block',
+                                                    marginTop: 4
+                                                }}>
+                                                    {resolveDriverInfo(driver.driverId).cuadrilla}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, color: '#64748b', fontSize: '0.75rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Clock size={12} />
+                                            <span>{formatLastUpdate(driver.lastUpdate)}</span>
+                                        </div>
+                                        {driver.speed && (
+                                            <span style={{ color: '#10b981', fontWeight: 500 }}>
+                                                {Math.round(driver.speed * 3.6)} km/h
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, color: '#64748b', fontSize: '0.8rem' }}>
-                                    <MapPin size={12} />
-                                    <span>{driver.lat?.toFixed(5)}, {driver.lng?.toFixed(5)}</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, color: '#94a3b8', fontSize: '0.75rem' }}>
-                                    <Clock size={12} />
-                                    <span>{formatLastUpdate(driver.lastUpdate)}</span>
-                                    {driver.speed && (
-                                        <span style={{ marginLeft: 8 }}>
-                                            {Math.round(driver.speed * 3.6)} km/h
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        ))
+                            ))}
+                        </div>
                     )}
                 </div>
 
                 {/* Map */}
                 <div style={{ flex: 1, position: 'relative' }}>
                     <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+
+                    {/* Map Style Picker */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 16,
+                        right: 60,
+                        zIndex: 50
+                    }}>
+                        <button
+                            onClick={() => setShowStylePicker(!showStylePicker)}
+                            style={{
+                                background: 'rgba(15, 23, 42, 0.9)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: 10,
+                                padding: '10px 14px',
+                                color: '#e2e8f0',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontSize: '0.85rem',
+                                fontWeight: 500,
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                            }}
+                        >
+                            🌐 Estilo de Mapa
+                        </button>
+                        {showStylePicker && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                marginTop: 8,
+                                background: 'rgba(15, 23, 42, 0.95)',
+                                backdropFilter: 'blur(12px)',
+                                WebkitBackdropFilter: 'blur(12px)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: 12,
+                                padding: 8,
+                                minWidth: 160,
+                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
+                            }}>
+                                {Object.entries(MAP_STYLES).map(([key, style]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => { setMapStyle(key); setShowStylePicker(false); }}
+                                        style={{
+                                            display: 'block',
+                                            width: '100%',
+                                            padding: '10px 14px',
+                                            background: mapStyle === key
+                                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                                : 'transparent',
+                                            border: 'none',
+                                            borderRadius: 8,
+                                            color: mapStyle === key ? 'white' : '#94a3b8',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            fontSize: '0.85rem',
+                                            fontWeight: mapStyle === key ? 600 : 400,
+                                            marginBottom: 4,
+                                            transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => { if (mapStyle !== key) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                        onMouseLeave={e => { if (mapStyle !== key) e.currentTarget.style.background = 'transparent'; }}
+                                    >
+                                        {style.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {/* History Stats Overlay */}
                     {showHistory && historyData && (
