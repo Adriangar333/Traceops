@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw } from 'lucide-react';
+import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
@@ -41,6 +41,49 @@ const DriverView = ({ params }) => {
 
     // Check if we are native
     const isNative = window.Capacitor && window.Capacitor.isNative;
+
+    const handlePanic = () => {
+        if (window.confirm("🚨 ¿ESTÁS SEGURO? \n\nSe enviará una ALERTA DE PÁNICO inmediata al administrador con tu ubicación.")) {
+            try {
+                const socket = window.socket || io('https://dashboard-backend.zvkdyr.easypanel.host');
+
+                // Resolve ID locally since effectiveDriverId is not in scope
+                const activeDriverId = driverId || localStorage.getItem('traceops_driver_id');
+
+                // Try to get precise location immediately
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const payload = {
+                            driverId: activeDriverId,
+                            routeId: routeId,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            type: 'panic',
+                            timestamp: new Date().toISOString()
+                        };
+                        console.log('🚨 Sending Panic Alert:', payload);
+                        socket.emit('driver:panic', payload);
+                        toast.error("🚨 ALERTA SOS ENVIADA 🚨", { duration: 5000 });
+                    },
+                    (err) => {
+                        console.warn('Panic location failed, sending basic alert', err);
+                        // Send basic alert without precise location
+                        socket.emit('driver:panic', {
+                            driverId: activeDriverId,
+                            routeId,
+                            type: 'panic',
+                            error: 'No GPS'
+                        });
+                        toast.error("🚨 ALERTA ENVIADA (Sin GPS preciso) 🚨", { duration: 5000 });
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            } catch (error) {
+                console.error('Panic button error:', error);
+                toast.error('Error al enviar alerta');
+            }
+        }
+    };
 
     useEffect(() => {
         const load = async () => {
@@ -197,18 +240,28 @@ const DriverView = ({ params }) => {
             // Add Route Line
             if (route.waypoints && route.waypoints.length > 1) {
                 // Use actual route geometry if available (from optimized route), otherwise fallback to straight lines
-                let routeCoordinates;
-                if (route.routeGeometry && route.routeGeometry.coordinates && route.routeGeometry.coordinates.length > 0) {
-                    // CamelCase (frontend optimized)
-                    routeCoordinates = route.routeGeometry.coordinates;
-                } else if (route.route_geometry && route.route_geometry.coordinates && route.route_geometry.coordinates.length > 0) {
-                    // SnakeCase (DB direct)
-                    routeCoordinates = route.route_geometry.coordinates;
-                } else if (route.geometry && route.geometry.coordinates && route.geometry.coordinates.length > 0) {
-                    // Generic
-                    routeCoordinates = route.geometry.coordinates;
-                } else {
-                    // Fallback to straight lines if no geometry
+                // Robust Geometry Extraction
+                let routeCoordinates = null;
+                const geom = route.route_geometry || route.routeGeometry || route.geometry;
+
+                if (geom) {
+                    if (Array.isArray(geom)) {
+                        // Case 1: Raw Array [[lng, lat], ...]
+                        routeCoordinates = geom;
+                    } else if (geom.coordinates && Array.isArray(geom.coordinates)) {
+                        // Case 2: GeoJSON Object { type: 'LineString', coordinates: [...] }
+                        routeCoordinates = geom.coordinates;
+                    } else if (typeof geom === 'string') {
+                        try {
+                            const parsed = JSON.parse(geom);
+                            routeCoordinates = Array.isArray(parsed) ? parsed : parsed.coordinates;
+                        } catch (e) { console.error('Error parsing geometry string', e); }
+                    }
+                }
+
+                // Fallback to straight lines if extraction failed
+                if (!routeCoordinates || routeCoordinates.length === 0) {
+                    console.warn('Using fallback straight lines (No valid geometry found)');
                     routeCoordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
                 }
 
@@ -345,7 +398,21 @@ const DriverView = ({ params }) => {
             // Better approach:
             map.current.once('style.load', () => {
                 if (route && route.waypoints && route.waypoints.length > 1) {
-                    const coordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+                    // Same robust logic as initial load
+                    let coordinates = null;
+                    const geom = route.route_geometry || route.routeGeometry || route.geometry;
+
+                    if (geom) {
+                        if (Array.isArray(geom)) coordinates = geom;
+                        else if (geom.coordinates && Array.isArray(geom.coordinates)) coordinates = geom.coordinates;
+                        else if (typeof geom === 'string') {
+                            try { const parsed = JSON.parse(geom); coordinates = Array.isArray(parsed) ? parsed : parsed.coordinates; } catch (e) { }
+                        }
+                    }
+
+                    if (!coordinates || coordinates.length === 0) {
+                        coordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
+                    }
                     if (!map.current.getSource('route')) {
                         map.current.addSource('route', {
                             'type': 'geojson',
@@ -621,6 +688,40 @@ const DriverView = ({ params }) => {
     return (
         <div style={{ background: '#f8fafc', height: '100dvh', display: 'flex', flexDirection: 'column', color: '#0f172a', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
             <Toaster position="top-center" richColors />
+
+            {/* SOS / Panic Button - Always Visible */}
+            <button
+                onClick={handlePanic}
+                style={{
+                    position: 'fixed',
+                    bottom: 180, // Positioned above other FABs (if any)
+                    right: 16,
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: '#ef4444',
+                    color: 'white',
+                    border: '4px solid rgba(255,255,255,0.2)',
+                    boxShadow: '0 4px 20px rgba(220, 38, 38, 0.6)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    animation: 'pulse-red 2s infinite'
+                }}
+                aria-label="Botón de Pánico"
+            >
+                <AlertTriangle size={28} strokeWidth={3} />
+            </button>
+            <style>{`
+                @keyframes pulse-red {
+                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+                    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                }
+            `}</style>
 
             {/* Header */}
             <div style={{

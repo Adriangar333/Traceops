@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Users, Radio, MapPin, Clock, RefreshCw, Calendar, Route, Bell } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { toast } from 'sonner';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getDriverHistory } from '../utils/backendService';
@@ -172,6 +173,24 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
         socketRef.current.on('driver:arrived', (data) => {
             console.log('🚩 Arrival:', data);
             setArrivals(prev => [data, ...prev].slice(0, 10)); // Keep last 10
+        });
+
+        // Listen for Panic Alerts
+        socketRef.current.on('admin:panic-alert', (data) => {
+            console.error('🚨 PANIC ALERT RECEIVED:', data);
+            toast.error(`🚨 ALERTA SOS: Conductor ${data.driverId || 'Desconocido'} reporta emergencia!`, {
+                duration: Infinity, // Requires manual dismissal
+                style: {
+                    background: '#dc2626',
+                    color: 'white',
+                    border: '2px solid white',
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold'
+                },
+                description: `Hora: ${new Date().toLocaleTimeString()} - Revisar mapa ahora.`
+            });
+
+            // Auto-focus logic could go here if we tracked map center state
         });
 
         return () => {

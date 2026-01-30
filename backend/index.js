@@ -588,8 +588,8 @@ io.on('connection', (socket) => {
             try {
                 // Mark as arrived in DB
                 await pool.query(`
-                    UPDATE route_waypoints 
-                    SET arrived = TRUE, arrived_at = CURRENT_TIMESTAMP 
+                    UPDATE route_waypoints
+                    SET arrived = TRUE, arrived_at = CURRENT_TIMESTAMP
                     WHERE id = $1
                 `, [waypoint.id]);
 
@@ -615,6 +615,21 @@ io.on('connection', (socket) => {
             }
         }
     });
+
+    // Panic Button Alert
+    socket.on('driver:panic', (data) => {
+        console.warn(`🚨 PANIC ALERT received from Driver ${data.driverId}`, data);
+
+        // Broadcast to all admins
+        io.emit('admin:panic-alert', {
+            ...data,
+            serverTimestamp: new Date().toISOString()
+        });
+
+        // Optional: Persist to a database table specifically for alerts
+    });
+
+
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
@@ -647,5 +662,5 @@ app.get('/health', async (req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`🚀 Backend server running on port ${PORT}`);
+    console.log(`🚀 Backend server running on port ${PORT} `);
 });
