@@ -73,12 +73,12 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ padding: '10px', background: '#9DBD39', borderRadius: '12px', color: 'white' }}>
+                        <div style={{ padding: '10px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: '12px', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.25)' }}>
                             <Users size={22} />
                         </div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>Gestión de Agentes</h2>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{agents.length} agentes registrados</p>
+                            <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>{agents.length} agentes • Traceops Fleet</p>
                         </div>
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>

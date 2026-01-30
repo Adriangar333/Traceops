@@ -102,10 +102,13 @@ const Dashboard = ({ onClose, agents }) => {
                     gap: '10px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ padding: 8, background: '#9DBD39', borderRadius: 8, color: 'white' }}>
+                        <div style={{ padding: 8, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: 8, color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.25)' }}>
                             <BarChart3 size={20} />
                         </div>
-                        <h2 style={{ margin: 0, color: '#0f172a', fontSize: '16px', fontWeight: 700 }}>Metricas de Operación</h2>
+                        <div>
+                            <h2 style={{ margin: 0, color: '#0f172a', fontSize: '16px', fontWeight: 700 }}>Métricas de Operación</h2>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '11px' }}>Traceops Analytics</p>
+                        </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button

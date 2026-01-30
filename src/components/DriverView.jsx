@@ -455,9 +455,11 @@ const DriverView = ({ params }) => {
                 <div style={{ background: '#f8fafc', minHeight: '100dvh', padding: 20, color: '#0f172a', fontFamily: 'Inter, system-ui' }}>
                     <Toaster position="top-center" richColors />
                     <div style={{ textAlign: 'center', marginBottom: 30, paddingTop: 20 }}>
-                        <div style={{ fontSize: 40, marginBottom: 10 }}>👋</div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>Bienvenido a ISES Rutas</h2>
-                        <p style={{ color: '#64748b', marginTop: 8 }}>Selecciona tu perfil para continuar</p>
+                        <div style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(16,185,129,0.3)' }}>
+                            <Navigation size={32} color="white" />
+                        </div>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>Traceops</h2>
+                        <p style={{ color: '#64748b', marginTop: 6, fontSize: '0.9rem' }}>Sistema de Logística Inteligente</p>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

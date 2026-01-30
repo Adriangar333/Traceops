@@ -364,18 +364,12 @@ const Sidebar = ({
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ width: 44, height: 44, background: '#9DBD39', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(157,189,57,0.3)' }}>
-                                    <img
-                                        src="https://ises-sas.com/wp-content/uploads/2021/08/logo-ises-sas.png"
-                                        alt="ISES"
-                                        style={{ width: '80%', height: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-                                        onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'block'; }}
-                                    />
-                                    <div style={{ display: 'none', color: 'white' }}><Navigation size={22} /></div>
+                                <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.35)' }}>
+                                    <Navigation size={22} color="white" />
                                 </div>
                                 <div>
-                                    <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>ISES Rutas</h1>
-                                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Soluciones Especializadas</p>
+                                    <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>Traceops</h1>
+                                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Logistics Intelligence</p>
                                 </div>
                             </div>
                         </div>
@@ -802,7 +796,7 @@ const Sidebar = ({
                                         position: 'relative'
                                     }}
                                 >
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: 'white', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {selectedRouteOption === opt && <span style={{ color: '#10b981' }}>●</span>}
                                         {opt.name.split(' (')[0]}
                                     </div>
