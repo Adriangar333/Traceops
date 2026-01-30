@@ -215,6 +215,23 @@ const DriverView = ({ params }) => {
                     }
                 });
 
+                // Route glow effect layer (behind main line)
+                map.current.addLayer({
+                    'id': 'route-glow',
+                    'type': 'line',
+                    'source': 'route',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#3b82f6',
+                        'line-width': 10,
+                        'line-opacity': 0.3
+                    }
+                });
+
+                // Main route line
                 map.current.addLayer({
                     'id': 'route',
                     'type': 'line',
@@ -224,20 +241,74 @@ const DriverView = ({ params }) => {
                         'line-cap': 'round'
                     },
                     'paint': {
-                        'line-color': '#3b82f6',
+                        'line-color': '#60a5fa',
                         'line-width': 4
                     }
                 });
 
-                // Add Waypoint Markers
+                // Add Waypoint Markers - Premium styling
                 route.waypoints.forEach((wp, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === route.waypoints.length - 1;
                     const el = document.createElement('div');
                     el.className = 'waypoint-marker';
-                    el.innerHTML = `<div style="background: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white;">${index + 1}</div>`;
 
-                    new maplibregl.Marker({ element: el })
+                    // Premium marker with gradient background and shadow
+                    const bgColor = isFirst ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : isLast ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                            : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                    const shadowColor = isFirst ? 'rgba(16, 185, 129, 0.5)'
+                        : isLast ? 'rgba(239, 68, 68, 0.5)'
+                            : 'rgba(59, 130, 246, 0.5)';
+
+                    el.innerHTML = `
+                        <div style="
+                            position: relative;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <div style="
+                                background: ${bgColor};
+                                color: white;
+                                border-radius: 50%;
+                                width: 28px;
+                                height: 28px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: 700;
+                                font-size: 12px;
+                                border: 2px solid white;
+                                box-shadow: 0 4px 12px ${shadowColor};
+                                position: relative;
+                                z-index: 2;
+                            ">
+                                ${isFirst ? '🏠' : isLast ? '🏁' : index + 1}
+                            </div>
+                            <div style="
+                                position: absolute;
+                                bottom: -4px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: 0;
+                                height: 0;
+                                border-left: 6px solid transparent;
+                                border-right: 6px solid transparent;
+                                border-top: 8px solid ${isFirst ? '#059669' : isLast ? '#dc2626' : '#2563eb'};
+                            "></div>
+                        </div>`;
+
+                    new maplibregl.Marker({ element: el, anchor: 'bottom' })
                         .setLngLat([wp.lng, wp.lat])
-                        .setPopup(new maplibregl.Popup().setHTML(`<b>Parada ${index + 1}</b><br>${wp.address || ''}`))
+                        .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(`
+                            <div style="padding: 4px; min-width: 120px;">
+                                <b style="color: #0f172a;">Parada ${index + 1}</b>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">${wp.address || ''}</p>
+                            </div>
+                        `))
                         .addTo(map.current);
                 });
             }
@@ -295,7 +366,7 @@ const DriverView = ({ params }) => {
             setLastGpsError(null);
             toast.info('Rastreo detenido');
         } else {
-            toast.loading('Solicitando permiso de ubicación...');
+            const toastId = toast.loading('Solicitando permiso de ubicación...');
             const success = await TrackingService.startTracking((location, error) => {
                 if (error) {
                     // Capture error for display (especially useful for iOS debugging)
@@ -342,7 +413,7 @@ const DriverView = ({ params }) => {
                 }
             });
 
-            toast.dismiss();
+            toast.dismiss(toastId);
             if (success) {
                 setIsTracking(true);
                 toast.success('📡 GPS activo - Compartiendo ubicación');
