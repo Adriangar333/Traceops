@@ -164,7 +164,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
         });
 
         socketRef.current.on('admin:driver-update', (data) => {
-            console.log('🚗 Driver update:', data);
+            // console.log('🚗 Driver update:', data);
             setActiveDrivers(prev => ({
                 ...prev,
                 [data.driverId]: {
@@ -179,7 +179,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
 
         // Listen for arrival notifications
         socketRef.current.on('driver:arrived', (data) => {
-            console.log('🚩 Arrival:', data);
+            // console.log('🚩 Arrival:', data);
             setArrivals(prev => [data, ...prev].slice(0, 10)); // Keep last 10
         });
 

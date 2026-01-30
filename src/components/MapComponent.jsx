@@ -34,7 +34,7 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
         });
 
         socket.on('admin:driver-update', (data) => {
-            console.log('📍 Driver Update:', data);
+            // console.log('📍 Driver Update:', data);
             const { driverId, location } = data;
 
             if (!map.current || !location) return;

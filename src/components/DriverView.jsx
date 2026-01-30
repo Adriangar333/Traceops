@@ -541,7 +541,8 @@ const DriverView = ({ params }) => {
                             heading: location.heading || 0
                         };
 
-                        console.log('📡 Sending to Global Backend:', payload);
+                        console.log('📡 (GPS Active)'); // Reduced noise
+                        // console.log('📡 Sending to Global Backend:', payload);
                         window.socket.emit('driver:location', payload);
 
                         // Update local user marker on map
