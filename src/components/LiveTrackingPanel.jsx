@@ -195,11 +195,22 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             setPanicDrivers(prev => ({ ...prev, [data.driverId]: true }));
 
             // 1. Flash Marker immediately if it exists on map
+            // 1. Flash Marker immediately if it exists on map
+            const alertClass = (alertType === 'Imposibilidad' || alertType === 'Falla Mecánica')
+                ? 'panic-active-warning'
+                : (alertType === 'Predio Cerrado')
+                    ? 'panic-active-info'
+                    : 'panic-active'; // SOS / Default Red
+
             if (markers.current[data.driverId]) {
                 const markerEl = markers.current[data.driverId].getElement();
-                // Try to find inner wrapper, or fallback to element itself (backward comp)
+                // Try to find inner wrapper, or fallback to element itself
                 const target = markerEl.querySelector('.driver-marker-inner') || markerEl;
-                target.classList.add('panic-active');
+
+                // Remove all potential panic classes first (in case type changes)
+                target.classList.remove('panic-active', 'panic-active-warning', 'panic-active-info');
+
+                target.classList.add(alertClass);
             }
 
             // Determine Alert Style based on Type

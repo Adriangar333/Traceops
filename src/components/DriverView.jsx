@@ -65,7 +65,7 @@ const DriverView = ({ params }) => {
                             routeId: routeId,
                             lat: pos.coords.latitude,
                             lng: pos.coords.longitude,
-                            type: 'panic',
+                            type: config.label, // Send specific type (SOS, Imposibilidad, etc.)
                             subtype: type,
                             details: config.label,
                             timestamp: new Date().toISOString()
