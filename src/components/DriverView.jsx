@@ -199,13 +199,16 @@ const DriverView = ({ params }) => {
                 // Use actual route geometry if available (from optimized route), otherwise fallback to straight lines
                 let routeCoordinates;
                 if (route.routeGeometry && route.routeGeometry.coordinates && route.routeGeometry.coordinates.length > 0) {
-                    // Use the actual road geometry from the optimization
+                    // CamelCase (frontend optimized)
                     routeCoordinates = route.routeGeometry.coordinates;
+                } else if (route.route_geometry && route.route_geometry.coordinates && route.route_geometry.coordinates.length > 0) {
+                    // SnakeCase (DB direct)
+                    routeCoordinates = route.route_geometry.coordinates;
                 } else if (route.geometry && route.geometry.coordinates && route.geometry.coordinates.length > 0) {
-                    // Alternative geometry field
+                    // Generic
                     routeCoordinates = route.geometry.coordinates;
                 } else {
-                    // Fallback: straight lines between waypoints
+                    // Fallback to straight lines if no geometry
                     routeCoordinates = route.waypoints.map(wp => [wp.lng, wp.lat]);
                 }
 
@@ -378,6 +381,9 @@ const DriverView = ({ params }) => {
             toast.info('Rastreo detenido');
         } else {
             const toastId = toast.loading('Solicitando permiso de ubicación...');
+
+            // Safety timeout to ensure toast is dismissed even if permission hangs
+            setTimeout(() => toast.dismiss(toastId), 8000);
 
             try {
                 const success = await TrackingService.startTracking((location, error) => {

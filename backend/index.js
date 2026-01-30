@@ -240,6 +240,13 @@ const initDB = async () => {
         `);
         console.log('✅ Table routes ready');
 
+        // Ensure column exists (migration for routes)
+        await client.query(`
+            ALTER TABLE routes 
+            ADD COLUMN IF NOT EXISTS route_geometry JSONB;
+        `);
+        console.log('✅ Table routes ready (with geometry)');
+
         // Create route_waypoints table for geofencing
         await client.query(`
             CREATE TABLE IF NOT EXISTS route_waypoints (
@@ -312,17 +319,19 @@ app.get('/drivers/:id/routes', async (req, res) => {
 
 // Create/Assign a route
 app.post('/routes', async (req, res) => {
-    const { id, name, driverId, waypoints, distanceKm, duration } = req.body;
+    const { id, name, driverId, waypoints, distanceKm, duration, geometry } = req.body; // Added geometry
 
     if (!id || !driverId) return res.status(400).json({ error: 'Route ID and Driver ID required' });
 
     try {
         // 1. Save Route Metadata
         await pool.query(
-            `INSERT INTO routes (id, name, driver_id, waypoints, distance_km, duration_min)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (id) DO NOTHING`,
-            [id.toString(), name, driverId, JSON.stringify(waypoints), distanceKm, duration]
+            `INSERT INTO routes (id, name, driver_id, waypoints, distance_km, duration_min, route_geometry)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (id) DO UPDATE SET
+                route_geometry = EXCLUDED.route_geometry,
+                driver_id = EXCLUDED.driver_id`, // Allow updating existing routes geometry
+            [id.toString(), name, driverId, JSON.stringify(waypoints), distanceKm, duration, geometry ? JSON.stringify(geometry) : null]
         );
 
         // 2. Also update drivers table for redundancy/legacy support

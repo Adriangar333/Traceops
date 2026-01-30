@@ -238,7 +238,8 @@ function AdminDashboard() {
                     driverId: selectedAgent.id,
                     waypoints: allPoints,
                     distanceKm: stats?.distanceKm || 0,
-                    duration: stats?.duration || 0
+                    duration: stats?.duration || 0,
+                    geometry: { type: 'LineString', coordinates: stats?.coordinates || [] } // Send geometry
                 });
 
                 // We still save to localStorage for Admin view persistence/debugging
