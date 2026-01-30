@@ -8,6 +8,7 @@ import LiveTrackingPanel from './LiveTrackingPanel';
 import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
 import { recordRouteCreated } from '../utils/metricsService';
 import { getGoogleRoute } from '../utils/googleDirectionsService';
+import { fetchRouteWithStats } from '../utils/osrmService';
 import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 
 function AdminDashboard() {
@@ -200,7 +201,29 @@ function AdminDashboard() {
             const formattedWaypoints = allPoints.map(transformCoordinates);
 
             // Get route stats (using Google Directions) - Use optimize: false to respect current order
-            const stats = await getGoogleRoute(allPoints, { optimize: false });
+            let stats = await getGoogleRoute(allPoints, { optimize: false });
+
+            // Fallback to OSRM if Google fails to provide geometry
+            if (!stats || !stats.success || !stats.coordinates || stats.coordinates.length === 0) {
+                console.warn('Google Directions failed to return geometry in assignment. Attempting OSRM fallback...');
+                try {
+                    const osrmStats = await fetchRouteWithStats(allPoints);
+                    if (osrmStats && osrmStats.success && osrmStats.coordinates && osrmStats.coordinates.length > 0) {
+                        console.log('OSRM Fallback successful');
+                        // Merge OSRM stats, preferring OSRM geometry but keeping basic info if needed
+                        stats = {
+                            ...(stats || {}),
+                            ...osrmStats,
+                            // Ensure we use the OSRM geometry
+                            coordinates: osrmStats.coordinates
+                        };
+                    } else {
+                        console.warn('OSRM Fallback also failed or returned no geometry');
+                    }
+                } catch (fallbackError) {
+                    console.error('OSRM Fallback error:', fallbackError);
+                }
+            }
 
             const route = {
                 id: routeId,
