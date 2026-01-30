@@ -277,7 +277,7 @@ function AdminDashboard() {
     };
 
     return (
-        <div style={{ width: '100%', height: '100vh', overflow: 'hidden', position: 'relative', fontFamily: 'system-ui', background: '#0f172a' }}>
+        <div style={{ width: '100%', height: '100vh', overflow: 'hidden', position: 'relative', fontFamily: 'Inter, system-ui', background: '#f8fafc' }}>
             <Toaster position="top-right" richColors />
 
             <Sidebar
@@ -369,14 +369,14 @@ function AdminDashboard() {
                     position: 'fixed',
                     bottom: 20,
                     right: 20,
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    background: '#9DBD39',
                     border: 'none',
                     borderRadius: 50,
                     padding: '14px 20px',
                     color: 'white',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    boxShadow: '0 4px 20px rgba(16,185,129,0.4)',
+                    boxShadow: '0 4px 10px rgba(157, 189, 57, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,

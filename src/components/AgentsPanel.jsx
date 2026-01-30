@@ -22,16 +22,16 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
         width: '400px',
         maxWidth: '100%',
         height: '100vh',
-        background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.99) 0%, rgba(30, 41, 59, 0.99) 100%)',
-        backdropFilter: 'blur(12px)',
-        borderLeft: '1px solid rgba(255,255,255,0.1)',
+        background: '#ffffff',
+        boxShadow: '-5px 0 25px rgba(0,0,0,0.1)',
+        borderLeft: '1px solid #e2e8f0',
         padding: '24px',
         zIndex: 300,
         display: 'flex',
         flexDirection: 'column',
         gap: '20px',
-        color: 'white',
-        fontFamily: 'system-ui',
+        color: '#0f172a',
+        fontFamily: 'Inter, system-ui',
         overflowY: 'auto',
         boxSizing: 'border-box',
     };
@@ -39,22 +39,25 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
     const inputStyle = {
         width: '100%',
         padding: '12px',
-        background: 'rgba(255,255,255,0.08)',
-        border: '1px solid rgba(255,255,255,0.15)',
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
         borderRadius: '10px',
         fontSize: '14px',
-        color: 'white',
+        color: '#0f172a',
         outline: 'none',
         boxSizing: 'border-box',
+        transition: 'border-color 0.2s',
     };
 
     const agentCardStyle = {
-        background: 'rgba(255,255,255,0.05)',
+        background: '#ffffff',
+        border: '1px solid #f1f5f9',
         borderRadius: '12px',
         padding: '16px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
     };
 
     return (
@@ -68,26 +71,26 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
             {/* Panel */}
             <div className="agents-panel" style={panelStyle}>
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ padding: '10px', background: 'linear-gradient(135deg, #10b981, #059669)', borderRadius: '12px' }}>
+                        <div style={{ padding: '10px', background: '#9DBD39', borderRadius: '12px', color: 'white' }}>
                             <Users size={22} />
                         </div>
                         <div>
-                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Gestión de Agentes</h2>
-                            <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>{agents.length} agentes registrados</p>
+                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>Gestión de Agentes</h2>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{agents.length} agentes registrados</p>
                         </div>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Add Agent Form */}
-                <form onSubmit={handleSubmit} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' }}>➕ Nuevo Agente</h3>
+                <form onSubmit={handleSubmit} style={{ background: '#f8fafc', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #e2e8f0' }}>
+                    <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>➕ Nuevo Agente</h3>
                     <div style={{ position: 'relative' }}>
-                        <User style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', width: '16px' }} />
+                        <User style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', width: '16px' }} />
                         <input
                             type="text"
                             placeholder="Nombre completo"
@@ -97,7 +100,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                         />
                     </div>
                     <div style={{ position: 'relative' }}>
-                        <Mail style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', width: '16px' }} />
+                        <Mail style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', width: '16px' }} />
                         <input
                             type="email"
                             placeholder="Email"
@@ -107,7 +110,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                         />
                     </div>
                     <div style={{ position: 'relative' }}>
-                        <Phone style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', width: '16px' }} />
+                        <Phone style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', width: '16px' }} />
                         <input
                             type="tel"
                             placeholder="Teléfono"
@@ -117,7 +120,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                         />
                     </div>
                     <div style={{ position: 'relative' }}>
-                        <Users style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', width: '16px' }} />
+                        <Users style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', width: '16px' }} />
                         <select
                             value={newAgent.cuadrilla}
                             onChange={(e) => setNewAgent(p => ({ ...p, cuadrilla: e.target.value }))}
@@ -128,12 +131,12 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                             <option value="Mediana">🚙 Cuadrilla Mediana (Camionetas)</option>
                             <option value="Pesada">🚚 Cuadrilla Pesada (Camiones/Canastilla)</option>
                         </select>
-                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'rgba(255,255,255,0.4)' }}>▼</div>
+                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
                     </div>
                     <button
                         type="submit"
                         style={{
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                            background: '#9DBD39',
                             color: 'white',
                             border: 'none',
                             padding: '12px',
@@ -143,7 +146,8 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '8px'
+                            gap: '8px',
+                            boxShadow: '0 2px 5px rgba(157, 189, 57, 0.3)'
                         }}
                     >
                         <Plus size={18} /> Agregar Agente
@@ -152,27 +156,29 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
 
                 {/* Agents List */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' }}>👥 Agentes Activos</h3>
+                    <h3 style={{ margin: 0, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>👥 Agentes Activos</h3>
 
                     {agents.length === 0 ? (
-                        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: '20px' }}>No hay agentes registrados</p>
+                        <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>No hay agentes registrados</p>
                     ) : (
                         agents.map(agent => (
                             <div key={agent.id} style={agentCardStyle}>
                                 <div>
-                                    <div style={{ fontWeight: '600', fontSize: '14px' }}>{agent.name}</div>
-                                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>{agent.email}</div>
-                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{agent.phone}</div>
+                                    <div style={{ fontWeight: '600', fontSize: '14px', color: '#0f172a' }}>{agent.name}</div>
+                                    <div style={{ fontSize: '12px', color: '#64748b' }}>{agent.email}</div>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>{agent.phone}</div>
                                     {agent.cuadrilla && (
                                         <div style={{
                                             display: 'inline-block',
                                             fontSize: '10px',
-                                            background: 'rgba(255,255,255,0.1)',
+                                            fontSize: '10px',
+                                            background: 'rgba(245, 158, 11, 0.1)',
                                             padding: '2px 6px',
                                             borderRadius: '4px',
                                             marginTop: '4px',
                                             marginRight: '8px',
-                                            color: '#fbbf24'
+                                            color: '#f59e0b',
+                                            border: '1px solid rgba(245, 158, 11, 0.2)'
                                         }}>
                                             {agent.cuadrilla}
                                         </div>

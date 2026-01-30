@@ -38,10 +38,11 @@ const Dashboard = ({ onClose, agents }) => {
     if (!summary) return null;
 
     const cardStyle = {
-        background: 'rgba(255,255,255,0.05)',
+        background: '#ffffff',
         borderRadius: '12px',
         padding: '16px',
-        border: '1px solid rgba(255,255,255,0.1)'
+        border: '1px solid #f1f5f9',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
     };
 
     const statCardStyle = {
@@ -53,15 +54,15 @@ const Dashboard = ({ onClose, agents }) => {
 
     const labelStyle = {
         fontSize: '12px',
-        color: 'rgba(255,255,255,0.6)',
+        color: '#64748b',
         textTransform: 'uppercase',
-        fontWeight: '500'
+        fontWeight: '600'
     };
 
     const valueStyle = {
         fontSize: '28px',
         fontWeight: '700',
-        color: 'white'
+        color: '#0f172a'
     };
 
     return (
@@ -77,7 +78,7 @@ const Dashboard = ({ onClose, agents }) => {
             padding: '0'
         }}>
             <div style={{
-                background: '#1e293b',
+                background: '#f8fafc',
                 borderRadius: '16px',
                 width: '100%',
                 maxWidth: '900px',
@@ -86,12 +87,14 @@ const Dashboard = ({ onClose, agents }) => {
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                fontFamily: 'system-ui'
+                fontFamily: 'Inter, system-ui',
+                color: '#0f172a'
             }}>
                 {/* Header */}
                 <div style={{
                     padding: '14px 16px',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    borderBottom: '1px solid #e2e8f0',
+                    background: '#ffffff',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -99,8 +102,10 @@ const Dashboard = ({ onClose, agents }) => {
                     gap: '10px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <BarChart3 size={22} color="#3b82f6" />
-                        <h2 style={{ margin: 0, color: 'white', fontSize: '16px' }}>Dashboard</h2>
+                        <div style={{ padding: 8, background: '#9DBD39', borderRadius: 8, color: 'white' }}>
+                            <BarChart3 size={20} />
+                        </div>
+                        <h2 style={{ margin: 0, color: '#0f172a', fontSize: '16px', fontWeight: 700 }}>Metricas de Operación</h2>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button
@@ -143,7 +148,7 @@ const Dashboard = ({ onClose, agents }) => {
                             style={{
                                 background: 'transparent',
                                 border: 'none',
-                                color: 'rgba(255,255,255,0.6)',
+                                color: '#94a3b8',
                                 cursor: 'pointer',
                                 padding: '8px'
                             }}
@@ -172,11 +177,11 @@ const Dashboard = ({ onClose, agents }) => {
 
                         <div style={statCardStyle}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <TrendingUp size={18} color="#10b981" />
+                                <TrendingUp size={18} color="#9DBD39" />
                                 <span style={labelStyle}>Completadas</span>
                             </div>
-                            <span style={{ ...valueStyle, color: '#10b981' }}>{summary.completedRoutes}</span>
-                            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                            <span style={{ ...valueStyle, color: '#9DBD39' }}>{summary.completedRoutes}</span>
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>
                                 {summary.completionRate}% tasa de éxito
                             </span>
                         </div>
@@ -191,18 +196,18 @@ const Dashboard = ({ onClose, agents }) => {
 
                         <div style={statCardStyle}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Clock size={18} color="#8b5cf6" />
+                                <Clock size={18} color="#9DBD39" />
                                 <span style={labelStyle}>Distancia Total</span>
                             </div>
-                            <span style={{ ...valueStyle, color: '#8b5cf6' }}>{summary.totalDistanceKm} km</span>
+                            <span style={{ ...valueStyle, color: '#9DBD39' }}>{summary.totalDistanceKm} km</span>
                         </div>
                     </div>
 
                     {/* Weekly Chart (Simple) */}
                     <div style={{ ...cardStyle, marginBottom: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                            <Calendar size={18} color="#3b82f6" />
-                            <span style={{ color: 'white', fontWeight: '600' }}>Últimos 7 Días</span>
+                            <Calendar size={18} color="#9DBD39" />
+                            <span style={{ color: '#0f172a', fontWeight: '600' }}>Últimos 7 Días</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '120px', gap: '8px' }}>
                             {summary.last7Days.map((day, i) => {
@@ -214,12 +219,12 @@ const Dashboard = ({ onClose, agents }) => {
                                             width: '100%',
                                             height: `${height}%`,
                                             minHeight: '8px',
-                                            background: 'linear-gradient(to top, #3b82f6, #6366f1)',
+                                            background: 'linear-gradient(to top, #9DBD39, #84cc16)',
                                             borderRadius: '4px 4px 0 0',
                                             transition: 'height 0.3s'
                                         }} />
-                                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{day.label}</span>
-                                        <span style={{ fontSize: '12px', color: 'white', fontWeight: '600' }}>{day.created}</span>
+                                        <span style={{ fontSize: '11px', color: '#64748b' }}>{day.label}</span>
+                                        <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600' }}>{day.created}</span>
                                     </div>
                                 );
                             })}
@@ -231,11 +236,11 @@ const Dashboard = ({ onClose, agents }) => {
                         {/* Recent Routes */}
                         <div style={cardStyle}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                                <Truck size={18} color="#3b82f6" />
-                                <span style={{ color: 'white', fontWeight: '600' }}>Rutas Recientes</span>
+                                <Truck size={18} color="#9DBD39" />
+                                <span style={{ color: '#0f172a', fontWeight: '600' }}>Rutas Recientes</span>
                             </div>
                             {summary.recentRoutes.length === 0 ? (
-                                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', margin: 0 }}>
+                                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
                                     No hay rutas registradas aún
                                 </p>
                             ) : (
@@ -243,17 +248,18 @@ const Dashboard = ({ onClose, agents }) => {
                                     {summary.recentRoutes.map((route, i) => (
                                         <div key={i} style={{
                                             padding: '10px 12px',
-                                            background: 'rgba(255,255,255,0.03)',
+                                            background: '#f8fafc',
                                             borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center'
                                         }}>
                                             <div>
-                                                <div style={{ color: 'white', fontSize: '13px', fontWeight: '500' }}>
+                                                <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: '500' }}>
                                                     {route.name || `Ruta #${route.id}`}
                                                 </div>
-                                                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>
+                                                <div style={{ color: '#64748b', fontSize: '11px' }}>
                                                     {route.waypoints} paradas · {route.distanceKm} km
                                                 </div>
                                             </div>
@@ -277,16 +283,17 @@ const Dashboard = ({ onClose, agents }) => {
                         {/* Drivers Stats */}
                         <div style={cardStyle}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                                <Users size={18} color="#3b82f6" />
-                                <span style={{ color: 'white', fontWeight: '600' }}>Conductores Activos</span>
+                                <Users size={18} color="#9DBD39" />
+                                <span style={{ color: '#0f172a', fontWeight: '600' }}>Conductores Activos</span>
                             </div>
                             {agents && agents.length > 0 ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {agents.slice(0, 5).map((agent, i) => (
                                         <div key={i} style={{
                                             padding: '10px 12px',
-                                            background: 'rgba(255,255,255,0.03)',
+                                            background: '#f8fafc',
                                             borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center'
@@ -295,7 +302,7 @@ const Dashboard = ({ onClose, agents }) => {
                                                 <div style={{
                                                     width: '32px',
                                                     height: '32px',
-                                                    background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                                                    background: '#9DBD39',
                                                     borderRadius: '50%',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -307,10 +314,10 @@ const Dashboard = ({ onClose, agents }) => {
                                                     {agent.name.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <div style={{ color: 'white', fontSize: '13px', fontWeight: '500' }}>
+                                                    <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: '500' }}>
                                                         {agent.name}
                                                     </div>
-                                                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>
+                                                    <div style={{ color: '#64748b', fontSize: '11px' }}>
                                                         {agent.assignedRoutes?.length || 0} rutas asignadas
                                                     </div>
                                                 </div>
@@ -319,7 +326,7 @@ const Dashboard = ({ onClose, agents }) => {
                                     ))}
                                 </div>
                             ) : (
-                                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', margin: 0 }}>
+                                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
                                     No hay conductores registrados
                                 </p>
                             )}
@@ -328,19 +335,19 @@ const Dashboard = ({ onClose, agents }) => {
 
                     {/* Averages */}
                     <div style={{ ...cardStyle, marginTop: '16px' }}>
-                        <div style={{ marginBottom: '12px', color: 'white', fontWeight: '600' }}>Promedios por Ruta</div>
+                        <div style={{ marginBottom: '12px', color: '#0f172a', fontWeight: '600' }}>Promedios por Ruta</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '24px', fontWeight: '700', color: '#3b82f6' }}>{summary.avgDeliveriesPerRoute}</div>
-                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Entregas/Ruta</div>
+                                <div style={{ fontSize: '12px', color: '#64748b' }}>Entregas/Ruta</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '24px', fontWeight: '700', color: '#10b981' }}>{summary.avgDistancePerRoute} km</div>
-                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Distancia/Ruta</div>
+                                <div style={{ fontSize: '24px', fontWeight: '700', color: '#9DBD39' }}>{summary.avgDistancePerRoute} km</div>
+                                <div style={{ fontSize: '12px', color: '#64748b' }}>Distancia/Ruta</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>{summary.avgTimePerRoute} min</div>
-                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Tiempo/Ruta</div>
+                                <div style={{ fontSize: '12px', color: '#64748b' }}>Tiempo/Ruta</div>
                             </div>
                         </div>
                     </div>

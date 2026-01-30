@@ -301,36 +301,37 @@ const Sidebar = ({
         sidebar: {
             position: 'absolute', top: 16, left: 16, zIndex: 100, width: 380,
             maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
-            background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-            borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'system-ui', color: 'white',
+            background: '#ffffff', // White corporate background
+            borderRadius: 16, boxShadow: '0 10px 30px -5px rgba(0,0,0,0.1)', // Softer shadow
+            border: '1px solid #e2e8f0', fontFamily: 'Inter, system-ui', color: '#0f172a',
             transition: 'all 0.3s ease'
         },
         header: {
             padding: isMobile ? 'calc(env(safe-area-inset-top) + 12px) 16px 12px' : '20px 24px',
-            background: isMobile ? (mobileCollapsed ? 'transparent' : 'rgba(15,23,42,0.95)') : 'linear-gradient(to right, rgba(59,130,246,0.1), transparent)',
-            borderBottom: isMobile && mobileCollapsed ? 'none' : '1px solid rgba(255,255,255,0.05)',
+            background: isMobile ? (mobileCollapsed ? 'transparent' : '#ffffff') : '#ffffff',
+            borderBottom: isMobile && mobileCollapsed ? 'none' : '1px solid #f1f5f9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             pointerEvents: 'auto'
         },
-        section: { padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)' },
+        section: { padding: '16px 20px', borderBottom: '1px solid #f1f5f9' },
         input: {
-            width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
-            fontSize: 14, color: 'white', outline: 'none', boxSizing: 'border-box'
+            width: '100%', padding: '12px 16px', background: '#f8fafc',
+            border: '1px solid #e2e8f0', borderRadius: 12,
+            fontSize: 14, color: '#0f172a', outline: 'none', boxSizing: 'border-box',
+            transition: 'border-color 0.2s',
         },
         btn: {
             padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
             fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s'
         },
-        primaryBtn: { background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white' },
-        secondaryBtn: { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' },
-        successBtn: { background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white' },
-        iconBtn: { width: 40, height: 40, borderRadius: 12, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-        stat: { flex: 1, padding: '14px 16px', background: 'rgba(59,130,246,0.1)', borderRadius: 14, textAlign: 'center' },
-        waypoint: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 6 },
+        primaryBtn: { background: '#9DBD39', color: 'white', boxShadow: '0 2px 5px rgba(157, 189, 57, 0.3)' }, // ISES Green
+        secondaryBtn: { background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' },
+        successBtn: { background: '#9DBD39', color: 'white' },
+        iconBtn: { width: 40, height: 40, borderRadius: 12, border: '1px solid #f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        stat: { flex: 1, padding: '14px 16px', background: '#f8fafc', borderRadius: 14, textAlign: 'center', border: '1px solid #e2e8f0' },
+        waypoint: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'white', border: '1px solid #f1f5f9', borderRadius: 10, marginBottom: 6 },
         badge: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600 }
     };
 
@@ -363,23 +364,29 @@ const Sidebar = ({
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Navigation size={22} />
+                                <div style={{ width: 44, height: 44, background: '#9DBD39', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(157,189,57,0.3)' }}>
+                                    <img
+                                        src="https://ises-sas.com/wp-content/uploads/2021/08/logo-ises-sas.png"
+                                        alt="ISES"
+                                        style={{ width: '80%', height: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'block'; }}
+                                    />
+                                    <div style={{ display: 'none', color: 'white' }}><Navigation size={22} /></div>
                                 </div>
                                 <div>
-                                    <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Route Assigner</h1>
-                                    <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Sistema de rutas inteligente</p>
+                                    <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>ISES Rutas</h1>
+                                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Soluciones Especializadas</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Quick Actions */}
                         <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => togglePanel('config')} style={{ ...styles.iconBtn, background: activePanel === 'config' ? '#10b981' : 'rgba(16,185,129,0.15)' }} title="Configuración"><Settings size={18} color={activePanel === 'config' ? 'white' : '#10b981'} /></button>
-                            <button onClick={() => togglePanel('routes')} style={{ ...styles.iconBtn, background: activePanel === 'routes' ? '#6366f1' : 'rgba(99,102,241,0.15)' }} title="Rutas guardadas"><FolderOpen size={18} color={activePanel === 'routes' ? 'white' : '#6366f1'} /></button>
-                            <button onClick={() => togglePanel('import')} style={{ ...styles.iconBtn, background: activePanel === 'import' ? '#f59e0b' : 'rgba(245,158,11,0.15)' }} title="Importar"><Upload size={18} color={activePanel === 'import' ? 'white' : '#f59e0b'} /></button>
-                            <button onClick={onOpenAgents} style={{ ...styles.iconBtn, background: 'rgba(59,130,246,0.15)' }} title="Agentes"><Users size={18} color="#3b82f6" /></button>
-                            <button onClick={onOpenDashboard} style={{ ...styles.iconBtn, background: 'rgba(245,158,11,0.15)' }} title="Dashboard"><BarChart3 size={18} color="#f59e0b" /></button>
+                            <button onClick={() => togglePanel('config')} style={{ ...styles.iconBtn, background: activePanel === 'config' ? '#9DBD39' : 'white', boxShadow: activePanel === 'config' ? '0 4px 10px rgba(157,189,57,0.4)' : 'none' }} title="Configuración"><Settings size={18} color={activePanel === 'config' ? 'white' : '#64748b'} /></button>
+                            <button onClick={() => togglePanel('routes')} style={{ ...styles.iconBtn, background: activePanel === 'routes' ? '#3b82f6' : 'white' }} title="Rutas guardadas"><FolderOpen size={18} color={activePanel === 'routes' ? 'white' : '#64748b'} /></button>
+                            <button onClick={() => togglePanel('import')} style={{ ...styles.iconBtn, background: activePanel === 'import' ? '#f59e0b' : 'white' }} title="Importar"><Upload size={18} color={activePanel === 'import' ? 'white' : '#64748b'} /></button>
+                            <button onClick={onOpenAgents} style={{ ...styles.iconBtn, background: 'white' }} title="Agentes"><Users size={18} color="#9DBD39" /></button>
+                            <button onClick={onOpenDashboard} style={{ ...styles.iconBtn, background: 'white' }} title="Dashboard"><BarChart3 size={18} color="#9DBD39" /></button>
                         </div>
                     </div>
 

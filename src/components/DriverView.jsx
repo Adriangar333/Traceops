@@ -390,10 +390,10 @@ const DriverView = ({ params }) => {
     };
 
     if (loading) return (
-        <div style={{ background: '#020617', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        <div style={{ background: '#f8fafc', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a' }}>
             <div style={{ textAlign: 'center' }}>
-                <div style={{ width: 40, height: 40, border: '3px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                <p>Cargando ruta...</p>
+                <div style={{ width: 40, height: 40, border: '3px solid #9DBD39', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ color: '#64748b' }}>Cargando ruta...</p>
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
@@ -402,9 +402,9 @@ const DriverView = ({ params }) => {
     if (!route) {
         if (availableRoutes.length > 0) {
             return (
-                <div style={{ background: '#020617', minHeight: '100dvh', padding: 20, color: '#e2e8f0', fontFamily: 'system-ui' }}>
+                <div style={{ background: '#f8fafc', minHeight: '100dvh', padding: 20, color: '#0f172a', fontFamily: 'Inter, system-ui' }}>
                     <Toaster position="top-center" richColors />
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 20, textAlign: 'center' }}>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 20, textAlign: 'center', color: '#0f172a' }}>
                         Tus Rutas Asignadas 📦
                     </h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -413,31 +413,31 @@ const DriverView = ({ params }) => {
                                 key={r.id}
                                 onClick={() => setRoute(r)}
                                 style={{
-                                    background: '#1e293b',
+                                    background: '#ffffff',
                                     borderRadius: 16,
                                     padding: '16px 20px',
                                     cursor: 'pointer',
-                                    border: '1px solid #334155',
+                                    border: '1px solid #e2e8f0',
                                     transition: 'transform 0.2s',
-                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                                 }}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'white' }}>{r.name || 'Ruta sin nombre'}</h3>
-                                    <span style={{ background: '#3b82f6', fontSize: '0.75rem', padding: '4px 8px', borderRadius: 999, color: 'white' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>{r.name || 'Ruta sin nombre'}</h3>
+                                    <span style={{ background: '#9DBD39', fontSize: '0.75rem', padding: '4px 8px', borderRadius: 999, color: 'white' }}>
                                         Activa
                                     </span>
                                 </div>
-                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#94a3b8' }}>
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>
                                     📅 {new Date(r.created_at || Date.now()).toLocaleDateString()}
                                 </p>
                                 <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#64748b' }}>
                                         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
                                         {(r.waypoints?.length || 0)} Paradas
                                     </div>
                                     {r.distance_km > 0 && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#64748b' }}>
                                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
                                             {Number(r.distance_km).toFixed(1)} km
                                         </div>
@@ -452,12 +452,12 @@ const DriverView = ({ params }) => {
 
         if (driversList.length > 0) {
             return (
-                <div style={{ background: '#020617', minHeight: '100dvh', padding: 20, color: '#e2e8f0', fontFamily: 'system-ui' }}>
+                <div style={{ background: '#f8fafc', minHeight: '100dvh', padding: 20, color: '#0f172a', fontFamily: 'Inter, system-ui' }}>
                     <Toaster position="top-center" richColors />
                     <div style={{ textAlign: 'center', marginBottom: 30, paddingTop: 20 }}>
                         <div style={{ fontSize: 40, marginBottom: 10 }}>👋</div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Bienvenido a TraceOps</h2>
-                        <p style={{ color: '#94a3b8', marginTop: 8 }}>Selecciona tu perfil para continuar</p>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>Bienvenido a ISES Rutas</h2>
+                        <p style={{ color: '#64748b', marginTop: 8 }}>Selecciona tu perfil para continuar</p>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -466,21 +466,22 @@ const DriverView = ({ params }) => {
                                 key={d.id}
                                 onClick={() => handleDriverLogin(d.id)}
                                 style={{
-                                    background: '#1e293b',
+                                    background: '#ffffff',
                                     borderRadius: 16,
                                     padding: '16px',
                                     cursor: 'pointer',
-                                    border: '1px solid #334155',
+                                    border: '1px solid #e2e8f0',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 16,
-                                    transition: 'transform 0.2s'
+                                    transition: 'transform 0.2s',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                                 }}
                             >
                                 <div style={{
                                     width: 44, height: 44,
                                     borderRadius: '50%',
-                                    background: '#3b82f6',
+                                    background: '#9DBD39',
                                     color: 'white',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontWeight: 'bold', fontSize: '1.1rem'
@@ -488,14 +489,14 @@ const DriverView = ({ params }) => {
                                     {d.name.substring(0, 2).toUpperCase()}
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'white' }}>{d.name}</h3>
+                                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>{d.name}</h3>
                                     {d.cuadrilla && (
-                                        <div style={{ fontSize: '0.8rem', color: '#fbbf24', marginTop: 2 }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#f59e0b', marginTop: 2 }}>
                                             {d.cuadrilla}
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ color: '#64748b' }}>➜</div>
+                                <div style={{ color: '#94a3b8' }}>➜</div>
                             </div>
                         ))}
                     </div>
@@ -504,11 +505,11 @@ const DriverView = ({ params }) => {
         }
 
         return (
-            <div style={{ background: '#020617', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', padding: 20, textAlign: 'center' }}>
+            <div style={{ background: '#f8fafc', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a', padding: 20, textAlign: 'center' }}>
                 <div>
                     <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
                     <h2 style={{ margin: '0 0 8px' }}>Ruta no encontrada</h2>
-                    <p style={{ color: '#94a3b8', margin: 0 }}>El enlace puede haber expirado o la ruta fue eliminada.</p>
+                    <p style={{ color: '#64748b', margin: 0 }}>El enlace puede haber expirado o la ruta fue eliminada.</p>
                 </div>
             </div>
         );
@@ -519,22 +520,22 @@ const DriverView = ({ params }) => {
     const progress = (completedCount / totalStops) * 100;
 
     return (
-        <div style={{ background: '#020617', height: '100dvh', display: 'flex', flexDirection: 'column', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <div style={{ background: '#f8fafc', height: '100dvh', display: 'flex', flexDirection: 'column', color: '#0f172a', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
             <Toaster position="top-center" richColors />
 
             {/* Header */}
             <div style={{
                 padding: '12px 16px',
-                background: '#0f172a',
+                background: '#ffffff',
                 zIndex: 50,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                borderBottom: '1px solid #e2e8f0',
                 flexShrink: 0
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                     <div style={{ flex: 1 }}>
-                        <h1 style={{ fontSize: '1rem', fontWeight: '700', margin: 0, color: 'white' }}>{route.name}</h1>
-                        <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '2px 0 0' }}>
+                        <h1 style={{ fontSize: '1rem', fontWeight: '700', margin: 0, color: '#0f172a' }}>{route.name}</h1>
+                        <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>
                             {completedCount}/{totalStops} paradas • {route.distanceKm || 0} km
                         </p>
                     </div>
@@ -559,14 +560,14 @@ const DriverView = ({ params }) => {
 
                     <button
                         onClick={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
-                        style={{ background: '#334155', color: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+                        style={{ background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', padding: '8px 12px', borderRadius: 8, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
                     >
                         {viewMode === 'map' ? 'Ver Lista' : 'Ver Mapa'}
                     </button>
                 </div>
                 {/* Progress Bar */}
-                <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 999, height: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${progress}%`, height: '100%', background: '#10b981', transition: 'width 0.5s ease' }} />
+                <div style={{ background: '#e2e8f0', borderRadius: 999, height: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: '#9DBD39', transition: 'width 0.5s ease' }} />
                 </div>
 
                 {/* Pending Deliveries Banner */}
@@ -640,7 +641,7 @@ const DriverView = ({ params }) => {
                             style={{
                                 width: '100%',
                                 padding: '14px',
-                                background: isTracking ? '#ef4444' : '#10b981',
+                                background: isTracking ? '#ef4444' : '#9DBD39',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: 12,
@@ -661,36 +662,38 @@ const DriverView = ({ params }) => {
                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                     overflowY: 'auto', padding: '16px',
                     visibility: viewMode === 'list' ? 'visible' : 'hidden',
-                    background: '#020617'
+                    background: '#f8fafc'
                 }}>
                     {route.waypoints.map((wp, i) => {
                         const isCompleted = completedStops.includes(i);
                         return (
                             <div key={i} style={{
-                                background: isCompleted ? 'rgba(16, 185, 129, 0.08)' : '#1e293b',
+                                background: isCompleted ? 'rgba(157, 189, 57, 0.1)' : '#ffffff',
                                 borderRadius: 12, padding: 16, marginBottom: 12,
-                                border: isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
-                                opacity: isCompleted ? 0.7 : 1
+                                border: isCompleted ? '1px solid #9DBD39' : '1px solid #e2e8f0',
+                                opacity: isCompleted ? 0.7 : 1,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                             }}>
                                 <div style={{ display: 'flex', gap: 12 }}>
                                     <div style={{
                                         width: 32, height: 32, borderRadius: 8,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        background: isCompleted ? '#10b981' : '#334155',
-                                        color: 'white', fontWeight: 'bold'
+                                        background: isCompleted ? '#9DBD39' : '#f1f5f9',
+                                        color: isCompleted ? 'white' : '#64748b', fontWeight: 'bold',
+                                        border: isCompleted ? 'none' : '1px solid #e2e8f0'
                                     }}>
                                         {isCompleted ? <CheckCircle size={18} /> : i + 1}
                                     </div>
                                     <div style={{ flex: 1 }}>
-                                        <p style={{ margin: '0 0 4px', fontSize: '0.9rem', color: isCompleted ? '#94a3b8' : 'white' }}>
+                                        <p style={{ margin: '0 0 4px', fontSize: '0.9rem', color: isCompleted ? '#64748b' : '#0f172a' }}>
                                             {wp.address || `${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}`}
                                         </p>
                                         {!isCompleted && (
                                             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                                                <button onClick={() => openNavigation(wp.lat, wp.lng)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#334155', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                <button onClick={() => openNavigation(wp.lat, wp.lng)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
                                                     <Navigation size={16} /> Navegar
                                                 </button>
-                                                <button onClick={() => openPODModal(i)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                <button onClick={() => openPODModal(i)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#9DBD39', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', fontSize: '0.85rem' }}>
                                                     <Camera size={16} /> Entregar
                                                 </button>
                                             </div>

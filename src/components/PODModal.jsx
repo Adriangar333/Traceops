@@ -157,22 +157,23 @@ const PODModal = ({
             padding: 16
         }}>
             <div style={{
-                background: '#1e293b',
+                background: '#ffffff',
                 borderRadius: 16,
                 width: '100%',
                 maxWidth: 400,
                 maxHeight: '90vh',
-                overflow: 'auto'
+                overflow: 'auto',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}>
                 {/* Header */}
                 <div style={{
                     padding: '16px',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    borderBottom: '1px solid #e2e8f0',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
                 }}>
-                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem' }}>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.1rem' }}>
                         Confirmar Entrega
                     </h3>
                     <button
@@ -208,7 +209,7 @@ const PODModal = ({
                                     background: step === s ||
                                         (s === 'location' && step !== 'location') ||
                                         (s === 'photo' && (step === 'signature' || step === 'submitting'))
-                                        ? '#10b981' : '#334155'
+                                        ? '#9DBD39' : '#e2e8f0'
                                 }}
                             />
                         ))}
@@ -219,16 +220,16 @@ const PODModal = ({
                         <div style={{ textAlign: 'center' }}>
                             {isLoading ? (
                                 <>
-                                    <Loader2 size={48} className="animate-spin" style={{ color: '#3b82f6', margin: '0 auto 16px' }} />
-                                    <p style={{ color: '#94a3b8' }}>Verificando ubicación...</p>
+                                    <Loader2 size={48} className="animate-spin" style={{ color: '#9DBD39', margin: '0 auto 16px' }} />
+                                    <p style={{ color: '#64748b' }}>Verificando ubicación...</p>
                                 </>
                             ) : geofenceResult && !geofenceResult.isWithinRange ? (
                                 <>
                                     <AlertTriangle size={48} style={{ color: '#f59e0b', margin: '0 auto 16px' }} />
-                                    <p style={{ color: 'white', fontWeight: 600, marginBottom: 8 }}>
+                                    <p style={{ color: '#0f172a', fontWeight: 600, marginBottom: 8 }}>
                                         Estás a {geofenceResult.distance}m del destino
                                     </p>
-                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 16 }}>
+                                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: 16 }}>
                                         Debes estar a menos de 150m para confirmar la entrega
                                     </p>
                                     <button
@@ -252,8 +253,8 @@ const PODModal = ({
                                         style={{
                                             padding: '12px 16px',
                                             background: 'transparent',
-                                            color: '#94a3b8',
-                                            border: '1px solid #334155',
+                                            color: '#64748b',
+                                            border: '1px solid #e2e8f0',
                                             borderRadius: 8,
                                             cursor: 'pointer',
                                             fontSize: '0.85rem'
@@ -305,9 +306,9 @@ const PODModal = ({
                                         onClick={() => setPhoto(null)}
                                         style={{
                                             padding: '10px 20px',
-                                            background: '#334155',
-                                            color: 'white',
-                                            border: 'none',
+                                            background: '#f1f5f9',
+                                            color: '#0f172a',
+                                            border: '1px solid #e2e8f0',
                                             borderRadius: 8,
                                             cursor: 'pointer',
                                             marginRight: 8
@@ -319,7 +320,7 @@ const PODModal = ({
                                         onClick={() => setStep('signature')}
                                         style={{
                                             padding: '10px 20px',
-                                            background: '#10b981',
+                                            background: '#9DBD39',
                                             color: 'white',
                                             border: 'none',
                                             borderRadius: 8,
@@ -331,11 +332,11 @@ const PODModal = ({
                                 </>
                             ) : (
                                 <>
-                                    <Camera size={48} style={{ color: '#3b82f6', margin: '0 auto 16px' }} />
-                                    <p style={{ color: 'white', fontWeight: 600, marginBottom: 8 }}>
+                                    <Camera size={48} style={{ color: '#9DBD39', margin: '0 auto 16px' }} />
+                                    <p style={{ color: '#0f172a', fontWeight: 600, marginBottom: 8 }}>
                                         Toma una foto de la entrega
                                     </p>
-                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 24 }}>
+                                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: 24 }}>
                                         Incluye el paquete y el lugar de entrega
                                     </p>
                                     <button
@@ -383,19 +384,19 @@ const PODModal = ({
                         <div style={{ textAlign: 'center', padding: 32 }}>
                             {isLoading ? (
                                 <>
-                                    <Loader2 size={48} className="animate-spin" style={{ color: '#10b981', margin: '0 auto 16px' }} />
-                                    <p style={{ color: 'white' }}>Enviando prueba de entrega...</p>
+                                    <Loader2 size={48} className="animate-spin" style={{ color: '#9DBD39', margin: '0 auto 16px' }} />
+                                    <p style={{ color: '#0f172a' }}>Enviando prueba de entrega...</p>
                                 </>
                             ) : error ? (
                                 <>
                                     <CheckCircle2 size={48} style={{ color: '#f59e0b', margin: '0 auto 16px' }} />
-                                    <p style={{ color: 'white', marginBottom: 8 }}>Entrega registrada</p>
-                                    <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{error}</p>
+                                    <p style={{ color: '#0f172a', marginBottom: 8 }}>Entrega registrada</p>
+                                    <p style={{ color: '#64748b', fontSize: '0.85rem' }}>{error}</p>
                                 </>
                             ) : (
                                 <>
-                                    <CheckCircle2 size={48} style={{ color: '#10b981', margin: '0 auto 16px' }} />
-                                    <p style={{ color: 'white' }}>¡Entrega completada!</p>
+                                    <CheckCircle2 size={48} style={{ color: '#9DBD39', margin: '0 auto 16px' }} />
+                                    <p style={{ color: '#0f172a' }}>¡Entrega completada!</p>
                                 </>
                             )}
                         </div>

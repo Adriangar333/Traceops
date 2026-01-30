@@ -10,7 +10,7 @@ function App() {
     if (Capacitor.isNativePlatform()) {
       const configureStatusBar = async () => {
         try {
-          await StatusBar.setStyle({ style: Style.Dark });
+          await StatusBar.setStyle({ style: Style.Light });
           // Make status bar transparent (Overlay)
           if (Capacitor.getPlatform() === 'android') {
             await StatusBar.setOverlaysWebView({ overlay: true });
@@ -33,11 +33,11 @@ function App() {
       {/* Fallback for unknown routes */}
       <Route>
         <div style={{
-          height: '100vh', background: '#0f172a', color: 'white',
+          height: '100vh', background: '#f8fafc', color: '#0f172a',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
         }}>
           <h2>404 - Página no encontrada</h2>
-          <a href="/" style={{ color: '#3b82f6', marginTop: 10 }}>Volver al inicio</a>
+          <a href="/" style={{ color: '#9DBD39', marginTop: 10 }}>Volver al inicio</a>
         </div>
       </Route>
     </Switch>

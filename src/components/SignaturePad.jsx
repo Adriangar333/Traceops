@@ -25,23 +25,23 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
         ctx.scale(dpr, dpr);
 
         // Style
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = '#1e293b';
+        ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         // Draw signature line
         ctx.beginPath();
-        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeStyle = '#cbd5e1';
         ctx.lineWidth = 1;
         ctx.setLineDash([5, 3]);
         ctx.moveTo(20, height - 40);
         ctx.lineTo(width - 20, height - 40);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.strokeStyle = '#1e293b';
+        ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 2;
     }, [width, height]);
 
@@ -94,19 +94,19 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
 
         // Redraw signature line
         ctx.beginPath();
-        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeStyle = '#cbd5e1';
         ctx.lineWidth = 1;
         ctx.setLineDash([5, 3]);
         ctx.moveTo(20, height - 40);
         ctx.lineTo(width - 20, height - 40);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.strokeStyle = '#1e293b';
+        ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 2;
 
         setHasSignature(false);
@@ -124,10 +124,11 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
 
     return (
         <div style={{
-            background: '#0f172a',
+            background: '#f8fafc',
             borderRadius: 16,
             padding: 16,
-            maxWidth: '100%'
+            maxWidth: '100%',
+            border: '1px solid #e2e8f0'
         }}>
             <div style={{
                 display: 'flex',
@@ -135,7 +136,7 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
                 alignItems: 'center',
                 marginBottom: 12
             }}>
-                <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                <span style={{ color: '#64748b', fontSize: '0.9rem' }}>
                     Firma del cliente
                 </span>
                 <button
@@ -143,7 +144,7 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
                     style={{
                         background: 'transparent',
                         border: 'none',
-                        color: '#94a3b8',
+                        color: '#64748b',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -162,7 +163,9 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
                     touchAction: 'none',
                     cursor: 'crosshair',
                     display: 'block',
-                    margin: '0 auto'
+                    margin: '0 auto',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
                 }}
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
@@ -183,9 +186,9 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
                     style={{
                         flex: 1,
                         padding: '12px',
-                        background: '#334155',
-                        color: 'white',
-                        border: 'none',
+                        background: '#f1f5f9',
+                        color: '#0f172a',
+                        border: '1px solid #e2e8f0',
                         borderRadius: 8,
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -203,13 +206,13 @@ const SignaturePad = ({ onSave, onCancel, width = 300, height = 200 }) => {
                     style={{
                         flex: 1,
                         padding: '12px',
-                        background: hasSignature ? '#10b981' : '#334155',
-                        color: 'white',
+                        background: hasSignature ? '#9DBD39' : '#e2e8f0',
+                        color: hasSignature ? 'white' : '#94a3b8',
                         border: 'none',
                         borderRadius: 8,
                         fontWeight: 600,
                         cursor: hasSignature ? 'pointer' : 'not-allowed',
-                        opacity: hasSignature ? 1 : 0.5,
+                        opacity: hasSignature ? 1 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

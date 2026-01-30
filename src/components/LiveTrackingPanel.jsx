@@ -279,23 +279,26 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             {/* Header */}
             <div style={{
                 padding: '16px 20px',
-                background: '#1e293b',
-                borderBottom: '1px solid #334155',
+                background: '#ffffff',
+                borderBottom: '1px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                zIndex: 10
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Radio size={24} color="#10b981" />
-                    <h2 style={{ margin: 0, color: 'white', fontSize: '1.25rem' }}>
+                    <Radio size={24} color="#9DBD39" />
+                    <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 700 }}>
                         Rastreo en Vivo
                     </h2>
                     <span style={{
-                        background: '#10b981',
+                        background: '#9DBD39',
                         color: 'white',
                         padding: '4px 10px',
                         borderRadius: 12,
-                        fontSize: '0.8rem'
+                        fontSize: '0.8rem',
+                        fontWeight: 600
                     }}>
                         {driverList.length} activo{driverList.length !== 1 ? 's' : ''}
                     </span>
@@ -303,12 +306,13 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 <button
                     onClick={onClose}
                     style={{
-                        background: '#334155',
-                        border: 'none',
-                        color: 'white',
+                        background: '#f1f5f9',
+                        border: '1px solid #e2e8f0',
+                        color: '#64748b',
                         padding: '8px 16px',
                         borderRadius: 8,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        fontWeight: 500
                     }}
                 >
                     Cerrar
@@ -320,12 +324,12 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 {/* Driver List */}
                 <div style={{
                     width: 320,
-                    background: '#1e293b',
-                    borderRight: '1px solid #334155',
+                    background: '#f8fafc',
+                    borderRight: '1px solid #e2e8f0',
                     overflowY: 'auto',
                     padding: 16
                 }}>
-                    <h3 style={{ color: '#94a3b8', margin: '0 0 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ color: '#64748b', margin: '0 0 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                         <Users size={16} /> Conductores Activos
                     </h3>
 
@@ -355,11 +359,12 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                                 }}
                                 style={{
                                     padding: 12,
-                                    background: selectedDriver === driver.driverId ? '#334155' : 'transparent',
+                                    background: selectedDriver === driver.driverId ? '#ffffff' : 'transparent',
                                     borderRadius: 8,
                                     marginBottom: 8,
                                     cursor: 'pointer',
-                                    border: selectedDriver === driver.driverId ? '1px solid #10b981' : '1px solid transparent'
+                                    border: selectedDriver === driver.driverId ? '1px solid #9DBD39' : '1px solid transparent',
+                                    boxShadow: selectedDriver === driver.driverId ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -367,25 +372,25 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                                         width: 10,
                                         height: 10,
                                         borderRadius: '50%',
-                                        background: '#10b981',
-                                        boxShadow: '0 0 8px #10b981'
+                                        background: '#9DBD39',
+                                        boxShadow: '0 0 8px #9DBD39'
                                     }} />
                                     <div>
-                                        <span style={{ color: 'white', fontWeight: 500, display: 'block' }}>
+                                        <span style={{ color: '#0f172a', fontWeight: 600, display: 'block' }}>
                                             {resolveDriverInfo(driver.driverId).name}
                                         </span>
                                         {resolveDriverInfo(driver.driverId).cuadrilla && (
-                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 2 }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 2, border: '1px solid #e2e8f0' }}>
                                                 {resolveDriverInfo(driver.driverId).cuadrilla}
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, color: '#94a3b8', fontSize: '0.8rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, color: '#64748b', fontSize: '0.8rem' }}>
                                     <MapPin size={12} />
                                     <span>{driver.lat?.toFixed(5)}, {driver.lng?.toFixed(5)}</span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, color: '#64748b', fontSize: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, color: '#94a3b8', fontSize: '0.75rem' }}>
                                     <Clock size={12} />
                                     <span>{formatLastUpdate(driver.lastUpdate)}</span>
                                     {driver.speed && (
