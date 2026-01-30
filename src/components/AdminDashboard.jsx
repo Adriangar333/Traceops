@@ -340,6 +340,25 @@ function AdminDashboard() {
         <div style={{ width: '100%', height: '100vh', overflow: 'hidden', position: 'relative', fontFamily: 'Inter, system-ui', background: '#f8fafc' }}>
             <Toaster position="top-right" richColors />
 
+            {/* --- Stats HUD (Top Right) --- */}
+            <div style={{
+                position: 'absolute', top: 20, right: 20, zIndex: 90,
+                display: 'flex', gap: 12, pointerEvents: 'none'
+            }}>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>RUTAS HOY</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
+                </div>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>CONDUCTORES</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
+                </div>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>ALERTAS</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#6366f1' }}>0</span>
+                </div>
+            </div>
+
             <Sidebar
                 waypoints={waypoints}
                 setWaypoints={setWaypoints}
