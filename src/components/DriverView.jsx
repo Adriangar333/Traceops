@@ -927,7 +927,7 @@ const DriverView = ({ params }) => {
                             style={{ background: 'rgba(15, 23, 42, 0.9)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '6px', borderRadius: 8, fontSize: '0.8rem' }}
                         >
                             <option value="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json">🌙 Oscuro</option>
-                            <option value="https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL">🛰️ Satélite (Demo)</option>
+                            <option value="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json">☀️ Claro</option>
                             {/* Note: Google Satellite/Terrain requires Raster source which is tricky in pure Vector MapLibre without API Keys often. 
                                 Using Carto/OSM standard styles for stability unless we have keys. 
                                 For "Terrain" specifically, often needs a specific style URL. */}

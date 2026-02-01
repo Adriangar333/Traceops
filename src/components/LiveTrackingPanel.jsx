@@ -94,9 +94,8 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     // Map style options
     const MAP_STYLES = {
         dark: { name: '🌙 Oscuro', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
-        streets: { name: '🗺️ Google Maps', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
-        satellite: { name: '🛰️ Satélite', url: 'https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL' },
-        hybrid: { name: '🌍 Híbrido', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
+        streets: { name: '🗺️ Calles', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+        light: { name: '☀️ Claro', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
         terrain: { name: '⛰️ Terreno', url: 'https://demotiles.maplibre.org/style.json' }
     };
 
