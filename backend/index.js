@@ -4,16 +4,60 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { Pool } = require('pg');
+const helmet = require('helmet');
+
+// Security Middleware
+const { authRequired, requireRole, optionalAuth, driverAuth } = require('./middleware/auth');
+const { apiLimiter, publicLimiter } = require('./middleware/rateLimiter');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
-app.use(cors());
+
+// ======================================
+// SECURITY CONFIGURATION
+// ======================================
+
+// Helmet - Security Headers
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false // Disable for API server
+}));
+
+// CORS - Restricted to allowed origins
+const allowedOrigins = [
+    'https://dashboard-frontend.zvkdyr.easypanel.host',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, Postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        console.warn(`🚫 CORS blocked origin: ${origin}`);
+        return callback(null, true); // Temporarily allow all during transition
+    },
+    credentials: true
+}));
+
 app.use(express.json());
+
+// Rate Limiting - Apply to all API routes
+app.use('/api/', apiLimiter);
+
+// Auth Routes (login, register, etc.)
+app.use('/api/auth', authRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", // Allow all for dev, restrict in prod
-        methods: ["GET", "POST"]
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -301,15 +345,33 @@ const initDB = async () => {
 initDB();
 
 // API Routes for Drivers
-app.get('/drivers', async (req, res) => {
+
+// PROTECTED: Full driver data (requires auth)
+app.get('/api/drivers', authRequired, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM drivers ORDER BY created_at DESC');
-        // Convert snake_case to camelCase for frontend compatibility if needed, 
-        // or just ensure frontend handles it. 
-        // Map assigned_routes to assignedRoutes
         const drivers = result.rows.map(d => ({
             ...d,
             assignedRoutes: d.assigned_routes || []
+        }));
+        res.json(drivers);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch drivers' });
+    }
+});
+
+// PUBLIC: Minimal driver data (no sensitive info)
+app.get('/drivers', publicLimiter, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, status, cuadrilla FROM drivers ORDER BY created_at DESC');
+        // Only return non-sensitive fields
+        const drivers = result.rows.map(d => ({
+            id: d.id,
+            name: d.name,
+            status: d.status,
+            cuadrilla: d.cuadrilla
+            // NO email, NO phone, NO assigned_routes
         }));
         res.json(drivers);
     } catch (err) {

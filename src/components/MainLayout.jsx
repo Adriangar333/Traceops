@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation } from 'wouter';
 import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone } from 'lucide-react';
 
-const MainLayout = ({ children }) => {
+const MainLayout = ({ children, user, onLogout }) => {
     const [location, setLocation] = useLocation();
 
     const navItems = [
@@ -78,14 +78,40 @@ const MainLayout = ({ children }) => {
 
                 {/* User Profile / Logout footer */}
                 <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px', opacity: 0.7 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Users size={16} color="#94a3b8" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>
+                                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                            </span>
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>Admin User</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>admin@traceops.com</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {user?.name || 'Usuario'}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {user?.role === 'admin' ? '👑 Administrador' : user?.role === 'supervisor' ? '👁️ Supervisor' : '🚛 Conductor'}
+                            </div>
                         </div>
+                        <button
+                            onClick={onLogout}
+                            style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: 'none',
+                                borderRadius: 8,
+                                padding: 8,
+                                cursor: 'pointer',
+                                color: '#ef4444',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                            title="Cerrar sesión"
+                        >
+                            <LogOut size={16} />
+                        </button>
                     </div>
                 </div>
             </nav>
@@ -99,3 +125,4 @@ const MainLayout = ({ children }) => {
 };
 
 export default MainLayout;
+
