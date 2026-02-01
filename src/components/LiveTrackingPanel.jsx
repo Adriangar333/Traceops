@@ -187,6 +187,9 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
         socketRef.current.on('admin:panic-alert', (data) => {
             console.error('🚨 PANIC ALERT RECEIVED:', data);
 
+            // Determine Alert Type FIRST (before using it)
+            const alertType = data.type || 'SOS';
+
             // Resolve Driver Name using Ref to get fresh data
             const info = resolveDriverInfo(String(data.driverId));
             const driverName = info.name && info.name !== String(data.driverId) ? info.name : `Conductor ${data.driverId}`;
@@ -194,7 +197,6 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             // Set global panic state for this driver
             setPanicDrivers(prev => ({ ...prev, [data.driverId]: true }));
 
-            // 1. Flash Marker immediately if it exists on map
             // 1. Flash Marker immediately if it exists on map
             const alertClass = (alertType === 'Imposibilidad' || alertType === 'Falla Mecánica')
                 ? 'panic-active-warning'
@@ -213,8 +215,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 target.classList.add(alertClass);
             }
 
-            // Determine Alert Style based on Type
-            const alertType = data.type || 'SOS';
+            // 2. Determine Toast Style based on Type
             let toastStyle = {
                 background: '#dc2626',
                 color: 'white',
