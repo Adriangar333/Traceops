@@ -308,7 +308,6 @@ function AdminDashboard() {
                     fixedEnd,
                     returnToStart,
                     assignedAgent: selectedAgent,
-                    assignedAgent: selectedAgent,
                     geometry: { type: 'LineString', coordinates: stats?.coordinates || [] }, // Save geometry locally too
                     createdAt: new Date().toISOString()
                 };
