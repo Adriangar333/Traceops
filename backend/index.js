@@ -69,8 +69,8 @@ const pool = new Pool({
     ssl: false // Disable SSL for now as requested in query string
 });
 
-// SCRC Routes (Ingestion, Updates) - requires pool
-const scrcRoutes = require('./routes/scrcRoutes')(pool);
+// SCRC Routes (Ingestion, Updates) - requires pool and io for real-time updates
+const scrcRoutes = require('./routes/scrcRoutes')(pool, io);
 app.use('/api/scrc', scrcRoutes);
 
 // ======================================

@@ -8,7 +8,7 @@ const { BRIGADE_CAPACITIES } = require('../services/routingEngine');
 // SCRC Routes for ISES Field Service Management
 // Accepts pool as dependency injection from index.js
 
-module.exports = (pool) => {
+module.exports = (pool, io) => {
 
     // ============================================
     // 1. INGEST DATA (Webhook from n8n or direct upload)
@@ -250,6 +250,17 @@ module.exports = (pool) => {
 
             await client.query('COMMIT');
             console.log(`💸 Processed payments, cancelled ${result.rowCount} orders`);
+
+            // Real-time Notification: "Turn off the point"
+            if (io && result.rowCount > 0) {
+                io.emit('scrc:orders-cancelled', {
+                    cancelled_orders: result.rows,
+                    count: result.rowCount,
+                    reason: 'payment_received'
+                });
+                console.log('📡 Emitted scrc:orders-cancelled event');
+            }
+
             res.json({
                 success: true,
                 cancelled_count: result.rowCount,
