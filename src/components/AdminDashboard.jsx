@@ -10,7 +10,7 @@ import DataIngestion from './DataIngestion';
 // Restoration of n8n service
 import { sendToN8N, transformCoordinates } from '../utils/n8nService';
 // import { recordRouteCreated } from '../utils/metricsService'; // Keep commented if not needed
-import { getGoogleRoute } from '../utils/googleDirectionsService';
+// import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { fetchRouteWithStats } from '../utils/osrmService';
 import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 import { io } from 'socket.io-client'; // Import Socket.IO
@@ -158,8 +158,8 @@ function AdminDashboard() {
             return;
         }
 
-        // Get route stats (using Google Directions) - Use optimize: false to respect current order
-        const stats = await getGoogleRoute(allPoints, { optimize: false });
+        // Get route stats (using OSRM service)
+        const stats = await fetchRouteWithStats(allPoints);
 
         const newRoute = {
             id: Date.now(),
