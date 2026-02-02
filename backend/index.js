@@ -9,7 +9,7 @@ const helmet = require('helmet');
 // Security Middleware
 const { authRequired, requireRole, optionalAuth, driverAuth } = require('./middleware/auth');
 const { apiLimiter, publicLimiter } = require('./middleware/rateLimiter');
-const authRoutes = require('./routes/authRoutes');
+// authRoutes injected after pool lines 70+
 
 const app = express();
 
@@ -51,7 +51,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/api/', apiLimiter);
 
 // Auth Routes (login, register, etc.)
-app.use('/api/auth', authRoutes);
+// authRoutes injected after pool lines 70+
 
 // SCRC Routes - initialized after pool (see below)
 
@@ -69,6 +69,10 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: false // Disable SSL for now as requested in query string
 });
+
+// Auth Routes (login, register, etc.) - Requires Pool
+const authRoutes = require('./routes/authRoutes')(pool);
+app.use('/api/auth', authRoutes);
 
 // SCRC Routes (Ingestion, Updates) - requires pool and io for real-time updates
 const scrcRoutes = require('./routes/scrcRoutes')(pool, io);
@@ -251,6 +255,31 @@ const initDB = async () => {
                 location GEOMETRY(POINT, 4326)
             );
         `);
+
+        // Create users table (Auth)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                name TEXT,
+                role TEXT DEFAULT 'driver', -- 'admin', 'supervisor', 'driver'
+                brigade_id INTEGER, -- Link to brigades table if applicable
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Create initial admin user if none exists
+        const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@traceops.com'");
+        if (adminCheck.rowCount === 0) {
+            const bcrypt = require('bcryptjs');
+            const hashed = await bcrypt.hash('admin123', 10);
+            await client.query(`
+                INSERT INTO users (email, password, name, role) 
+                VALUES ('admin@traceops.com', $1, 'Administrador', 'admin')
+            `, [hashed]);
+            console.log('✅ Created default admin user');
+        }
         // Create drivers table
         await client.query(`
             CREATE TABLE IF NOT EXISTS drivers (

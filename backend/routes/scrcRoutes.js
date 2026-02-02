@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { TARIFFS } = require('../utils/tariffs');
+const bcrypt = require('bcryptjs');
 const { validateOrderClosure } = require('../services/auditService');
 const { BRIGADE_CAPACITIES, RoutingEngine, ALCANCE_BRIGADE_MATRIX } = require('../services/routingEngine');
 
@@ -176,6 +177,32 @@ module.exports = (pool, io) => {
                     -- Note: We generally don't overwrite capacity/members if they already exist 
                     -- to avoid resetting manual configs. But updating 'type' is reasonable if it changes.
                 `, [b.name, b.type, b.capacity_per_day, b.current_zone, JSON.stringify(b.members)]);
+
+                // -----------------------------------------------------
+                // Auto-create User for App Login
+                // -----------------------------------------------------
+                try {
+                    // Generate email/pass
+                    // Email: Cleaned name + @traceops.com
+                    // Password: The full name/code as is
+                    const safeName = b.name.trim().toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9\.\-_]/g, '');
+                    const email = `${safeName}@traceops.com`;
+                    const passwordRaw = b.name.trim(); // User uses their Code/Name as password
+
+                    // Check existence
+                    const userCheck = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+                    if (userCheck.rowCount === 0) {
+                        const hashed = await bcrypt.hash(passwordRaw, 10);
+                        await client.query(`
+                            INSERT INTO users (email, password, name, role)
+                            VALUES ($1, $2, $3, 'driver')
+                        `, [email, hashed, b.name]);
+                        console.log(`👤 Auto-created user: ${email} / Pass: ${passwordRaw}`);
+                    }
+                } catch (userErr) {
+                    console.error('Error auto-creating user:', userErr);
+                    // Non-blocking
+                }
                 newBrigadesCount++;
             }
             console.log(`👷 Verified/Created ${newBrigadesCount} brigades/technicians from input.`);
