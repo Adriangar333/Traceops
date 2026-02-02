@@ -1,35 +1,25 @@
 /**
  * GPS Watcher Service
  * Monitors GPS status and sends alerts when disabled
- * Uses Capacitor Geolocation for cross-platform support
  * 
- * NOTE: This service only works on native platforms (iOS/Android).
- * On web, it provides a no-op implementation for build compatibility.
+ * Platform-aware:
+ * - Native (iOS/Android): Uses Capacitor plugins
+ * - Web: Uses navigator.geolocation
  */
-
-import { Capacitor } from '@capacitor/core';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
 
-// Lazy load Capacitor plugins only on native platforms
-let Geolocation = null;
-let LocalNotifications = null;
-
-const loadCapacitorPlugins = async () => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const geoModule = await import('@capacitor/geolocation');
-            Geolocation = geoModule.Geolocation;
-
-            const notifModule = await import('@capacitor/local-notifications');
-            LocalNotifications = notifModule.LocalNotifications;
-            return true;
-        } catch (e) {
-            console.warn('Capacitor plugins not available:', e);
-            return false;
-        }
+// Platform detection without importing Capacitor
+const isNativePlatform = () => {
+    try {
+        // Check if running in Capacitor native shell
+        return typeof window !== 'undefined' &&
+            window.Capacitor &&
+            window.Capacitor.isNativePlatform &&
+            window.Capacitor.isNativePlatform();
+    } catch {
+        return false;
     }
-    return false;
 };
 
 class GPSWatcherService {
@@ -43,7 +33,33 @@ class GPSWatcherService {
         this.checkInterval = null;
         this.sendInterval = null;
         this.listeners = [];
-        this.pluginsLoaded = false;
+        this.Geolocation = null;
+        this.LocalNotifications = null;
+    }
+
+    /**
+     * Load Capacitor plugins dynamically (only on native)
+     */
+    async loadNativePlugins() {
+        if (!isNativePlatform()) {
+            console.log('📍 Web platform detected, using navigator.geolocation');
+            return false;
+        }
+
+        try {
+            // Dynamic imports only execute on native platforms
+            const [geoModule, notifModule] = await Promise.all([
+                import('@capacitor/geolocation'),
+                import('@capacitor/local-notifications')
+            ]);
+            this.Geolocation = geoModule.Geolocation;
+            this.LocalNotifications = notifModule.LocalNotifications;
+            console.log('✅ Capacitor plugins loaded');
+            return true;
+        } catch (error) {
+            console.warn('Capacitor plugins not available:', error);
+            return false;
+        }
     }
 
     /**
@@ -54,45 +70,40 @@ class GPSWatcherService {
     async start(technicianId, brigadeId = null) {
         if (this.isWatching) {
             console.log('GPS Watcher already running');
-            return;
-        }
-
-        // Load plugins if not already loaded
-        if (!this.pluginsLoaded) {
-            this.pluginsLoaded = await loadCapacitorPlugins();
-        }
-
-        // If not on native platform, use web fallback
-        if (!Capacitor.isNativePlatform() || !Geolocation) {
-            console.log('📍 GPS Watcher: Using web geolocation fallback');
-            return this.startWebFallback(technicianId, brigadeId);
+            return true;
         }
 
         this.technicianId = technicianId;
         this.brigadeId = brigadeId;
-        this.isWatching = true;
 
+        // Try to load native plugins
+        const hasNative = await this.loadNativePlugins();
+
+        if (hasNative && this.Geolocation) {
+            return this.startNative();
+        } else {
+            return this.startWeb();
+        }
+    }
+
+    /**
+     * Native platform implementation (Capacitor)
+     */
+    async startNative() {
         try {
-            // Request permissions first
-            const permissions = await Geolocation.checkPermissions();
+            const permissions = await this.Geolocation.checkPermissions();
             if (permissions.location !== 'granted') {
-                const request = await Geolocation.requestPermissions();
+                const request = await this.Geolocation.requestPermissions();
                 if (request.location !== 'granted') {
                     this.emitAlert('GPS_PERMISSION_DENIED', 'El técnico no concedió permisos de ubicación');
                     return false;
                 }
             }
 
-            // Start continuous position watch (high accuracy for field work)
-            this.watchId = await Geolocation.watchPosition(
-                {
-                    enableHighAccuracy: true,
-                    timeout: 30000,
-                    maximumAge: 0
-                },
+            this.watchId = await this.Geolocation.watchPosition(
+                { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
                 (position, err) => {
                     if (err) {
-                        console.error('GPS Error:', err);
                         this.handleGPSError(err);
                         return;
                     }
@@ -109,39 +120,32 @@ class GPSWatcherService {
                 }
             );
 
-            // Check GPS provider status every 30 seconds
+            this.isWatching = true;
             this.checkInterval = setInterval(() => this.checkGPSStatus(), 30000);
-
-            // Send location to server every 60 seconds
             this.sendInterval = setInterval(() => this.sendLocationToServer(), 60000);
 
-            // Show persistent notification on Android
-            if (Capacitor.getPlatform() === 'android' && LocalNotifications) {
-                await this.showTrackingNotification();
+            // Show tracking notification on Android
+            if (this.LocalNotifications) {
+                this.showTrackingNotification();
             }
 
-            console.log('✅ GPS Watcher started for technician:', technicianId);
+            console.log('✅ GPS Watcher (native) started');
             return true;
-
         } catch (error) {
-            console.error('Failed to start GPS watcher:', error);
+            console.error('Failed to start native GPS:', error);
             this.emitAlert('GPS_START_FAILED', error.message);
             return false;
         }
     }
 
     /**
-     * Web fallback using navigator.geolocation
+     * Web platform implementation (navigator.geolocation)
      */
-    async startWebFallback(technicianId, brigadeId) {
+    async startWeb() {
         if (!navigator.geolocation) {
             console.warn('Geolocation not supported in this browser');
             return false;
         }
-
-        this.technicianId = technicianId;
-        this.brigadeId = brigadeId;
-        this.isWatching = true;
 
         try {
             this.watchId = navigator.geolocation.watchPosition(
@@ -164,13 +168,13 @@ class GPSWatcherService {
                 { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
             );
 
-            // Send location to server every 60 seconds
+            this.isWatching = true;
             this.sendInterval = setInterval(() => this.sendLocationToServer(), 60000);
 
-            console.log('✅ GPS Watcher (web) started for technician:', technicianId);
+            console.log('✅ GPS Watcher (web) started');
             return true;
         } catch (error) {
-            console.error('Failed to start web GPS watcher:', error);
+            console.error('Failed to start web GPS:', error);
             return false;
         }
     }
@@ -180,8 +184,8 @@ class GPSWatcherService {
      */
     async stop() {
         if (this.watchId !== null) {
-            if (Capacitor.isNativePlatform() && Geolocation) {
-                await Geolocation.clearWatch({ id: this.watchId });
+            if (this.Geolocation) {
+                await this.Geolocation.clearWatch({ id: this.watchId });
             } else if (navigator.geolocation) {
                 navigator.geolocation.clearWatch(this.watchId);
             }
@@ -203,32 +207,26 @@ class GPSWatcherService {
     }
 
     /**
-     * Check if GPS provider is enabled
+     * Check GPS provider status (native only)
      */
     async checkGPSStatus() {
-        if (!Geolocation) return;
+        if (!this.Geolocation) return;
 
         try {
-            // Try to get a single position - will fail if GPS is off
-            const position = await Geolocation.getCurrentPosition({
+            await this.Geolocation.getCurrentPosition({
                 enableHighAccuracy: false,
                 timeout: 5000
             });
 
             if (!this.gpsEnabled) {
-                // GPS was off, now it's on
                 this.gpsEnabled = true;
                 this.emitAlert('GPS_ENABLED', 'El técnico reactivó la ubicación');
             }
         } catch (error) {
-            // GPS might be disabled
             if (error.code === 2 || error.message?.includes('disabled')) {
                 if (this.gpsEnabled) {
-                    // GPS just got disabled!
                     this.gpsEnabled = false;
                     this.emitAlert('GPS_DISABLED', 'El técnico apagó la ubicación');
-
-                    // Show local warning to technician
                     this.showGPSWarning();
                 }
             }
@@ -236,34 +234,34 @@ class GPSWatcherService {
     }
 
     /**
-     * Handle GPS errors from watchPosition
+     * Handle GPS errors
      */
     handleGPSError(error) {
         switch (error.code) {
-            case 1: // PERMISSION_DENIED
+            case 1:
                 this.emitAlert('GPS_PERMISSION_DENIED', 'Permisos de ubicación denegados');
                 break;
-            case 2: // POSITION_UNAVAILABLE (GPS off or no signal)
+            case 2:
                 if (this.gpsEnabled) {
                     this.gpsEnabled = false;
-                    this.emitAlert('GPS_DISABLED', 'Ubicación no disponible - GPS apagado');
+                    this.emitAlert('GPS_DISABLED', 'Ubicación no disponible');
                     this.showGPSWarning();
                 }
                 break;
-            case 3: // TIMEOUT
+            case 3:
                 console.warn('GPS timeout, retrying...');
                 break;
         }
     }
 
     /**
-     * Send current location to server
+     * Send location to server
      */
     async sendLocationToServer() {
         if (!this.lastLocation || !this.technicianId) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/scrc/tech-location`, {
+            await fetch(`${API_URL}/api/scrc/tech-location`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -275,17 +273,13 @@ class GPSWatcherService {
                     gps_enabled: this.gpsEnabled
                 })
             });
-
-            if (!response.ok) {
-                console.error('Failed to send location:', response.status);
-            }
         } catch (error) {
             console.error('Error sending location:', error);
         }
     }
 
     /**
-     * Emit alert to server about GPS status change
+     * Emit GPS alert to server
      */
     async emitAlert(type, message) {
         console.warn(`🚨 GPS Alert: ${type} - ${message}`);
@@ -308,40 +302,38 @@ class GPSWatcherService {
             console.error('Failed to send alert:', error);
         }
 
-        // Notify local listeners
         this.notifyListeners('alert', { type, message });
     }
 
     /**
-     * Show warning notification to technician when GPS is off
+     * Show GPS warning notification (native only)
      */
     async showGPSWarning() {
-        if (!LocalNotifications) return;
+        if (!this.LocalNotifications) return;
 
         try {
-            await LocalNotifications.schedule({
+            await this.LocalNotifications.schedule({
                 notifications: [{
                     id: 999,
                     title: '⚠️ GPS Desactivado',
-                    body: 'Por favor active la ubicación para continuar con el registro de rutas.',
-                    largeBody: 'El sistema requiere ubicación activa. Si no reactiva el GPS, se notificará al supervisor.',
+                    body: 'Por favor active la ubicación.',
                     ongoing: true,
                     autoCancel: false
                 }]
             });
         } catch (error) {
-            console.error('Failed to show notification:', error);
+            console.error('Notification error:', error);
         }
     }
 
     /**
-     * Show persistent tracking notification (Android foreground service workaround)
+     * Show tracking notification (native only)
      */
     async showTrackingNotification() {
-        if (!LocalNotifications) return;
+        if (!this.LocalNotifications) return;
 
         try {
-            await LocalNotifications.schedule({
+            await this.LocalNotifications.schedule({
                 notifications: [{
                     id: 1,
                     title: '📍 Rastreo Activo',
@@ -351,13 +343,12 @@ class GPSWatcherService {
                 }]
             });
         } catch (error) {
-            console.error('Failed to show tracking notification:', error);
+            console.error('Notification error:', error);
         }
     }
 
     /**
      * Subscribe to GPS events
-     * @param {Function} callback - Called with (eventType, data)
      */
     subscribe(callback) {
         this.listeners.push(callback);
@@ -383,6 +374,6 @@ class GPSWatcherService {
     }
 }
 
-// Singleton instance
+// Singleton
 export const gpsWatcher = new GPSWatcherService();
 export default gpsWatcher;
