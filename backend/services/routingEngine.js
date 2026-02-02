@@ -160,8 +160,8 @@ class RoutingEngine {
     /**
      * Get available brigades with remaining capacity
      */
-    async getAvailableBrigades() {
-        const result = await this.pool.query(`
+    async getAvailableBrigades(targetBrigadeId = null, boostCapacity = 0) {
+        let query = `
             SELECT 
                 b.*,
                 COALESCE(
@@ -173,14 +173,25 @@ class RoutingEngine {
                 ) as orders_today
             FROM brigades b
             WHERE b.status = 'active'
-        `);
+        `;
+
+        const params = [];
+        if (targetBrigadeId) {
+            query += ` AND b.id = $1`;
+            params.push(targetBrigadeId);
+        }
+
+        const result = await this.pool.query(query, params);
 
         return result.rows.map(brigade => {
-            const capacity = BRIGADE_CAPACITIES[brigade.type] || 20;
+            const baseCapacity = BRIGADE_CAPACITIES[brigade.type] || 20;
+            // Apply boost if this is the target brigade
+            const effectiveCapacity = baseCapacity + (targetBrigadeId && brigade.id === targetBrigadeId ? boostCapacity : 0);
+
             return {
                 ...brigade,
-                capacity,
-                remaining_capacity: capacity - brigade.orders_today
+                capacity: effectiveCapacity,
+                remaining_capacity: effectiveCapacity - brigade.orders_today
             };
         }).filter(b => b.remaining_capacity > 0);
     }
@@ -208,7 +219,8 @@ class RoutingEngine {
             const orders = ordersResult.rows;
 
             // 2. Get available brigades
-            const brigades = await this.getAvailableBrigades();
+            const { specificBrigadeId, boostCapacity = 0 } = options;
+            const brigades = await this.getAvailableBrigades(specificBrigadeId, boostCapacity);
 
             // Create a map to track brigade assignments
             const brigadeAssignments = new Map();
@@ -228,9 +240,11 @@ class RoutingEngine {
                     for (const [id, brigade] of brigadeAssignments) {
                         if (brigade.type === brigadeType &&
                             brigade.assigned < brigade.remaining_capacity) {
-                            // Prefer brigades in same zone
-                            if (!bestBrigade ||
-                                brigade.current_zone === order.municipality) {
+                            // Prefer brigades in same zone OR strict target
+                            if (specificBrigadeId) {
+                                // If targeting, only accept the specific one (already filtered by query, but good to be safe)
+                                if (brigade.id === specificBrigadeId) bestBrigade = brigade;
+                            } else if (!bestBrigade || brigade.current_zone === order.municipality) {
                                 bestBrigade = brigade;
                             }
                         }

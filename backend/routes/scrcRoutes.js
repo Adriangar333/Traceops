@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { TARIFFS } = require('../utils/tariffs');
 const { validateOrderClosure } = require('../services/auditService');
-const { BRIGADE_CAPACITIES } = require('../services/routingEngine');
+const { BRIGADE_CAPACITIES, RoutingEngine, ALCANCE_BRIGADE_MATRIX } = require('../services/routingEngine');
 
 
 // SCRC Routes for ISES Field Service Management
 // Accepts pool as dependency injection from index.js
 
 module.exports = (pool, io) => {
+    const routingEngine = new RoutingEngine(pool);
 
     // ============================================
     // 1. INGEST DATA (Webhook from n8n or direct upload)
@@ -314,7 +315,7 @@ module.exports = (pool, io) => {
                     execution_duration = $5,
                     execution_location = ${locParams},
                     updated_at = NOW()
-                WHERE id = $6
+            WHERE id = $6
                 RETURNING *
             `, [
                 notes,
@@ -324,6 +325,46 @@ module.exports = (pool, io) => {
                 durationMinutes || 0,
                 id
             ]);
+
+            // 4. Check for Refill (Dynamic Assignment) - "Gatillo de Terminación"
+            if (order.assigned_brigade_id) {
+                const hour = new Date().getHours();
+                // If before 4 PM (16:00), we can assign more
+                if (hour < 16) {
+                    const pendingRes = await pool.query(`
+                        SELECT COUNT(*) as count 
+                        FROM scrc_orders 
+                        WHERE assigned_brigade_id = $1 
+                        AND status IN ('assigned', 'in_progress')
+                        AND DATE(assignment_date) = CURRENT_DATE
+                    `, [order.assigned_brigade_id]);
+
+                    const pendingCount = parseInt(pendingRes.rows[0].count);
+
+                    // If queue is almost empty (< 3), trigger refill
+                    if (pendingCount < 3) {
+                        console.log(`⚡ Triggering Auto-Refill for Brigade ${order.assigned_brigade_id} (Load: ${pendingCount})`);
+                        try {
+                            const refillResult = await routingEngine.autoAssign({
+                                specificBrigadeId: order.assigned_brigade_id,
+                                boostCapacity: 5, // Allow +5 orders
+                                maxOrders: 5,
+                                dryRun: false
+                            });
+
+                            if (refillResult.assigned > 0 && io) {
+                                io.emit('scrc:refill', {
+                                    brigade_id: order.assigned_brigade_id,
+                                    count: refillResult.assigned,
+                                    message: `Asignadas ${refillResult.assigned} nuevas órdenes por terminación anticipada.`
+                                });
+                            }
+                        } catch (refillErr) {
+                            console.error('Refill error:', refillErr);
+                        }
+                    }
+                }
+            }
 
             res.json({
                 success: true,
@@ -482,8 +523,7 @@ module.exports = (pool, io) => {
     // ============================================
     // 5. ROUTING ENGINE - Auto-assign orders
     // ============================================
-    const { RoutingEngine, BRIGADE_CAPACITIES, ALCANCE_BRIGADE_MATRIX } = require('../services/routingEngine');
-    const routingEngine = new RoutingEngine(pool);
+    // (RoutingEngine instantiated at module scope)
 
     // POST /api/scrc/routing/auto-assign
     // Automatically assign pending orders to brigades based on capacity and eligibility

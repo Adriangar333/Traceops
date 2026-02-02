@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileValues, Check, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -92,7 +92,7 @@ const DataIngestion = () => {
                     borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto 16px'
                 }}>
-                    {isUploading ? <Upload className="animate-bounce" color="#3b82f6" size={32} /> : <FileValues color="#3b82f6" size={32} />}
+                    {isUploading ? <Upload className="animate-bounce" color="#3b82f6" size={32} /> : <FileText color="#3b82f6" size={32} />}
                 </div>
 
                 <h3 style={{ color: '#f1f5f9', fontSize: 18, marginBottom: 8 }}>
