@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
+import { X } from 'lucide-react';
 import MapComponent from './MapComponent';
 import Sidebar from './Sidebar';
 import AgentsPanel from './AgentsPanel';
 import Dashboard from './Dashboard';
 import LiveTrackingPanel from './LiveTrackingPanel';
+import DataIngestion from './DataIngestion';
 // Deleted services - functionality moved or deprecated
 // import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
 // import { recordRouteCreated } from '../utils/metricsService';
@@ -23,6 +25,7 @@ function AdminDashboard() {
     const [showAgentsPanel, setShowAgentsPanel] = useState(false);
     const [showDashboard, setShowDashboard] = useState(false);
     const [showTracking, setShowTracking] = useState(false);
+    const [showIngestion, setShowIngestion] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [previewRoute, setPreviewRoute] = useState(null);
 
@@ -379,6 +382,7 @@ function AdminDashboard() {
                 isSubmitting={isSubmitting}
                 onOpenAgents={() => setShowAgentsPanel(true)}
                 onOpenDashboard={() => setShowDashboard(true)}
+                onOpenIngestion={() => setShowIngestion(true)}
                 onPreviewRoute={setPreviewRoute}
                 onApplyRoute={(route) => {
                     if (route?.optimizedWaypoints) {
@@ -440,6 +444,24 @@ function AdminDashboard() {
                 onClose={() => setShowTracking(false)}
                 driversList={agents}
             />
+
+            {/* Data Ingestion Overlay */}
+            {showIngestion && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{ width: '100%', maxWidth: 800, height: '80vh', background: '#0f172a', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', position: 'relative' }}>
+                        <button
+                            onClick={() => setShowIngestion(false)}
+                            style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                        >
+                            <X />
+                        </button>
+                        <DataIngestion />
+                    </div>
+                </div>
+            )}
 
             {/* Floating Tracking Button */}
             <button

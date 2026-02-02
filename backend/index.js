@@ -431,6 +431,10 @@ const initDB = async () => {
             ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS meter_brand TEXT;
             ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS supervisor TEXT;
             ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS assignment_date TIMESTAMP;
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS audit_flags JSONB DEFAULT '{}';
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS is_flagged BOOLEAN DEFAULT FALSE;
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS execution_duration INTEGER; -- Minutes
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS execution_location GEOMETRY(POINT, 4326); -- Actual location of closure
         `);
         console.log('✅ SCRC migrations applied');
 
@@ -481,8 +485,9 @@ app.get('/drivers', publicLimiter, async (req, res) => {
             id: d.id,
             name: d.name,
             status: d.status,
-            cuadrilla: d.cuadrilla
-            // NO email, NO phone, NO assigned_routes
+            cuadrilla: d.cuadrilla,
+            email: d.email, // Required for n8n notifications
+            phone: d.phone  // Required for validation
         }));
         res.json(drivers);
     } catch (err) {

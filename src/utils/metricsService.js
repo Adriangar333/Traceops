@@ -3,79 +3,70 @@
  * Basic localStorage-based metrics storage
  */
 
-const METRICS_KEY = 'traceops_metrics';
+const API_URL = 'https://dashboard-backend.zvkdyr.easypanel.host/api/scrc';
 
-const getMetrics = () => {
+export const fetchDashboardData = async () => {
     try {
-        return JSON.parse(localStorage.getItem(METRICS_KEY) || '{"routes": [], "deliveries": []}');
-    } catch {
-        return { routes: [], deliveries: [] };
+        const [statsRes, financialsRes] = await Promise.all([
+            fetch(`${API_URL}/stats`),
+            fetch(`${API_URL}/financials?startDate=${new Date().toISOString().split('T')[0].substring(0, 8)}01`) // Helper for current month?
+        ]);
+
+        if (!statsRes.ok || !financialsRes.ok) throw new Error('Failed to fetch data');
+
+        const stats = await statsRes.json();
+        const financials = await financialsRes.json();
+
+        return {
+            totalRoutes: parseInt(stats.summary.total),
+            completedRoutes: parseInt(stats.summary.completed),
+            completionRate: parseInt(stats.summary.total) > 0 ? Math.round((parseInt(stats.summary.completed) / parseInt(stats.summary.total)) * 100) : 0,
+            totalDeliveries: parseInt(stats.summary.completed), // Approximation for now
+            totalDistanceKm: 0, // Not aggregated by backend yet
+            last7Days: [], // Backend needs to provide this
+            recentRoutes: [], // Backend needs to provide this
+            financials: financials,
+            byBrigade: stats.by_brigade,
+            avgTimePerRoute: 45
+        };
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        return null; // Handle error in UI
     }
 };
 
-export const calculateSummary = () => {
-    const metrics = getMetrics();
-    const today = new Date().toDateString();
-
-    const completedRoutes = metrics.routes.filter(r => r.status === 'completed').length;
-    const totalRoutes = metrics.routes.length;
-
-    // Last 7 days
-    const last7Days = [];
-    for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toDateString();
-        const dayRoutes = metrics.routes.filter(r =>
-            new Date(r.createdAt).toDateString() === dateStr
-        );
-        last7Days.push({
-            label: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][date.getDay()],
-            created: dayRoutes.length
-        });
+export const fetchAuditReport = async () => {
+    try {
+        const res = await fetch(`${API_URL}/audit`);
+        if (!res.ok) throw new Error('Failed to fetch audit report');
+        return await res.json();
+    } catch (error) {
+        console.error('Audit report error:', error);
+        return [];
     }
+};
 
-    const totalDeliveries = metrics.deliveries.length;
-    const totalDistance = metrics.routes.reduce((sum, r) => sum + (r.distanceKm || 0), 0);
-
+// Legacy/Stub functions - kept to avoid breaking imports immediately, but non-functional
+export const calculateSummary = () => {
+    console.warn('calculateSummary is deprecated. Use fetchDashboardData.');
     return {
-        totalRoutes,
-        completedRoutes,
-        completionRate: totalRoutes > 0 ? Math.round((completedRoutes / totalRoutes) * 100) : 0,
-        totalDeliveries,
-        totalDistanceKm: totalDistance.toFixed(1),
-        last7Days,
-        recentRoutes: metrics.routes.slice(-5).reverse(),
-        avgDeliveriesPerRoute: totalRoutes > 0 ? Math.round(totalDeliveries / totalRoutes) : 0,
-        avgDistancePerRoute: totalRoutes > 0 ? (totalDistance / totalRoutes).toFixed(1) : 0,
-        avgTimePerRoute: 45 // Placeholder
+        totalRoutes: 0,
+        completedRoutes: 0,
+        completionRate: 0,
+        totalDeliveries: 0,
+        totalDistanceKm: 0,
+        last7Days: [],
+        recentRoutes: [],
+        avgDeliveriesPerRoute: 0,
+        avgDistancePerRoute: 0,
+        avgTimePerRoute: 0
     };
 };
 
-export const recordRouteCreated = (routeData) => {
-    const metrics = getMetrics();
-    metrics.routes.push({
-        ...routeData,
-        id: Date.now(),
-        createdAt: new Date().toISOString(),
-        status: 'created'
-    });
-    localStorage.setItem(METRICS_KEY, JSON.stringify(metrics));
-};
-
-export const recordDelivery = (deliveryData) => {
-    const metrics = getMetrics();
-    metrics.deliveries.push({
-        ...deliveryData,
-        timestamp: new Date().toISOString()
-    });
-    localStorage.setItem(METRICS_KEY, JSON.stringify(metrics));
-};
-
 export const exportMetrics = () => {
-    return getMetrics();
+    console.log('Export not implemented for real API yet');
 };
 
 export const resetMetrics = () => {
-    localStorage.removeItem(METRICS_KEY);
+    console.log('Reset not applicable for real API');
 };

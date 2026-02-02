@@ -1,5 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const { TARIFFS } = require('../utils/tariffs');
+const { validateOrderClosure } = require('../services/auditService');
+const { BRIGADE_CAPACITIES } = require('../services/routingEngine');
+
 
 // SCRC Routes for ISES Field Service Management
 // Accepts pool as dependency injection from index.js
@@ -24,6 +28,72 @@ module.exports = (pool) => {
         try {
             await client.query('BEGIN');
 
+            // ---------------------------------------------------------
+            // STEP 0: Auto-create Brigades / Technicians found in Input
+            // ---------------------------------------------------------
+            const brigadesMap = new Map();
+
+            for (const order of orders) {
+                // Key logic: Who is doing the work?
+                // The Excel often has 'TECNICO' or 'BRIGADA' (code).
+                // We use 'TECNICO' as the human-readable name if available, else 'BRIGADA'.
+                const rawName = order['TECNICO'] || order.tecnico;
+                const rawCode = order['BRIGADA'] || order.brigada;
+                const rawType = order['TIPO DE BRIGADA'] || order.tipo_brigada || 'SCR LIVIANA';
+
+                // If we have a name (Technician) or Code, we treat it as a Brigade unit.
+                // Priority: Use CODE if available (unique ID), else Name.
+                // Actually, 'name' in our DB is UNIQUE. Let's use the most descriptive one.
+                const brigadeName = rawName || rawCode;
+
+                if (brigadeName) {
+                    if (!brigadesMap.has(brigadeName)) {
+                        // Determine default capacity based on type
+                        // Clean up type string to match keys (e.g., trim extra spaces)
+                        const cleanType = rawType.trim().toUpperCase();
+                        let capacity = 20; // Default
+
+                        // Try to find matching capacity
+                        for (const [key, cap] of Object.entries(BRIGADE_CAPACITIES)) {
+                            if (cleanType.includes(key)) {
+                                capacity = cap;
+                                break;
+                            }
+                        }
+
+                        brigadesMap.set(brigadeName, {
+                            name: brigadeName,
+                            type: cleanType,
+                            capacity_per_day: capacity,
+                            current_zone: order['MUNICIPIO'] || order.municipio || 'Norte',
+                            // If we have a code and a name, store name in members or as description?
+                            // For now, let's just use the name column.
+                            members: rawName && rawCode ? [{ name: rawName, role: 'titular', code: rawCode }] : []
+                        });
+                    }
+                }
+            }
+
+            // Upsert detected brigades
+            let newBrigadesCount = 0;
+            for (const b of brigadesMap.values()) {
+                await client.query(`
+                    INSERT INTO brigades (name, type, capacity_per_day, current_zone, members, status)
+                    VALUES ($1, $2, $3, $4, $5, 'active')
+                    ON CONFLICT (name) DO UPDATE SET
+                        type = EXCLUDED.type,
+                        updated_at = NOW()
+                    -- Note: We generally don't overwrite capacity/members if they already exist 
+                    -- to avoid resetting manual configs. But updating 'type' is reasonable if it changes.
+                `, [b.name, b.type, b.capacity_per_day, b.current_zone, JSON.stringify(b.members)]);
+                newBrigadesCount++;
+            }
+            console.log(`👷 Verified/Created ${newBrigadesCount} brigades/technicians from input.`);
+
+
+            // ---------------------------------------------------------
+            // STEP 1: Insert Orders
+            // ---------------------------------------------------------
             let count = 0;
             let skipped = 0;
 
@@ -100,7 +170,7 @@ module.exports = (pool) => {
 
             await client.query('COMMIT');
             console.log(`📥 Ingested ${count} SCRC orders (${skipped} skipped)`);
-            res.json({ success: true, count, skipped });
+            res.json({ success: true, count, skipped, brigades_processed: newBrigadesCount });
         } catch (err) {
             await client.query('ROLLBACK');
             console.error('Ingest error:', err);
@@ -152,6 +222,9 @@ module.exports = (pool) => {
     // ============================================
     // 3. UPDATE DEBT / CANCEL ORDERS (n8n 30min job)
     // ============================================
+    // ============================================
+    // 3. UPDATE DEBT / CANCEL ORDERS (n8n 30min job)
+    // ============================================
     router.post('/update-debt', async (req, res) => {
         const { payments } = req.body; // Array of NICs that paid
 
@@ -192,6 +265,90 @@ module.exports = (pool) => {
     });
 
     // ============================================
+    // 3.1 COMPLETE ORDER (Mobile App) - With Audit
+    // ============================================
+    router.patch('/orders/:id/complete', async (req, res) => {
+        const { id } = req.params;
+        const {
+            latitude, longitude,
+            notes, photos,
+            durationMinutes
+        } = req.body;
+
+        try {
+            // 1. Get current order data
+            const orderRes = await pool.query('SELECT * FROM scrc_orders WHERE id = $1', [id]);
+            if (orderRes.rowCount === 0) return res.status(404).json({ error: 'Order not found' });
+
+            const order = orderRes.rows[0];
+
+            // 2. Perform Audit
+            const closingData = { latitude, longitude, durationMinutes };
+            const { isFlagged, flags } = validateOrderClosure(order, closingData);
+
+            // 3. Update Order
+            // Use PostGIS to store execution location
+            const locParams = (latitude && longitude)
+                ? `ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)`
+                : 'NULL';
+
+            const result = await pool.query(`
+                UPDATE scrc_orders SET
+                    status = 'completed',
+                    execution_date = NOW(),
+                    notes = $1,
+                    evidence_photos = $2,
+                    audit_flags = $3,
+                    is_flagged = $4,
+                    execution_duration = $5,
+                    execution_location = ${locParams},
+                    updated_at = NOW()
+                WHERE id = $6
+                RETURNING *
+            `, [
+                notes,
+                photos || [],
+                flags,
+                isFlagged,
+                durationMinutes || 0,
+                id
+            ]);
+
+            res.json({
+                success: true,
+                order: result.rows[0],
+                audit: { isFlagged, flags }
+            });
+
+        } catch (err) {
+            console.error('Complete order error:', err);
+            res.status(500).json({ error: 'Failed to complete order' });
+        }
+    });
+
+    // ============================================
+    // 3.2 AUDIT REPORT (Dashboard)
+    // ============================================
+    router.get('/audit', async (req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    id, order_number, technician_name, brigade_type,
+                    audit_flags, execution_date,
+                    order_type
+                FROM scrc_orders
+                WHERE is_flagged = TRUE
+                ORDER BY execution_date DESC
+                LIMIT 100
+            `);
+            res.json(result.rows);
+        } catch (err) {
+            console.error('Audit report error:', err);
+            res.status(500).json({ error: 'Failed to fetch audit report' });
+        }
+    });
+
+    // ============================================
     // 4. GET STATS (Dashboard summary)
     // ============================================
     router.get('/stats', async (req, res) => {
@@ -223,6 +380,91 @@ module.exports = (pool) => {
         } catch (err) {
             console.error('Stats error:', err);
             res.status(500).json({ error: 'Failed to fetch stats' });
+        }
+    });
+
+    // ============================================
+    // 4.1 FINANCIALS (PxQ) - Real-time Billing
+    // ============================================
+    router.get('/financials', async (req, res) => {
+        const { startDate, endDate, brigade_type } = req.query;
+
+        try {
+            let query = `
+                SELECT 
+                    product_code, 
+                    order_type, 
+                    brigade_type, 
+                    COUNT(*) as count
+                FROM scrc_orders
+                WHERE status = 'completed'
+            `;
+
+            const params = [];
+            let paramIdx = 1;
+
+            if (startDate) {
+                query += ` AND execution_date >= $${paramIdx++}`;
+                params.push(startDate);
+            }
+            if (endDate) {
+                query += ` AND execution_date <= $${paramIdx++}`;
+                params.push(endDate);
+            }
+            if (brigade_type) {
+                query += ` AND brigade_type = $${paramIdx++}`;
+                params.push(brigade_type);
+            }
+
+            query += ` GROUP BY product_code, order_type, brigade_type`;
+
+            const result = await pool.query(query, params);
+
+            // Calculate Totals using TARIFFS
+            let totalValue = 0;
+            const details = result.rows.map(row => {
+                const tariff = TARIFFS[row.product_code] || { price: 0, name: row.order_type };
+
+                // Fallback for missing codes based on order_type
+                let price = tariff.price;
+                if (!price) {
+                    if (row.order_type === 'corte') price = TARIFFS['GENERIC_CORTE'];
+                    else if (row.order_type === 'reconexion') price = TARIFFS['GENERIC_RECON'];
+                    else price = 0;
+                }
+
+                const subtotal = price * parseInt(row.count);
+                totalValue += subtotal;
+
+                return {
+                    ...row,
+                    price,
+                    subtotal,
+                    label: tariff.name || row.order_type
+                };
+            });
+
+            // Projection (Simple Linear)
+            // If viewing current month, project to end of month
+            let projectedValue = totalValue;
+            if (startDate && new Date(startDate).getDate() === 1) { // Basic check for "start of month"
+                const now = new Date();
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const currentDay = now.getDate();
+                if (currentDay < daysInMonth) {
+                    projectedValue = (totalValue / currentDay) * daysInMonth;
+                }
+            }
+
+            res.json({
+                totalValue,
+                projectedValue: Math.round(projectedValue),
+                details
+            });
+
+        } catch (err) {
+            console.error('Financials error:', err);
+            res.status(500).json({ error: 'Failed to calculate financials' });
         }
     });
 
