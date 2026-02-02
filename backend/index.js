@@ -52,9 +52,7 @@ app.use('/api/', apiLimiter);
 // Auth Routes (login, register, etc.)
 app.use('/api/auth', authRoutes);
 
-// SCRC Routes (Ingestion, Updates)
-const scrcRoutes = require('./routes/scrcRoutes')(pool);
-app.use('/api/scrc', scrcRoutes);
+// SCRC Routes - initialized after pool (see below)
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -65,11 +63,15 @@ const io = new Server(server, {
     }
 });
 
-// Database Connection
+// Database Connection - MUST be initialized before routes that need it
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: false // Disable SSL for now as requested in query string
 });
+
+// SCRC Routes (Ingestion, Updates) - requires pool
+const scrcRoutes = require('./routes/scrcRoutes')(pool);
+app.use('/api/scrc', scrcRoutes);
 
 // ======================================
 // SCALABILITY OPTIMIZATIONS
