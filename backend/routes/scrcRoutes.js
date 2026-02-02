@@ -11,6 +11,95 @@ const { BRIGADE_CAPACITIES, RoutingEngine, ALCANCE_BRIGADE_MATRIX } = require('.
 module.exports = (pool, io) => {
     const routingEngine = new RoutingEngine(pool);
 
+    // In-memory cache for technician locations (for real-time tracking)
+    const techLocations = new Map(); // techId -> {lat, lng, timestamp, brigade_id}
+    const GPS_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes - consider GPS "off" if no update
+
+    // ============================================
+    // REAL-TIME GPS TRACKING
+    // ============================================
+
+    // Technician sends their location (from mobile app)
+    router.post('/tech-location', async (req, res) => {
+        const { technician_id, brigade_id, latitude, longitude, accuracy, battery } = req.body;
+
+        if (!technician_id || !latitude || !longitude) {
+            return res.status(400).json({ error: 'technician_id, latitude, longitude required' });
+        }
+
+        const locationData = {
+            technician_id,
+            brigade_id: brigade_id || null,
+            lat: parseFloat(latitude),
+            lng: parseFloat(longitude),
+            accuracy: accuracy || null,
+            battery: battery || null,
+            timestamp: new Date().toISOString(),
+            is_online: true
+        };
+
+        // Update in-memory cache
+        techLocations.set(technician_id, locationData);
+
+        // Broadcast to all admin clients listening
+        io.emit('tech:location', locationData);
+
+        // Optionally persist to DB (batch insert every 30s handled elsewhere)
+        res.json({ success: true, received: locationData.timestamp });
+    });
+
+    // Admin gets all current technician locations
+    router.get('/tech-locations', async (req, res) => {
+        const now = Date.now();
+        const locations = [];
+
+        techLocations.forEach((loc, techId) => {
+            const locTime = new Date(loc.timestamp).getTime();
+            const isStale = (now - locTime) > GPS_TIMEOUT_MS;
+
+            locations.push({
+                ...loc,
+                is_online: !isStale,
+                last_seen_minutes_ago: Math.round((now - locTime) / 60000)
+            });
+        });
+
+        res.json({
+            success: true,
+            locations,
+            gps_timeout_minutes: GPS_TIMEOUT_MS / 60000
+        });
+    });
+
+    // Check for GPS alerts (technicians who haven't reported in X minutes)
+    router.get('/gps-alerts', async (req, res) => {
+        const { timeout_minutes = 10 } = req.query;
+        const threshold = parseInt(timeout_minutes) * 60 * 1000;
+        const now = Date.now();
+        const alerts = [];
+
+        techLocations.forEach((loc, techId) => {
+            const locTime = new Date(loc.timestamp).getTime();
+            if ((now - locTime) > threshold) {
+                alerts.push({
+                    technician_id: techId,
+                    brigade_id: loc.brigade_id,
+                    last_location: { lat: loc.lat, lng: loc.lng },
+                    last_seen: loc.timestamp,
+                    minutes_ago: Math.round((now - locTime) / 60000),
+                    alert_type: 'GPS_TIMEOUT'
+                });
+            }
+        });
+
+        // Also emit alert event if any found
+        if (alerts.length > 0) {
+            io.emit('gps:alerts', { count: alerts.length, alerts });
+        }
+
+        res.json({ success: true, alerts });
+    });
+
     // ============================================
     // 1. INGEST DATA (Webhook from n8n or direct upload)
     // ============================================
@@ -662,6 +751,178 @@ module.exports = (pool, io) => {
             res.status(500).json({ error: 'Failed to bulk import brigades' });
         } finally {
             client.release();
+        }
+    });
+
+    // ============================================
+    // EXCEL EXPORT - SIPREM FORMAT
+    // ============================================
+    router.get('/export/siprem', async (req, res) => {
+        const XLSX = require('xlsx');
+        const { date, status, brigade_id } = req.query;
+
+        try {
+            let whereClause = "WHERE status IN ('completed', 'failed')";
+            const params = [];
+
+            if (date) {
+                params.push(date);
+                whereClause += ` AND DATE(execution_date) = $${params.length}`;
+            }
+            if (status) {
+                params.push(status);
+                whereClause += ` AND status = $${params.length}`;
+            }
+            if (brigade_id) {
+                params.push(brigade_id);
+                whereClause += ` AND assigned_brigade_id = $${params.length}`;
+            }
+
+            const result = await pool.query(`
+                SELECT 
+                    o.order_number AS "ORDEN",
+                    o.nic AS "NIC",
+                    o.client_name AS "NOMBRE DEL CLIENTE",
+                    o.address AS "DIRECCION",
+                    o.municipality AS "MUNICIPIO",
+                    o.neighborhood AS "BARRIO",
+                    o.department AS "DEPARTAMENTO",
+                    o.product_code AS "TIPO DE OS",
+                    CASE 
+                        WHEN o.status = 'completed' THEN 'EJECUTADO'
+                        WHEN o.status = 'failed' THEN 'NO EJECUTADO'
+                        ELSE UPPER(o.status)
+                    END AS "ESTADO",
+                    o.sub_status AS "MOTIVO_NOEJECUTADO",
+                    o.technician_name AS "TECNICO",
+                    b.name AS "BRIGADA",
+                    o.brigade_type AS "TIPO DE BRIGADA",
+                    o.meter_number AS "MEDIDOR",
+                    o.meter_brand AS "MARCA MEDIDOR",
+                    o.amount_due AS "DEUDA",
+                    o.tariff AS "TARIFA",
+                    TO_CHAR(o.execution_date, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA_EJECUCION",
+                    o.execution_duration AS "DURACION_MINUTOS",
+                    o.notes AS "OBSERVACIONES",
+                    o.latitude AS "LAT",
+                    o.longitude AS "LNG"
+                FROM scrc_orders o
+                LEFT JOIN brigades b ON o.assigned_brigade_id = b.id
+                ${whereClause}
+                ORDER BY o.execution_date DESC
+            `, params);
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(result.rows);
+            XLSX.utils.book_append_sheet(wb, ws, 'SIPREM');
+
+            // Generate buffer
+            const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+            // Set response headers
+            const filename = `SIPREM_${date || new Date().toISOString().split('T')[0]}.xlsx`;
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('Error exporting SIPREM:', error);
+            res.status(500).json({ error: 'Failed to export SIPREM file' });
+        }
+    });
+
+    // ============================================
+    // EXCEL EXPORT - CONSOLIDADO FORMAT
+    // ============================================
+    router.get('/export/consolidado', async (req, res) => {
+        const XLSX = require('xlsx');
+        const { date, date_from, date_to } = req.query;
+
+        try {
+            let whereClause = "WHERE 1=1";
+            const params = [];
+
+            if (date) {
+                params.push(date);
+                whereClause += ` AND DATE(execution_date) = $${params.length}`;
+            } else if (date_from && date_to) {
+                params.push(date_from, date_to);
+                whereClause += ` AND DATE(execution_date) BETWEEN $${params.length - 1} AND $${params.length}`;
+            }
+
+            // Consolidado por brigada
+            const brigadeStats = await pool.query(`
+                SELECT 
+                    b.name AS "BRIGADA",
+                    b.type AS "TIPO_BRIGADA",
+                    COUNT(*) AS "TOTAL_ORDENES",
+                    COUNT(*) FILTER (WHERE o.status = 'completed') AS "EJECUTADAS",
+                    COUNT(*) FILTER (WHERE o.status = 'failed') AS "NO_EJECUTADAS",
+                    COUNT(*) FILTER (WHERE o.status = 'pending') AS "PENDIENTES",
+                    ROUND(100.0 * COUNT(*) FILTER (WHERE o.status = 'completed') / NULLIF(COUNT(*), 0), 2) AS "EFECTIVIDAD_%",
+                    COALESCE(SUM(o.amount_due) FILTER (WHERE o.status = 'completed'), 0) AS "DEUDA_RECUPERADA",
+                    ROUND(AVG(o.execution_duration), 2) AS "TIEMPO_PROMEDIO_MIN"
+                FROM brigades b
+                LEFT JOIN scrc_orders o ON b.id = o.assigned_brigade_id
+                ${whereClause}
+                GROUP BY b.id, b.name, b.type
+                ORDER BY "EJECUTADAS" DESC
+            `, params);
+
+            // Consolidado por técnico
+            const techStats = await pool.query(`
+                SELECT 
+                    technician_name AS "TECNICO",
+                    COUNT(*) AS "TOTAL_ORDENES",
+                    COUNT(*) FILTER (WHERE status = 'completed') AS "EJECUTADAS",
+                    COUNT(*) FILTER (WHERE status = 'failed') AS "FALLIDAS",
+                    ROUND(100.0 * COUNT(*) FILTER (WHERE status = 'completed') / NULLIF(COUNT(*), 0), 2) AS "EFECTIVIDAD_%",
+                    COALESCE(SUM(amount_due) FILTER (WHERE status = 'completed'), 0) AS "DEUDA_RECUPERADA"
+                FROM scrc_orders
+                ${whereClause} AND technician_name IS NOT NULL
+                GROUP BY technician_name
+                ORDER BY "EJECUTADAS" DESC
+            `, params);
+
+            // Consolidado por tipo de orden
+            const typeStats = await pool.query(`
+                SELECT 
+                    order_type AS "TIPO_ORDEN",
+                    product_code AS "CODIGO",
+                    COUNT(*) AS "TOTAL",
+                    COUNT(*) FILTER (WHERE status = 'completed') AS "EJECUTADAS",
+                    COUNT(*) FILTER (WHERE status = 'failed') AS "FALLIDAS"
+                FROM scrc_orders
+                ${whereClause}
+                GROUP BY order_type, product_code
+                ORDER BY "TOTAL" DESC
+            `, params);
+
+            // Create workbook with multiple sheets
+            const wb = XLSX.utils.book_new();
+
+            const wsBrigade = XLSX.utils.json_to_sheet(brigadeStats.rows);
+            XLSX.utils.book_append_sheet(wb, wsBrigade, 'Por Brigada');
+
+            const wsTech = XLSX.utils.json_to_sheet(techStats.rows);
+            XLSX.utils.book_append_sheet(wb, wsTech, 'Por Tecnico');
+
+            const wsType = XLSX.utils.json_to_sheet(typeStats.rows);
+            XLSX.utils.book_append_sheet(wb, wsType, 'Por Tipo');
+
+            // Generate buffer
+            const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+            // Set response headers
+            const filename = `CONSOLIDADO_${date || date_from || new Date().toISOString().split('T')[0]}.xlsx`;
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('Error exporting Consolidado:', error);
+            res.status(500).json({ error: 'Failed to export Consolidado file' });
         }
     });
 

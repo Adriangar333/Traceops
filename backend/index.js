@@ -73,6 +73,10 @@ const pool = new Pool({
 const scrcRoutes = require('./routes/scrcRoutes')(pool, io);
 app.use('/api/scrc', scrcRoutes);
 
+// Vehicle Routes (Fleet Management)
+const vehicleRoutes = require('./routes/vehicleRoutes')(pool, io);
+app.use('/api/vehicles', vehicleRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================
@@ -358,6 +362,41 @@ const initDB = async () => {
             );
         `);
         console.log('✅ Table brigades ready');
+
+        // 1.5 Vehicles (Vehículos)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS vehicles (
+                id SERIAL PRIMARY KEY,
+                plate TEXT UNIQUE NOT NULL, -- Placa del vehículo
+                type TEXT DEFAULT 'car', -- 'car', 'motorcycle', 'truck', 'canasta'
+                brand TEXT,
+                model TEXT,
+                status TEXT DEFAULT 'active', -- 'active', 'inactive', 'maintenance'
+                fuel_type TEXT DEFAULT 'gasoline', -- 'gasoline', 'diesel', 'electric'
+                km_per_gallon FLOAT DEFAULT 12.0,
+                assigned_brigade_id INTEGER REFERENCES brigades(id),
+                assigned_technician_id INTEGER REFERENCES drivers(id),
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table vehicles ready');
+
+        // 1.6 Work Schedules (Jornadas de Trabajo)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS work_schedules (
+                id SERIAL PRIMARY KEY,
+                technician_id INTEGER REFERENCES drivers(id),
+                brigade_id INTEGER REFERENCES brigades(id),
+                day_of_week INTEGER NOT NULL, -- 0=Sunday, 1=Monday, ..., 6=Saturday
+                start_time TIME NOT NULL DEFAULT '07:00',
+                end_time TIME NOT NULL DEFAULT '17:00',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table work_schedules ready');
 
         // 2. SCRC Orders (Órdenes de Trabajo - Mapped from ASIGNACION DE TRABAJOS ISES.xlsx)
         await client.query(`
