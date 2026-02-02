@@ -26,6 +26,28 @@ export const createDriver = async (driver) => {
     }
 };
 
+export const getBrigades = async () => {
+    try {
+        const res = await fetch(`${API_URL}/brigades`);
+        if (!res.ok) throw new Error('Error fetching brigades');
+        return await res.json();
+    } catch (error) {
+        console.error('Get Brigades Error:', error);
+        return [];
+    }
+};
+
+export const getVehicles = async () => {
+    try {
+        const res = await fetch(`${API_URL}/vehicles`);
+        if (!res.ok) throw new Error('Error fetching vehicles');
+        return await res.json();
+    } catch (error) {
+        console.error('Get Vehicles Error:', error);
+        return [];
+    }
+};
+
 export const deleteDriver = async (id) => {
     try {
         const res = await fetch(`${API_URL}/drivers/${id}`, {
