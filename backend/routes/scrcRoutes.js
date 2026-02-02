@@ -1414,5 +1414,356 @@ module.exports = (pool, io) => {
         }
     });
 
+    // ============================================
+    // ROUTE ANALYTICS & STATISTICS
+    // Real-time route tracking, deviations, and fuel consumption
+    // ============================================
+
+    // Store route waypoints for a technician (called periodically from mobile)
+    router.post('/route-tracking', async (req, res) => {
+        const { technician_id, route_id, waypoints, vehicle_id } = req.body;
+
+        if (!technician_id || !waypoints || !Array.isArray(waypoints)) {
+            return res.status(400).json({ error: 'technician_id and waypoints[] required' });
+        }
+
+        try {
+            // Insert or update tracking record
+            const result = await pool.query(`
+                INSERT INTO route_tracking (technician_id, route_id, vehicle_id, waypoints, started_at, updated_at)
+                VALUES ($1, $2, $3, $4, NOW(), NOW())
+                ON CONFLICT (technician_id, route_id) 
+                DO UPDATE SET 
+                    waypoints = route_tracking.waypoints || $4,
+                    updated_at = NOW()
+                RETURNING id
+            `, [technician_id, route_id || null, vehicle_id || null, JSON.stringify(waypoints)]);
+
+            io.emit('route:tracking', { technician_id, waypoints_count: waypoints.length });
+            res.json({ success: true, tracking_id: result.rows[0].id });
+        } catch (error) {
+            // If table doesn't exist, create it on-the-fly
+            if (error.code === '42P01') {
+                await pool.query(`
+                    CREATE TABLE IF NOT EXISTS route_tracking (
+                        id SERIAL PRIMARY KEY,
+                        technician_id INTEGER NOT NULL,
+                        route_id TEXT,
+                        vehicle_id INTEGER,
+                        waypoints JSONB DEFAULT '[]',
+                        planned_route JSONB, -- Original planned route for comparison
+                        started_at TIMESTAMP DEFAULT NOW(),
+                        ended_at TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT NOW(),
+                        UNIQUE(technician_id, route_id)
+                    )
+                `);
+                return res.status(201).json({ success: true, message: 'Table created, retry request' });
+            }
+            console.error('Error storing route tracking:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get route statistics for a specific route/technician
+    router.get('/route-stats/:routeId', async (req, res) => {
+        const { routeId } = req.params;
+        const { technician_id } = req.query;
+
+        try {
+            // Get completed orders for this route
+            const ordersQuery = await pool.query(`
+                SELECT 
+                    id, order_number, address, municipality, 
+                    latitude, longitude,
+                    execution_time_minutes,
+                    execution_date,
+                    updated_at as completed_at
+                FROM scrc_orders 
+                WHERE route_sequence IS NOT NULL
+                ${technician_id ? 'AND technician_name = (SELECT name FROM drivers WHERE id = $1)' : ''}
+                ORDER BY route_sequence ASC
+            `, technician_id ? [technician_id] : []);
+
+            if (ordersQuery.rowCount === 0) {
+                return res.status(404).json({ error: 'No orders found for this route' });
+            }
+
+            const orders = ordersQuery.rows;
+
+            // Calculate statistics
+            let totalDistanceKm = 0;
+            let totalOperationTimeMin = 0;
+            let completedCount = 0;
+
+            // Calculate distances between consecutive points
+            for (let i = 0; i < orders.length - 1; i++) {
+                if (orders[i].latitude && orders[i + 1].latitude) {
+                    const distance = haversineDistance(
+                        orders[i].latitude, orders[i].longitude,
+                        orders[i + 1].latitude, orders[i + 1].longitude
+                    );
+                    totalDistanceKm += distance;
+                }
+                if (orders[i].execution_time_minutes) {
+                    totalOperationTimeMin += orders[i].execution_time_minutes;
+                    completedCount++;
+                }
+            }
+
+            // Get vehicle fuel consumption if available
+            let fuelConsumptionLiters = null;
+            if (technician_id) {
+                const vehicleQuery = await pool.query(`
+                    SELECT v.km_per_gallon 
+                    FROM vehicles v 
+                    WHERE v.assigned_technician_id = $1 AND v.status = 'active'
+                    LIMIT 1
+                `, [technician_id]);
+
+                if (vehicleQuery.rowCount > 0) {
+                    const kmPerGallon = vehicleQuery.rows[0].km_per_gallon || 12;
+                    // 1 gallon = 3.785 liters
+                    fuelConsumptionLiters = (totalDistanceKm / kmPerGallon) * 3.785;
+                }
+            }
+
+            // Estimate travel time (assume average 30 km/h urban, 50 km/h highway)
+            const avgSpeedKmh = 35; // Mixed urban/rural
+            const travelTimeMinutes = (totalDistanceKm / avgSpeedKmh) * 60;
+
+            // Traffic adjustment (rush hours: 7-9am, 5-7pm add 30%)
+            const currentHour = new Date().getHours();
+            const isRushHour = (currentHour >= 7 && currentHour <= 9) || (currentHour >= 17 && currentHour <= 19);
+            const trafficMultiplier = isRushHour ? 1.3 : 1.0;
+            const travelTimeWithTraffic = travelTimeMinutes * trafficMultiplier;
+
+            const stats = {
+                route_id: routeId,
+                total_orders: orders.length,
+                completed_orders: completedCount,
+                completion_rate: Math.round((completedCount / orders.length) * 100),
+
+                // Distance metrics
+                total_distance_km: Math.round(totalDistanceKm * 10) / 10,
+                avg_distance_per_stop_km: Math.round((totalDistanceKm / orders.length) * 10) / 10,
+
+                // Time metrics
+                estimated_travel_time_minutes: Math.round(travelTimeMinutes),
+                traffic_adjusted_time_minutes: Math.round(travelTimeWithTraffic),
+                total_operation_time_minutes: totalOperationTimeMin,
+                avg_operation_time_minutes: completedCount > 0 ? Math.round(totalOperationTimeMin / completedCount) : null,
+                total_route_time_minutes: Math.round(travelTimeWithTraffic + totalOperationTimeMin),
+
+                // Traffic impact
+                is_rush_hour: isRushHour,
+                traffic_delay_minutes: Math.round(travelTimeWithTraffic - travelTimeMinutes),
+
+                // Fuel consumption
+                estimated_fuel_liters: fuelConsumptionLiters ? Math.round(fuelConsumptionLiters * 10) / 10 : null,
+                estimated_fuel_gallons: fuelConsumptionLiters ? Math.round((fuelConsumptionLiters / 3.785) * 10) / 10 : null,
+
+                // Breakdown by time type
+                time_breakdown: {
+                    travel: Math.round(travelTimeMinutes),
+                    traffic_delay: Math.round(travelTimeWithTraffic - travelTimeMinutes),
+                    operations: totalOperationTimeMin,
+                    total: Math.round(travelTimeWithTraffic + totalOperationTimeMin)
+                }
+            };
+
+            res.json({ success: true, stats });
+        } catch (error) {
+            console.error('Error calculating route stats:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get live route analytics for all active technicians
+    router.get('/route-analytics/live', async (req, res) => {
+        try {
+            const now = Date.now();
+            const analytics = [];
+
+            // Process each tracked technician
+            techLocations.forEach((loc, techId) => {
+                const locTime = new Date(loc.timestamp).getTime();
+                const minutesAgo = Math.round((now - locTime) / 60000);
+
+                analytics.push({
+                    technician_id: techId,
+                    brigade_id: loc.brigade_id,
+                    current_position: { lat: loc.lat, lng: loc.lng },
+                    last_update: loc.timestamp,
+                    minutes_since_update: minutesAgo,
+                    is_active: minutesAgo < 10,
+                    battery_level: loc.battery,
+                    gps_accuracy: loc.accuracy
+                });
+            });
+
+            res.json({
+                success: true,
+                active_technicians: analytics.filter(a => a.is_active).length,
+                inactive_technicians: analytics.filter(a => !a.is_active).length,
+                technicians: analytics
+            });
+        } catch (error) {
+            console.error('Error fetching live analytics:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Compare planned vs actual route (deviation analysis)
+    router.get('/route-deviation/:technicianId', async (req, res) => {
+        const { technicianId } = req.params;
+        const { date } = req.query;
+        const targetDate = date || new Date().toISOString().split('T')[0];
+
+        try {
+            // Get planned route (orders in sequence)
+            const plannedQuery = await pool.query(`
+                SELECT 
+                    order_number, address, latitude, longitude, 
+                    route_sequence, status, execution_date
+                FROM scrc_orders 
+                WHERE technician_name = (SELECT name FROM drivers WHERE id = $1)
+                  AND DATE(created_at) = $2
+                ORDER BY route_sequence ASC
+            `, [technicianId, targetDate]);
+
+            // Get actual tracking data
+            const actualQuery = await pool.query(`
+                SELECT waypoints, started_at, ended_at 
+                FROM route_tracking 
+                WHERE technician_id = $1 
+                  AND DATE(started_at) = $2
+                ORDER BY started_at DESC
+                LIMIT 1
+            `, [technicianId, targetDate]);
+
+            const plannedStops = plannedQuery.rows;
+            const actualPath = actualQuery.rows[0]?.waypoints || [];
+
+            // Calculate deviation
+            let totalDeviationKm = 0;
+            let deviations = [];
+
+            plannedStops.forEach((stop, idx) => {
+                if (!stop.latitude || !actualPath.length) return;
+
+                // Find closest actual waypoint to this planned stop
+                let minDist = Infinity;
+                actualPath.forEach(wp => {
+                    const dist = haversineDistance(stop.latitude, stop.longitude, wp.lat, wp.lng);
+                    if (dist < minDist) minDist = dist;
+                });
+
+                if (minDist > 0.1) { // More than 100m deviation
+                    deviations.push({
+                        stop_number: idx + 1,
+                        order_number: stop.order_number,
+                        address: stop.address,
+                        deviation_km: Math.round(minDist * 100) / 100
+                    });
+                    totalDeviationKm += minDist;
+                }
+            });
+
+            res.json({
+                success: true,
+                technician_id: technicianId,
+                date: targetDate,
+                planned_stops: plannedStops.length,
+                actual_waypoints: actualPath.length,
+                total_deviation_km: Math.round(totalDeviationKm * 10) / 10,
+                deviation_count: deviations.length,
+                deviations,
+                efficiency_score: plannedStops.length > 0
+                    ? Math.round((1 - (deviations.length / plannedStops.length)) * 100)
+                    : 100
+            });
+        } catch (error) {
+            console.error('Error calculating route deviation:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get daily route summary for a technician
+    router.get('/route-summary/:technicianId', async (req, res) => {
+        const { technicianId } = req.params;
+        const { date_from, date_to } = req.query;
+
+        const startDate = date_from || new Date().toISOString().split('T')[0];
+        const endDate = date_to || startDate;
+
+        try {
+            const summary = await pool.query(`
+                SELECT 
+                    DATE(execution_date) as date,
+                    COUNT(*) as total_orders,
+                    COUNT(*) FILTER (WHERE status = 'completed') as completed,
+                    COUNT(*) FILTER (WHERE status = 'pending') as pending,
+                    COUNT(*) FILTER (WHERE status = 'failed') as failed,
+                    SUM(execution_time_minutes) as total_operation_time,
+                    AVG(execution_time_minutes) as avg_operation_time,
+                    MIN(execution_date) as first_order_time,
+                    MAX(updated_at) as last_order_time
+                FROM scrc_orders
+                WHERE technician_name = (SELECT name FROM drivers WHERE id = $1)
+                  AND DATE(execution_date) BETWEEN $2 AND $3
+                GROUP BY DATE(execution_date)
+                ORDER BY date DESC
+            `, [technicianId, startDate, endDate]);
+
+            // Get vehicle info for fuel calculations
+            const vehicleQuery = await pool.query(`
+                SELECT v.plate, v.km_per_gallon, v.type
+                FROM vehicles v 
+                WHERE v.assigned_technician_id = $1 AND v.status = 'active'
+                LIMIT 1
+            `, [technicianId]);
+
+            const vehicle = vehicleQuery.rows[0] || null;
+
+            res.json({
+                success: true,
+                technician_id: technicianId,
+                vehicle: vehicle ? { plate: vehicle.plate, type: vehicle.type } : null,
+                date_range: { from: startDate, to: endDate },
+                days: summary.rows.map(day => ({
+                    ...day,
+                    completion_rate: day.total_orders > 0
+                        ? Math.round((day.completed / day.total_orders) * 100)
+                        : 0,
+                    total_operation_time_formatted: formatMinutes(day.total_operation_time)
+                }))
+            });
+        } catch (error) {
+            console.error('Error fetching route summary:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Helper: Haversine distance in km
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    // Helper: Format minutes to readable string
+    function formatMinutes(minutes) {
+        if (!minutes) return '0m';
+        const h = Math.floor(minutes / 60);
+        const m = Math.round(minutes % 60);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
     return router;
 };
