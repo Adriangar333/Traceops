@@ -3,7 +3,7 @@ import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Us
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
 // import { sendToGemini } from '../utils/geminiService'; // Removed - chatbot feature deprecated
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
-// import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService'; // Removed - using OSRM
+import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService'; // Restored
 
 const Sidebar = ({
     waypoints, setWaypoints,
@@ -189,9 +189,14 @@ const Sidebar = ({
             returnToStart: returnToStart
         };
 
-        // Use OSRM for route optimization
-        console.log('Optimizing route using OSRM...');
-        const result = await generateRouteOptions(allWaypoints, routeConfig);
+        // Try Google Directions first (has traffic data)
+        let result = await generateGoogleRouteOptions(allWaypoints, routeConfig);
+
+        // Fallback to OSRM if Google fails
+        if (!result?.success || !result.options?.length) {
+            console.log('Google Directions failed, using OSRM fallback');
+            result = await generateRouteOptions(allWaypoints, routeConfig);
+        }
 
         setIsOptimizing(false);
 
