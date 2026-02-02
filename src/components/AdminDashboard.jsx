@@ -7,12 +7,13 @@ import AgentsPanel from './AgentsPanel';
 import Dashboard from './Dashboard';
 import LiveTrackingPanel from './LiveTrackingPanel';
 import DataIngestion from './DataIngestion';
-// Deleted services - functionality moved or deprecated
-// import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
-// import { recordRouteCreated } from '../utils/metricsService';
-// import { getGoogleRoute } from '../utils/googleDirectionsService';
+// Restoration of n8n service
+import { sendToN8N, transformCoordinates } from '../utils/n8nService';
+// import { recordRouteCreated } from '../utils/metricsService'; // Keep commented if not needed
+import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { fetchRouteWithStats } from '../utils/osrmService';
 import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
+import { io } from 'socket.io-client'; // Import Socket.IO
 
 function AdminDashboard() {
     const [waypoints, setWaypoints] = useState([]);
@@ -38,6 +39,39 @@ function AdminDashboard() {
         return saved ? JSON.parse(saved) : null;
     });
     const [returnToStart, setReturnToStart] = useState(() => localStorage.getItem('returnToStart') === 'true');
+
+    // Socket.IO Listener for Real-time Updates (Cancellation)
+    useEffect(() => {
+        const socket = io(import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host');
+
+        socket.on('connect', () => {
+            console.log('🔌 Socket Connected to Backend');
+        });
+
+        socket.on('scrc:orders-cancelled', (data) => {
+            console.log('⚡ Real-time Cancellation Received:', data);
+            toast.warning(`⚠️ ${data.count} Orden(es) Cancelada(s) por Pago!`);
+
+            // Logic to remove cancelling orders from waypoints if they exist
+            if (data.cancelled_orders && data.cancelled_orders.length > 0) {
+                const cancelledNics = data.cancelled_orders.map(o => o.nic);
+
+                setWaypoints(current => {
+                    // Filter logic: Check if waypoint description/address contains NIC (heuristic)
+                    // Or if we had a proper ID structure. 
+                    // For now, we assume waypoints might not have NIC explicitly, 
+                    // but if this dashboard is used for SCRC, they should.
+                    // If simply showing notification, that is step 1.
+                    return current;
+                });
+            }
+        });
+
+        return () => {
+            socket.off('scrc:orders-cancelled');
+            socket.disconnect();
+        };
+    }, []);
 
     // Save configuration to localStorage
     useEffect(() => {
