@@ -90,6 +90,11 @@ app.use('/api/schedules', scheduleRoutes);
 const brigadeRoutes = require('./routes/brigadeRoutes')(pool, io);
 app.use('/api/brigades', brigadeRoutes);
 
+// Workforce Routes (Technicians, Roster, Novelties, Zones)
+const workforceRoutes = require('./routes/workforceRoutes')(pool, io);
+app.use('/api/workforce', workforceRoutes);
+console.log('👷 Workforce management routes registered');
+
 // Swagger API Documentation
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./config/swagger.json');
@@ -467,6 +472,141 @@ const initDB = async () => {
             );
         `);
         console.log('✅ Table operative_preassignments ready');
+
+        // ==========================================
+        // WORKFORCE MANAGEMENT TABLES
+        // ==========================================
+
+        // 1.8 Technicians (Técnicos - Master data)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS technicians (
+                id SERIAL PRIMARY KEY,
+                employee_code TEXT UNIQUE,
+                full_name TEXT NOT NULL,
+                document_id TEXT,
+                phone TEXT,
+                email TEXT,
+                
+                -- Assignment
+                brigade_id INTEGER REFERENCES brigades(id),
+                brigade_role TEXT DEFAULT 'auxiliar',
+                zone TEXT DEFAULT 'SUR',
+                
+                -- Employment
+                employment_status TEXT DEFAULT 'active',
+                contract_type TEXT DEFAULT 'indefinido',
+                hire_date DATE,
+                
+                -- Vehicle assignment (for permanent mode)
+                assigned_vehicle_id INTEGER REFERENCES vehicles(id),
+                vehicle_assignment_mode TEXT DEFAULT 'permanent',
+                
+                -- Link to user account
+                user_id INTEGER REFERENCES users(id),
+                
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table technicians ready');
+
+        // 1.9 Daily Roster (Roster Diario)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS daily_roster (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL DEFAULT CURRENT_DATE,
+                technician_id INTEGER NOT NULL REFERENCES technicians(id),
+                brigade_id INTEGER REFERENCES brigades(id),
+                
+                -- Status
+                is_available BOOLEAN DEFAULT TRUE,
+                status TEXT DEFAULT 'scheduled',
+                
+                -- Vehicle for today
+                assigned_vehicle_id INTEGER REFERENCES vehicles(id),
+                mobility_type TEXT,
+                
+                -- Schedule
+                scheduled_start TIME DEFAULT '07:00',
+                scheduled_end TIME DEFAULT '17:00',
+                actual_start TIMESTAMP,
+                actual_end TIMESTAMP,
+                
+                notes TEXT,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                UNIQUE(date, technician_id)
+            );
+        `);
+        console.log('✅ Table daily_roster ready');
+
+        // 1.10 Novelties (Novedades)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS novelties (
+                id SERIAL PRIMARY KEY,
+                technician_id INTEGER NOT NULL REFERENCES technicians(id),
+                
+                novelty_type TEXT NOT NULL,
+                reason TEXT,
+                
+                start_date DATE NOT NULL,
+                end_date DATE,
+                
+                document_url TEXT,
+                approved_by INTEGER REFERENCES users(id),
+                
+                status TEXT DEFAULT 'pending',
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table novelties ready');
+
+        // 1.11 Zone Configurations
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS zone_configs (
+                id SERIAL PRIMARY KEY,
+                zone_code TEXT UNIQUE NOT NULL,
+                zone_name TEXT NOT NULL,
+                vehicle_assignment_mode TEXT DEFAULT 'permanent',
+                description TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        // Insert default zones if empty
+        const zonesCheck = await client.query("SELECT COUNT(*) FROM zone_configs");
+        if (parseInt(zonesCheck.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO zone_configs (zone_code, zone_name, vehicle_assignment_mode, description) VALUES
+                ('SUR', 'Zona Sur', 'permanent', 'Vehículo permanente por cuadrilla'),
+                ('NORTE', 'Zona Norte', 'rotation', 'Rotación diaria de vehículos'),
+                ('CENTRO', 'Zona Centro', 'rotation', 'Rotación diaria de vehículos')
+            `);
+            console.log('✅ Inserted default zone configurations');
+        }
+        console.log('✅ Table zone_configs ready');
+
+        // Migrations for existing tables
+        await client.query(`
+            ALTER TABLE vehicles 
+            ADD COLUMN IF NOT EXISTS ownership_type TEXT DEFAULT 'company',
+            ADD COLUMN IF NOT EXISTS owner_name TEXT,
+            ADD COLUMN IF NOT EXISTS leasing_company TEXT,
+            ADD COLUMN IF NOT EXISTS leasing_end_date DATE,
+            ADD COLUMN IF NOT EXISTS zone TEXT,
+            ADD COLUMN IF NOT EXISTS is_available BOOLEAN DEFAULT TRUE;
+        `);
+        console.log('✅ Vehicles table updated with ownership fields');
+
+        await client.query(`
+            ALTER TABLE brigades 
+            ADD COLUMN IF NOT EXISTS zone TEXT DEFAULT 'SUR',
+            ADD COLUMN IF NOT EXISTS vehicle_assignment_mode TEXT DEFAULT 'permanent',
+            ADD COLUMN IF NOT EXISTS permanent_vehicle_id INTEGER REFERENCES vehicles(id);
+        `);
+        console.log('✅ Brigades table updated with zone and vehicle mode');
 
         // 2. SCRC Orders (Órdenes de Trabajo - Mapped from ASIGNACION DE TRABAJOS ISES.xlsx)
         await client.query(`

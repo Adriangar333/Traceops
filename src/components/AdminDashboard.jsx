@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
-import { X, FileText } from 'lucide-react';
+import { X, FileText, Users } from 'lucide-react';
 import MapComponent from './MapComponent';
 import Sidebar from './Sidebar';
 import AgentsPanel from './AgentsPanel';
@@ -8,6 +8,7 @@ import Dashboard from './Dashboard';
 import LiveTrackingPanel from './LiveTrackingPanel';
 import DataIngestion from './DataIngestion';
 import SCRCOrdersPanel from './SCRCOrdersPanel';
+import WorkforcePanel from './WorkforcePanel';
 // Restoration of n8n service
 import { sendToN8N, transformCoordinates } from '../utils/n8nService';
 // import { recordRouteCreated } from '../utils/metricsService'; // Keep commented if not needed
@@ -29,6 +30,7 @@ function AdminDashboard() {
     const [showTracking, setShowTracking] = useState(false);
     const [showIngestion, setShowIngestion] = useState(false);
     const [showOrdersPanel, setShowOrdersPanel] = useState(false);
+    const [showWorkforcePanel, setShowWorkforcePanel] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [previewRoute, setPreviewRoute] = useState(null);
@@ -450,6 +452,29 @@ function AdminDashboard() {
                     <FileText size={18} style={{ color: 'white', marginBottom: 4 }} />
                     <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: 700, letterSpacing: '0.05em' }}>ÓRDENES</span>
                 </button>
+                {/* Workforce Button */}
+                <button
+                    onClick={() => setShowWorkforcePanel(true)}
+                    style={{
+                        pointerEvents: 'auto',
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                        padding: '12px 20px',
+                        borderRadius: 14,
+                        border: 'none',
+                        boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        minWidth: 110,
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                    <Users size={18} style={{ color: 'white', marginBottom: 4 }} />
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: 700, letterSpacing: '0.05em' }}>PERSONAL</span>
+                </button>
             </div>
 
             <Sidebar
@@ -639,6 +664,22 @@ function AdminDashboard() {
                             setWaypoints(prev => [...prev, ...selectedWaypoints]);
                             toast.success(`${selectedWaypoints.length} órdenes agregadas como puntos de ruta`);
                         }}
+                    />
+                </div>
+            )}
+
+            {/* Workforce Panel */}
+            {showWorkforcePanel && (
+                <div style={{
+                    position: 'fixed',
+                    top: 80,
+                    left: 440,
+                    right: 20,
+                    bottom: 80,
+                    zIndex: 200,
+                }}>
+                    <WorkforcePanel
+                        onClose={() => setShowWorkforcePanel(false)}
                     />
                 </div>
             )}
