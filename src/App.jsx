@@ -8,6 +8,7 @@ import TechnicianApp from './components/TechnicianApp';
 import MainLayout from './components/MainLayout';
 import DashboardHome from './components/DashboardHome';
 import FleetManagement from './components/FleetManagement';
+import ScheduleManagement from './components/ScheduleManagement';
 import InventoryPage from './components/InventoryPage';
 import LoginPage from './components/LoginPage';
 
@@ -105,6 +106,7 @@ function App() {
               <Route path="/inventory" component={InventoryPage} />
 
               <Route path="/fleet" component={FleetManagement} />
+              <Route path="/schedules" component={ScheduleManagement} />
 
               <Route path="/calls">
                 <div style={{ padding: '40px 60px' }}>
