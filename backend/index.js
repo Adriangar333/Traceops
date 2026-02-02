@@ -52,6 +52,10 @@ app.use('/api/', apiLimiter);
 // Auth Routes (login, register, etc.)
 app.use('/api/auth', authRoutes);
 
+// SCRC Routes (Ingestion, Updates)
+const scrcRoutes = require('./routes/scrcRoutes')(pool);
+app.use('/api/scrc', scrcRoutes);
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -331,7 +335,74 @@ const initDB = async () => {
         `);
         console.log('✅ Table alerts ready');
 
-        // Create indexes for faster geospatial queries
+        // ==========================================
+        // SCRC MODULE TABLES (ISES Project)
+        // ==========================================
+
+        // 1. Brigades (Cuadrillas)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS brigades (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT DEFAULT 'mixed', -- 'moto', 'van', 'foot', 'mixed'
+                members JSONB DEFAULT '[]', -- [{id, name, role: 'titular'}, {id, name, role: 'auxiliar'}]
+                status TEXT DEFAULT 'active',
+                current_zone TEXT,
+                capacity_per_day INTEGER DEFAULT 30,
+                assigned_orders_count INTEGER DEFAULT 0,
+                last_location GEOMETRY(POINT, 4326),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table brigades ready');
+
+        // 2. SCRC Orders (Órdenes de Trabajo)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS scrc_orders (
+                id SERIAL PRIMARY KEY,
+                nic TEXT NOT NULL, -- Número de Identificación de Contrato
+                order_type TEXT NOT NULL, -- 'suspension', 'corte', 'reconversion', 'revision', 'cobro'
+                product_code TEXT, -- e.g. 70501 (Corte), 70502 (Reconexión)
+                priority INTEGER DEFAULT 2, -- 1=High (Cortes), 2=Medium, 3=Low
+                client_name TEXT,
+                address TEXT,
+                municipality TEXT,
+                neighborhood TEXT,
+                zone_code TEXT,
+                
+                amount_due DECIMAL(12, 2) DEFAULT 0,
+                cycle TEXT,
+                
+                latitude FLOAT,
+                longitude FLOAT,
+                location GEOMETRY(POINT, 4326),
+                
+                status TEXT DEFAULT 'pending', -- 'pending', 'assigned', 'in_progress', 'completed', 'failed', 'cancelled_payment'
+                sub_status TEXT, -- 'no_access', 'address_not_found', etc.
+                
+                assigned_brigade_id INTEGER REFERENCES brigades(id),
+                assigned_at TIMESTAMP,
+                
+                execution_date TIMESTAMP,
+                evidence_photos TEXT[], -- Array of URLs
+                notes TEXT,
+                
+                payment_reference TEXT, -- If paid
+                
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Table scrc_orders ready');
+
+        // Indexes for SCRC
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_scrc_location ON scrc_orders USING GIST(location);
+            CREATE INDEX IF NOT EXISTS idx_scrc_nic ON scrc_orders(nic);
+            CREATE INDEX IF NOT EXISTS idx_scrc_status ON scrc_orders(status);
+            CREATE INDEX IF NOT EXISTS idx_scrc_brigade ON scrc_orders(assigned_brigade_id);
+            CREATE INDEX IF NOT EXISTS idx_brigades_location ON brigades USING GIST(last_location);
+        `);
 
         client.release();
 
