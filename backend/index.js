@@ -77,6 +77,10 @@ app.use('/api/scrc', scrcRoutes);
 const vehicleRoutes = require('./routes/vehicleRoutes')(pool, io);
 app.use('/api/vehicles', vehicleRoutes);
 
+// Schedule Routes (Work Schedules / Jornadas)
+const scheduleRoutes = require('./routes/scheduleRoutes')(pool, io);
+app.use('/api/schedules', scheduleRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================

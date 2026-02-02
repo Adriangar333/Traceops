@@ -40,6 +40,29 @@ const Dashboard = ({ onClose, agents }) => {
         }
     };
 
+    // Excel Export Handlers
+    const API_URL = import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
+
+    const handleExportSIPREM = async () => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            window.open(`${API_URL}/api/scrc/export/siprem?date=${today}`, '_blank');
+        } catch (error) {
+            console.error('Error exporting SIPREM:', error);
+            alert('Error al exportar SIPREM');
+        }
+    };
+
+    const handleExportConsolidado = async () => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            window.open(`${API_URL}/api/scrc/export/consolidado?date=${today}`, '_blank');
+        } catch (error) {
+            console.error('Error exporting Consolidado:', error);
+            alert('Error al exportar Consolidado');
+        }
+    };
+
     if (!summary) return null;
 
     const cardStyle = {
@@ -149,7 +172,43 @@ const Dashboard = ({ onClose, agents }) => {
                                 fontSize: '13px'
                             }}
                         >
-                            <Download size={16} /> Exportar
+                            <Download size={16} /> JSON
+                        </button>
+                        <button
+                            onClick={handleExportSIPREM}
+                            style={{
+                                background: 'rgba(16,185,129,0.2)',
+                                border: '1px solid #10b981',
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                color: '#10b981',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '13px'
+                            }}
+                            title="Descargar Excel para SIPREM"
+                        >
+                            <Download size={16} /> SIPREM
+                        </button>
+                        <button
+                            onClick={handleExportConsolidado}
+                            style={{
+                                background: 'rgba(139,92,246,0.2)',
+                                border: '1px solid #8b5cf6',
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                color: '#8b5cf6',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '13px'
+                            }}
+                            title="Descargar Excel Consolidado"
+                        >
+                            <Download size={16} /> Consolidado
                         </button>
                         <button
                             onClick={onClose}
