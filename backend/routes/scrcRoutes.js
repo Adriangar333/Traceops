@@ -140,7 +140,7 @@ module.exports = (pool, io) => {
                     if (!brigadesMap.has(brigadeName)) {
                         // Determine default capacity based on type
                         // Clean up type string to match keys (e.g., trim extra spaces)
-                        const cleanType = rawType.trim().toUpperCase();
+                        const cleanType = String(rawType).trim().toUpperCase();
                         let capacity = 20; // Default
 
                         // Try to find matching capacity
@@ -187,6 +187,30 @@ module.exports = (pool, io) => {
             let count = 0;
             let skipped = 0;
 
+            // Helper to parse Excel dates (Serial or String)
+            const parseDate = (val) => {
+                if (!val) return new Date();
+                if (val instanceof Date) return val;
+                // Excel Serial Date (numbers like 45000)
+                if (typeof val === 'number') {
+                    // (Value - 25569) * 86400 * 1000 for JS Epoch
+                    return new Date(Math.round((val - 25569) * 86400 * 1000));
+                }
+                // Try string parse
+                const d = new Date(val);
+                return isNaN(d.getTime()) ? new Date() : d;
+            };
+
+            // Helper for currency/numbers
+            const parseNumber = (val) => {
+                if (typeof val === 'number') return val;
+                if (!val) return 0;
+                // Remove $, commas, spaces
+                const clean = String(val).replace(/[^0-9.-]/g, '');
+                const num = parseFloat(clean);
+                return isNaN(num) ? 0 : num;
+            };
+
             for (const order of orders) {
                 // Map TIPO DE OS to priority
                 // TO501 (Suspension) -> 2
@@ -194,13 +218,13 @@ module.exports = (pool, io) => {
                 // TO503 (Reconexion) -> 3
                 let priority = 2;
                 const tipoOS = order['TIPO DE OS'] || order.tipo_os || '';
-                if (tipoOS === 'TO502' || tipoOS.includes('70501')) priority = 1; // Corte
-                if (tipoOS === 'TO503' || tipoOS.includes('70502')) priority = 3; // Reconexion
+                if (tipoOS === 'TO502' || (typeof tipoOS === 'string' && tipoOS.includes('70501'))) priority = 1; // Corte
+                if (tipoOS === 'TO503' || (typeof tipoOS === 'string' && tipoOS.includes('70502'))) priority = 3; // Reconexion
 
                 // Determine order type from TIPO DE OS
                 let orderType = 'suspension';
-                if (tipoOS === 'TO502' || tipoOS.includes('Corte')) orderType = 'corte';
-                if (tipoOS === 'TO503' || tipoOS.includes('Recon')) orderType = 'reconexion';
+                if (tipoOS === 'TO502' || (typeof tipoOS === 'string' && tipoOS.includes('Corte'))) orderType = 'corte';
+                if (tipoOS === 'TO503' || (typeof tipoOS === 'string' && tipoOS.includes('Recon'))) orderType = 'reconexion';
                 if (tipoOS === 'TO501') orderType = 'suspension';
 
                 // Skip if no NIC or ORDEN
@@ -248,11 +272,11 @@ module.exports = (pool, io) => {
                     order['BRIGADA'] || order.brigada || null,
                     order['TIPO DE BRIGADA'] || order.tipo_brigada || null,
                     order['LINEA ESTRATEGICA'] || order.linea_estrategica || null,
-                    parseFloat(order['DEUDA']) || 0,
+                    parseNumber(order['DEUDA'] || order.deuda),
                     order['TARIFA'] || order.tarifa || null,
                     order['MEDIDOR'] || order.medidor || null,
                     order['MARCA MEDIDOR'] || order.marca_medidor || null,
-                    order['FECHA ASIGNACION'] || new Date(),
+                    parseDate(order['FECHA ASIGNACION'] || order.fecha_asignacion),
                     order['OBSERVACIONES'] || order.observaciones || null
                 ]);
                 count++;
