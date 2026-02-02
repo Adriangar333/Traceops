@@ -7,23 +7,28 @@
  * - Pull-to-refresh sync
  * - Order cards with status indicators
  * - Navigate to Google Maps
+ * - Full execution flow with evidence capture
  */
 
 import { useState, useEffect } from 'react';
 import { dbService } from '../services/DatabaseService';
 import { syncService } from '../services/SyncService';
+import TechnicianLogin from './TechnicianLogin';
+import OrderExecutionForm from './OrderExecutionForm';
 import {
     MapPin, Navigation, Clock, DollarSign,
     RefreshCw, Wifi, WifiOff, CheckCircle, AlertCircle,
-    Camera, Phone
+    Camera, Phone, LogOut
 } from 'lucide-react';
 
 export default function TechnicianApp() {
+    const [user, setUser] = useState(null);
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isOnline, setIsOnline] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [isExecuting, setIsExecuting] = useState(false);
     const [syncStatus, setSyncStatus] = useState(null);
 
     // Initialize services
@@ -33,13 +38,21 @@ export default function TechnicianApp() {
                 await dbService.init();
                 await syncService.init();
 
+                // Check for existing logged-in user
+                const savedUser = await dbService.getState('user');
+                if (savedUser) {
+                    setUser(savedUser);
+                }
+
                 // Subscribe to network changes
                 syncService.onNetworkChange((online) => {
                     setIsOnline(online);
                 });
 
-                // Load orders
-                await loadOrders();
+                // Load orders if user exists
+                if (savedUser) {
+                    await loadOrders();
+                }
 
             } catch (err) {
                 console.error('Init error:', err);
@@ -109,12 +122,51 @@ export default function TechnicianApp() {
         }
     };
 
+    // Handle login success
+    const handleLoginSuccess = async (userData) => {
+        setUser(userData);
+        await loadOrders();
+    };
+
+    // Handle logout
+    const handleLogout = async () => {
+        await dbService.clearAll();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+        setOrders([]);
+        setSelectedOrder(null);
+    };
+
+    // Handle order execution complete
+    const handleExecutionComplete = async (orderId, action) => {
+        setIsExecuting(false);
+        setSelectedOrder(null);
+        await loadOrders();
+    };
+
     if (isLoading) {
         return (
             <div style={styles.loadingContainer}>
                 <RefreshCw size={40} className="spin" />
                 <p>Cargando rutas...</p>
             </div>
+        );
+    }
+
+    // Login Screen
+    if (!user) {
+        return <TechnicianLogin onLoginSuccess={handleLoginSuccess} />;
+    }
+
+    // Order Execution Form
+    if (isExecuting && selectedOrder) {
+        return (
+            <OrderExecutionForm
+                order={selectedOrder}
+                onComplete={handleExecutionComplete}
+                onCancel={() => setIsExecuting(false)}
+            />
         );
     }
 
@@ -125,11 +177,7 @@ export default function TechnicianApp() {
                 order={selectedOrder}
                 onBack={() => setSelectedOrder(null)}
                 onNavigate={navigateToOrder}
-                onComplete={async () => {
-                    await dbService.updateOrderStatus(selectedOrder.id, 'completed');
-                    await loadOrders();
-                    setSelectedOrder(null);
-                }}
+                onExecute={() => setIsExecuting(true)}
             />
         );
     }
@@ -154,6 +202,13 @@ export default function TechnicianApp() {
                         disabled={isSyncing || !isOnline}
                     >
                         <RefreshCw size={18} className={isSyncing ? 'spin' : ''} />
+                    </button>
+                    <button
+                        style={styles.logoutButton}
+                        onClick={handleLogout}
+                        title="Cerrar Sesión"
+                    >
+                        <LogOut size={18} />
                     </button>
                 </div>
             </header>
@@ -233,7 +288,7 @@ export default function TechnicianApp() {
 }
 
 // Order Detail View Component
-function OrderDetailView({ order, onBack, onNavigate, onComplete }) {
+function OrderDetailView({ order, onBack, onNavigate, onExecute }) {
     return (
         <div style={styles.container}>
             <header style={styles.detailHeader}>
@@ -289,7 +344,7 @@ function OrderDetailView({ order, onBack, onNavigate, onComplete }) {
 
                     <button
                         style={{ ...styles.bigButton, backgroundColor: '#10b981' }}
-                        onClick={onComplete}
+                        onClick={onExecute}
                     >
                         <CheckCircle size={20} />
                         Ejecutar Orden
@@ -364,6 +419,14 @@ const styles = {
         padding: '8px',
         cursor: 'pointer',
         color: '#fff'
+    },
+    logoutButton: {
+        background: 'transparent',
+        border: '1px solid #ef4444',
+        borderRadius: '8px',
+        padding: '8px',
+        cursor: 'pointer',
+        color: '#ef4444'
     },
     syncBar: {
         display: 'flex',
