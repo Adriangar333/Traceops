@@ -562,12 +562,12 @@ function AdminDashboard() {
                 onClick={() => setShowTracking(true)}
                 style={{
                     position: 'fixed',
-                    bottom: 20,
-                    right: 20,
+                    bottom: 25,
+                    right: 90, // Moved to avoid overlapping map controls
                     background: '#9DBD39',
                     border: 'none',
                     borderRadius: 50,
-                    padding: '14px 20px',
+                    padding: '12px 20px',
                     color: 'white',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -575,7 +575,7 @@ function AdminDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
-                    zIndex: 100
+                    zIndex: 50 // Lower z-index slightly
                 }}
             >
                 <span style={{ fontSize: '1.2rem' }}>📡</span> Rastreo en Vivo
