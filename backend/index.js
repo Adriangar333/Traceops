@@ -343,15 +343,16 @@ const initDB = async () => {
         await client.query(`
             CREATE TABLE IF NOT EXISTS brigades (
                 id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT DEFAULT 'mixed', -- 'moto', 'van', 'foot', 'mixed'
+                name TEXT UNIQUE NOT NULL,
+                type TEXT DEFAULT 'mixed', -- 'SCR LIVIANA', 'SCR PESADA', 'CANASTA', etc.
                 members JSONB DEFAULT '[]', -- [{id, name, role: 'titular'}, {id, name, role: 'auxiliar'}]
                 status TEXT DEFAULT 'active',
                 current_zone TEXT,
                 capacity_per_day INTEGER DEFAULT 30,
                 assigned_orders_count INTEGER DEFAULT 0,
                 last_location GEOMETRY(POINT, 4326),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
         console.log('✅ Table brigades ready');
