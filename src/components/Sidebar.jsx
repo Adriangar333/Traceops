@@ -1035,12 +1035,10 @@ const Sidebar = ({
                                 </div>
                             ))}
                         </div>
-                    )}
-
-                        )
-            }
-                    </div >
-                );
+                    </div>
+                )}
+        </div>
+    );
 };
 
-            export default Sidebar;
+export default Sidebar;
