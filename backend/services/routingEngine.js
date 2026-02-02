@@ -108,25 +108,30 @@ class RoutingEngine {
      */
     getEligibleBrigades(order) {
         // Extract alcance code from strategic_line (e.g., "B - Bornera" -> "B")
-        const strategicLine = order.strategic_line || '';
-        const alcanceCode = strategicLine.charAt(0).toUpperCase();
+        // Robust regex to find the single letter code at start (B, T, M, etc.)
+        const strategicLine = (order.strategic_line || '').toUpperCase().trim();
+        const match = strategicLine.match(/^([A-Z])\s*[-–]/) || strategicLine.match(/^([A-Z])$/);
+        const alcanceCode = match ? match[1] : 'DEFAULT';
 
         // Determine if rural or urban
         const isRural = (order.zone_code || '').toLowerCase().includes('rural') ||
-            (order.neighborhood || '').toLowerCase().includes('rural');
+            (order.neighborhood || '').toLowerCase().includes('rural') ||
+            (order.municipality || '').toLowerCase().includes('rural');
 
         const zoneType = isRural ? 'rural' : 'urban';
 
         // Get eligible brigades from matrix
         const matrix = ALCANCE_BRIGADE_MATRIX[alcanceCode];
         if (!matrix) {
-            // Default to PESADA DISPONIBILIDAD for unknown alcance
+            // Default fallback if no code matched - usually PESADA DISPONIBILIDAD covers most general cases
+            // or return all types if unknown
             return ['SCR PESADA DISPONIBILIDAD'];
         }
 
         let eligibleBrigades = [...matrix[zoneType]];
 
-        // Special rule: N - Minicanasta with DEUDA > 1,000,000 requires CANASTA
+        // Special rule from Matriz:
+        // N - Minicanasta with DEUDA > 1,000,000 requires CANASTA
         if (alcanceCode === 'N' && order.amount_due > 1000000) {
             eligibleBrigades = ['CANASTA'];
         }
