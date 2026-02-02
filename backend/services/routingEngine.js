@@ -12,14 +12,18 @@
 // CONFIGURATION - FROM CRITERIOS TECNICOS
 // ==========================================
 
-// Brigade types with daily capacity (from Distribución Operativa)
+// Brigade types with daily capacity (from Distribución Operativa - Criterios Tecnicos SCR.xlsx)
+// Sector Norte: CANASTA, SCR LIVIANA, SCR MINI CANASTA, SCR PESADA, SCR PESADA DISPONIBILIDAD
+// Sector Centro: CANASTA, SCR LIVIANA, SCR MINI CANASTA, SCR PESADA, SCR MULTIFAMILIAR, SCR MEDIDA ESPECIAL
 const BRIGADE_CAPACITIES = {
     'CANASTA': 15,
     'SCR LIVIANA': 30,
     'SCR MINI CANASTA': 15,
     'SCR PESADA': 25,
     'SCR PESADA DISPONIBILIDAD': 22, // Average of 20-25
-    'SCR PESADA ELITE': 22 // Average of 20-25
+    'SCR PESADA ELITE': 22, // Average of 20-25
+    'SCR MULTIFAMILIAR': 20, // Multifamily buildings
+    'SCR MEDIDA ESPECIAL': 15 // LIVIANA variant
 };
 
 // Priority order for OS types (1 = highest priority)
@@ -69,8 +73,16 @@ const ALCANCE_BRIGADE_MATRIX = {
         urban: ['SCR PESADA'],
         rural: ['SCR PESADA DISPONIBILIDAD']
     },
-    'Y': { // Y - Destruir Acometida
+    'Y': { // Y - Destruir Acometida / Multi-retiro Acometida
         urban: ['SCR PESADA'],
+        rural: ['SCR PESADA DISPONIBILIDAD']
+    },
+    'F': { // F - Brigada FOR (TO503 only)
+        urban: ['SCR PESADA DISPONIBILIDAD'],
+        rural: ['SCR PESADA DISPONIBILIDAD']
+    },
+    'R': { // R - Remoto (TO503 only)
+        urban: ['SCR PESADA DISPONIBILIDAD'],
         rural: ['SCR PESADA DISPONIBILIDAD']
     }
 };
