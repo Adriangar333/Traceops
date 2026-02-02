@@ -226,5 +226,151 @@ module.exports = (pool) => {
         }
     });
 
+    // ============================================
+    // 5. ROUTING ENGINE - Auto-assign orders
+    // ============================================
+    const { RoutingEngine, BRIGADE_CAPACITIES, ALCANCE_BRIGADE_MATRIX } = require('../services/routingEngine');
+    const routingEngine = new RoutingEngine(pool);
+
+    // POST /api/scrc/routing/auto-assign
+    // Automatically assign pending orders to brigades based on capacity and eligibility
+    router.post('/routing/auto-assign', async (req, res) => {
+        try {
+            const { maxOrders = 500, dryRun = false } = req.body;
+            const result = await routingEngine.autoAssign({ maxOrders, dryRun });
+            console.log(`🚛 Auto-assigned ${result.assigned} of ${result.total_orders} orders`);
+            res.json(result);
+        } catch (err) {
+            console.error('Auto-assign error:', err);
+            res.status(500).json({ error: 'Failed to auto-assign', details: err.message });
+        }
+    });
+
+    // GET /api/scrc/routing/zones
+    // Get order clusters by zone for geographic optimization
+    router.get('/routing/zones', async (req, res) => {
+        try {
+            const zones = await routingEngine.clusterOrdersByZone();
+            res.json({ zones, count: zones.length });
+        } catch (err) {
+            console.error('Zones error:', err);
+            res.status(500).json({ error: 'Failed to get zones' });
+        }
+    });
+
+    // GET /api/scrc/routing/stats
+    // Get routing statistics for dashboard
+    router.get('/routing/stats', async (req, res) => {
+        try {
+            const stats = await routingEngine.getRoutingStats();
+            res.json(stats);
+        } catch (err) {
+            console.error('Routing stats error:', err);
+            res.status(500).json({ error: 'Failed to get routing stats' });
+        }
+    });
+
+    // GET /api/scrc/routing/config
+    // Get routing configuration (capacities, matrix)
+    router.get('/routing/config', (req, res) => {
+        res.json({
+            brigade_capacities: BRIGADE_CAPACITIES,
+            alcance_matrix: ALCANCE_BRIGADE_MATRIX
+        });
+    });
+
+    // ============================================
+    // 6. BRIGADE MANAGEMENT
+    // ============================================
+
+    // GET /api/scrc/brigades
+    router.get('/brigades', async (req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    b.*,
+                    COALESCE(
+                        (SELECT COUNT(*) FROM scrc_orders 
+                         WHERE assigned_brigade_id = b.id 
+                         AND status IN ('assigned', 'in_progress')
+                         AND DATE(assignment_date) = CURRENT_DATE
+                        ), 0
+                    ) as orders_today
+                FROM brigades b
+                ORDER BY b.type, b.name
+            `);
+            res.json({ brigades: result.rows });
+        } catch (err) {
+            console.error('Brigades error:', err);
+            res.status(500).json({ error: 'Failed to fetch brigades' });
+        }
+    });
+
+    // POST /api/scrc/brigades
+    // Create a new brigade
+    router.post('/brigades', async (req, res) => {
+        const { name, type, members = [], capacity_per_day = 20, status = 'active' } = req.body;
+
+        if (!name || !type) {
+            return res.status(400).json({ error: 'name and type are required' });
+        }
+
+        try {
+            const result = await pool.query(`
+                INSERT INTO brigades (name, type, members, capacity_per_day, status)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+            `, [name, type, members, capacity_per_day, status]);
+
+            res.json({ brigade: result.rows[0] });
+        } catch (err) {
+            console.error('Create brigade error:', err);
+            res.status(500).json({ error: 'Failed to create brigade' });
+        }
+    });
+
+    // POST /api/scrc/brigades/bulk
+    // Bulk import brigades from Distribución Operativa
+    router.post('/brigades/bulk', async (req, res) => {
+        const { brigades } = req.body;
+
+        if (!brigades || !Array.isArray(brigades)) {
+            return res.status(400).json({ error: 'brigades array required' });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            let count = 0;
+
+            for (const brigade of brigades) {
+                await client.query(`
+                    INSERT INTO brigades (name, type, members, capacity_per_day, status)
+                    VALUES ($1, $2, $3, $4, 'active')
+                    ON CONFLICT ON CONSTRAINT brigades_name_key DO UPDATE
+                    SET type = EXCLUDED.type,
+                        members = EXCLUDED.members,
+                        capacity_per_day = EXCLUDED.capacity_per_day,
+                        updated_at = NOW()
+                `, [
+                    brigade.name,
+                    brigade.type,
+                    brigade.members || [],
+                    brigade.capacity_per_day || 20
+                ]);
+                count++;
+            }
+
+            await client.query('COMMIT');
+            res.json({ success: true, count });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Bulk brigade error:', err);
+            res.status(500).json({ error: 'Failed to bulk import brigades' });
+        } finally {
+            client.release();
+        }
+    });
+
     return router;
 };
