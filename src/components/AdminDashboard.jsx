@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
-import { X, FileText, Users, Map, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, FileText, Users, Map, ChevronLeft, ChevronRight, Navigation, Upload } from 'lucide-react';
 import MapComponent from './MapComponent';
 import Sidebar from './Sidebar';
 import AgentsPanel from './AgentsPanel';
@@ -266,219 +266,116 @@ function AdminDashboard() {
             position: 'relative',
             fontFamily: 'Inter, system-ui',
             background: '#0f172a',
-            display: 'flex'
+            display: 'flex',
+            flexDirection: 'column' // Changed to column for Top Bar + Body
         }}>
             <Toaster position="top-right" richColors />
 
-            {/* Left Sidebar - Route Planning */}
-            {!sidebarCollapsed && (
-                <div style={{
-                    width: sidebarWidth,
-                    height: '100%',
-                    flexShrink: 0,
-                    position: 'relative',
-                    zIndex: 50
-                }}>
-                    <Sidebar
-                        waypoints={waypoints}
-                        setWaypoints={setWaypoints}
-                        fixedStart={fixedStart}
-                        setFixedStart={setFixedStart}
-                        fixedEnd={fixedEnd}
-                        setFixedEnd={setFixedEnd}
-                        returnToStart={returnToStart}
-                        setReturnToStart={setReturnToStart}
-                        agents={agents}
-                        selectedAgent={selectedAgent}
-                        setSelectedAgent={setSelectedAgent}
-                        savedRoutes={savedRoutes}
-                        onSaveRoute={handleSaveRoute}
-                        onLoadRoute={handleLoadRoute}
-                        onDeleteRoute={handleDeleteRoute}
-                        onAssign={handleAssignRoute}
-                        isSubmitting={isSubmitting}
-                        onOpenAgents={() => setShowAgentsPanel(true)}
-                        onOpenDashboard={() => setShowDashboard(true)}
-                        onOpenIngestion={() => setShowIngestion(true)}
-                        onPreviewRoute={setPreviewRoute}
-                        onApplyRoute={(route) => {
-                            if (route?.optimizedWaypoints) {
-                                setWaypoints(route.optimizedWaypoints);
-                            }
-                        }}
+            {/* === GLOBAL TOP BAR === */}
+            <div style={{
+                height: 60,
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.98)',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 20px',
+                zIndex: 60, // Higher than sidebar
+                flexShrink: 0
+            }}>
+                {/* Brand */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                        width: 32, height: 32,
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        borderRadius: 8,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                    }}>
+                        <Navigation size={18} color="white" />
+                    </div>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Traceops</h1>
+                        <p style={{ margin: 0, fontSize: 10, color: '#64748b' }}>Logistics Intelligence</p>
+                    </div>
+                </div>
+
+                {/* View Toggles (Center) */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <ViewToggle
+                        icon={Map}
+                        label="Mapa"
+                        active={activeView === 'map'}
+                        onClick={() => setActiveView('map')}
+                    />
+                    <ViewToggle
+                        icon={FileText}
+                        label="Órdenes SCRC"
+                        active={activeView === 'orders'}
+                        onClick={() => setActiveView('orders')}
+                    />
+                    <ViewToggle
+                        icon={Users}
+                        label="Personal"
+                        active={activeView === 'workforce'}
+                        onClick={() => setActiveView('workforce')}
                     />
                 </div>
-            )}
 
-            {/* Sidebar Toggle Button */}
-            <button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                style={{
-                    position: 'absolute',
-                    left: sidebarCollapsed ? 8 : sidebarWidth - 12,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 24,
-                    height: 48,
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: sidebarCollapsed ? '0 8px 8px 0' : '8px 0 0 8px',
-                    color: '#94a3b8',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    transition: 'left 0.3s ease'
-                }}
-            >
-                {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            </button>
+                {/* Right Actions & Stats */}
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <button
+                        onClick={() => setShowIngestion(true)}
+                        style={{
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.2)',
+                            color: '#fbbf24',
+                            borderRadius: 8,
+                            padding: '8px 12px',
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <Upload size={14} /> Importar Excel
+                    </button>
 
-            {/* Main Content Area */}
-            <div style={{
-                flex: 1,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                {/* Top Navigation Bar */}
-                <div style={{
-                    height: 60,
-                    background: 'rgba(15, 23, 42, 0.98)',
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0 20px',
-                    zIndex: 40
-                }}>
-                    {/* Left: View Toggles */}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <ViewToggle
-                            icon={Map}
-                            label="Mapa"
-                            active={activeView === 'map'}
-                            onClick={() => setActiveView('map')}
-                        />
-                        <ViewToggle
-                            icon={FileText}
-                            label="Órdenes SCRC"
-                            active={activeView === 'orders'}
-                            onClick={() => setActiveView('orders')}
-                        />
-                        <ViewToggle
-                            icon={Users}
-                            label="Personal"
-                            active={activeView === 'workforce'}
-                            onClick={() => setActiveView('workforce')}
-                        />
-                    </div>
+                    <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
 
-                    {/* Center: Stats HUD */}
                     <div style={{ display: 'flex', gap: 12 }}>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            padding: '8px 16px',
-                            borderRadius: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                        }}>
-                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>RUTAS HOY</span>
-                            <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1 }}>
+                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>RUTAS</span>
+                            <span style={{ fontSize: 15, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
                         </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            padding: '8px 16px',
-                            borderRadius: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                        }}>
-                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>CONDUCTORES</span>
-                            <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1 }}>
+                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>CONDUCTORES</span>
+                            <span style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
                         </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            padding: '8px 16px',
-                            borderRadius: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                        }}>
-                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>ALERTAS</span>
-                            <span style={{ fontSize: 18, fontWeight: 800, color: '#6366f1' }}>0</span>
-                        </div>
-                    </div>
-
-                    {/* Right: Brigade/Vehicle Filters */}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <select
-                            value={filterBrigade}
-                            onChange={(e) => setFilterBrigade(e.target.value)}
-                            style={{
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: 8,
-                                padding: '8px 12px',
-                                color: 'white',
-                                fontSize: 13,
-                                minWidth: 180
-                            }}
-                        >
-                            <option value="">Todas las Cuadrillas</option>
-                            {brigades.map(b => (
-                                <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={filterVehicle}
-                            onChange={(e) => setFilterVehicle(e.target.value)}
-                            style={{
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: 8,
-                                padding: '8px 12px',
-                                color: 'white',
-                                fontSize: 13,
-                                minWidth: 160
-                            }}
-                        >
-                            <option value="">Todos Vehículos</option>
-                            {vehicles.map(v => (
-                                <option key={v.id} value={v.id}>{v.plate} - {v.type}</option>
-                            ))}
-                        </select>
-                        {(filterBrigade || filterVehicle) && (
-                            <button
-                                onClick={() => { setFilterBrigade(''); setFilterVehicle(''); }}
-                                style={{
-                                    background: 'rgba(239, 68, 68, 0.2)',
-                                    border: 'none',
-                                    borderRadius: 6,
-                                    padding: 8,
-                                    color: '#ef4444',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
                     </div>
                 </div>
+            </div>
 
-                {/* Content Area - Switches based on activeView */}
-                <div style={{
-                    flex: 1,
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    {/* Map View */}
-                    {activeView === 'map' && (
-                        <MapComponent
+            {/* === MAIN BODY (Sidebar + Content) === */}
+            <div style={{
+                flex: 1,
+                display: 'flex',
+                overflow: 'hidden',
+                position: 'relative'
+            }}>
+                {/* Left Sidebar */}
+                {!sidebarCollapsed && activeView === 'map' && ( // Only show route planner sidebar in Map view? Or always? Let's keep it consistent but conditionally render content if needed.
+                    <div style={{
+                        width: sidebarWidth,
+                        height: '100%',
+                        flexShrink: 0,
+                        position: 'relative',
+                        zIndex: 50,
+                        borderRight: '1px solid rgba(255,255,255,0.05)',
+                        background: 'rgba(15, 23, 42, 0.4)'
+                    }}>
+                        <Sidebar
+                            embedded={true} // Enable embedded mode!
                             waypoints={waypoints}
                             setWaypoints={setWaypoints}
                             fixedStart={fixedStart}
@@ -486,33 +383,123 @@ function AdminDashboard() {
                             fixedEnd={fixedEnd}
                             setFixedEnd={setFixedEnd}
                             returnToStart={returnToStart}
-                            previewRoute={previewRoute}
-                            filterBrigade={filterBrigade}
-                            setFilterBrigade={setFilterBrigade}
-                            brigades={brigades}
-                            vehicles={vehicles}
-                            filterVehicle={filterVehicle}
-                            setFilterVehicle={setFilterVehicle}
-                            onClearWaypoints={() => {
-                                setWaypoints([]);
+                            setReturnToStart={setReturnToStart}
+                            agents={agents}
+                            selectedAgent={selectedAgent}
+                            setSelectedAgent={setSelectedAgent}
+                            savedRoutes={savedRoutes}
+                            onSaveRoute={handleSaveRoute}
+                            onLoadRoute={handleLoadRoute}
+                            onDeleteRoute={handleDeleteRoute}
+                            onAssign={handleAssignRoute}
+                            isSubmitting={isSubmitting}
+                            onOpenAgents={() => setShowAgentsPanel(true)}
+                            onOpenDashboard={() => setShowDashboard(true)}
+                            onOpenIngestion={() => setShowIngestion(true)}
+                            onPreviewRoute={setPreviewRoute}
+                            onApplyRoute={(route) => {
+                                if (route?.optimizedWaypoints) {
+                                    setWaypoints(route.optimizedWaypoints);
+                                }
                             }}
                         />
+                    </div>
+                )}
+
+                {/* Sidebar Toggle Button - Adjusted position */}
+                {activeView === 'map' && (
+                    <button
+                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        style={{
+                            position: 'absolute',
+                            left: !sidebarCollapsed ? sidebarWidth - 12 : 0,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: 20,
+                            height: 40,
+                            background: '#1e293b',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: !sidebarCollapsed ? '8px 0 0 8px' : '0 8px 8px 0',
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            zIndex: 100,
+                            transition: 'left 0.3s ease'
+                        }}
+                    >
+                        {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                    </button>
+                )}
+
+                {/* Content Area */}
+                <div style={{
+                    flex: 1,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}>
+                    {/* Filter Bar for Map View - Optional, can stay inside MapComponent or here. 
+                         Keeping it here (from previous layout) or moving to MapComponent? 
+                         Previous layout had it in the header. Let's put it as a sub-bar if in Map view and sidebar is collapsed? 
+                         Or just rely on defaults. The previous Global Top Bar had filters. 
+                         Let's put the filters INSIDE the MapComponent or a thin bar above it if needed.
+                         For now, I'll put them in a floating status bar in the map or just omitted to clean up interface as per user request for "clean UI".
+                         actually user didn't ask to remove filters, but "horrible layout".
+                         I will keep filters in a floating bar within MapComponent or strictly for map view.
+                     */}
+
+                    {/* Map View */}
+                    {activeView === 'map' && (
+                        <div style={{ flex: 1, position: 'relative' }}>
+                            {/* Floating Filters for Map */}
+                            <div style={{
+                                position: 'absolute', top: 16, right: 16, zIndex: 10,
+                                display: 'flex', gap: 8
+                            }}>
+                                <select
+                                    value={filterBrigade}
+                                    onChange={(e) => setFilterBrigade(e.target.value)}
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.9)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 12
+                                    }}
+                                >
+                                    <option value="">Todas las Cuadrillas</option>
+                                    {brigades.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+
+                            <MapComponent
+                                waypoints={waypoints}
+                                setWaypoints={setWaypoints}
+                                fixedStart={fixedStart}
+                                setFixedStart={setFixedStart}
+                                fixedEnd={fixedEnd}
+                                setFixedEnd={setFixedEnd}
+                                returnToStart={returnToStart}
+                                previewRoute={previewRoute}
+                                filterBrigade={filterBrigade}
+                                setFilterBrigade={setFilterBrigade}
+                                brigades={brigades}
+                                vehicles={vehicles}
+                                filterVehicle={filterVehicle}
+                                setFilterVehicle={setFilterVehicle}
+                                onClearWaypoints={() => setWaypoints([])}
+                            />
+                        </div>
                     )}
 
                     {/* Orders View */}
                     {activeView === 'orders' && (
-                        <div style={{
-                            width: '100%',
-                            height: '100%',
-                            padding: 16,
-                            overflow: 'hidden'
-                        }}>
+                        <div style={{ width: '100%', height: '100%', padding: 16, overflow: 'hidden' }}>
                             <SCRCOrdersPanel
                                 brigades={brigades}
                                 onClose={() => setActiveView('map')}
                                 onSelectOrders={(selectedWaypoints) => {
                                     setWaypoints(prev => [...prev, ...selectedWaypoints]);
-                                    toast.success(`${selectedWaypoints.length} órdenes agregadas como puntos de ruta`);
+                                    toast.success(`${selectedWaypoints.length} órdenes agregadas`);
                                     setActiveView('map');
                                 }}
                             />
@@ -521,15 +508,8 @@ function AdminDashboard() {
 
                     {/* Workforce View */}
                     {activeView === 'workforce' && (
-                        <div style={{
-                            width: '100%',
-                            height: '100%',
-                            padding: 16,
-                            overflow: 'hidden'
-                        }}>
-                            <WorkforcePanel
-                                onClose={() => setActiveView('map')}
-                            />
+                        <div style={{ width: '100%', height: '100%', padding: 16, overflow: 'hidden' }}>
+                            <WorkforcePanel onClose={() => setActiveView('map')} />
                         </div>
                     )}
                 </div>
