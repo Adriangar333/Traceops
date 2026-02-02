@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { API_URL } from '../utils/backendService';
 
 const DAYS = [
     { id: 1, name: 'Lunes' },

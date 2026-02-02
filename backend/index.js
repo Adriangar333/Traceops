@@ -82,6 +82,10 @@ app.use('/api/vehicles', vehicleRoutes);
 const scheduleRoutes = require('./routes/scheduleRoutes')(pool, io);
 app.use('/api/schedules', scheduleRoutes);
 
+// Brigade Routes (Gestión de Cuadrillas)
+const brigadeRoutes = require('./routes/brigadeRoutes')(pool, io);
+app.use('/api/brigades', brigadeRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================

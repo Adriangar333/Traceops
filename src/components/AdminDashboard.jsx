@@ -12,7 +12,7 @@ import { sendToN8N, transformCoordinates } from '../utils/n8nService';
 // import { recordRouteCreated } from '../utils/metricsService'; // Keep commented if not needed
 // import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { fetchRouteWithStats } from '../utils/osrmService';
-import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
+import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute, getBrigades, getVehicles } from '../utils/backendService';
 import { io } from 'socket.io-client'; // Import Socket.IO
 
 function AdminDashboard() {
@@ -28,7 +28,14 @@ function AdminDashboard() {
     const [showTracking, setShowTracking] = useState(false);
     const [showIngestion, setShowIngestion] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
     const [previewRoute, setPreviewRoute] = useState(null);
+
+    // Filters
+    const [brigades, setBrigades] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
+    const [filterBrigade, setFilterBrigade] = useState('');
+    const [filterVehicle, setFilterVehicle] = useState('');
 
     const [fixedStart, setFixedStart] = useState(() => {
         const saved = localStorage.getItem('fixedStart');
@@ -90,11 +97,17 @@ function AdminDashboard() {
 
     // Load agents from Backend
     useEffect(() => {
-        const loadAgents = async () => {
-            const data = await getDrivers();
-            setAgents(data);
+        const loadData = async () => {
+            const [driversData, brigadesData, vehiclesData] = await Promise.all([
+                getDrivers(),
+                getBrigades(),
+                getVehicles()
+            ]);
+            setAgents(driversData);
+            setBrigades(brigadesData);
+            setVehicles(vehiclesData);
         };
-        loadAgents();
+        loadData();
     }, []);
 
     // Save routes to localStorage
@@ -122,6 +135,24 @@ function AdminDashboard() {
         ...(fixedEnd && !returnToStart ? [fixedEnd] : []),
         ...(returnToStart && fixedStart ? [fixedStart] : [])
     ];
+
+    const filteredAgents = agents.filter(agent => {
+        // Filter by Brigade
+        if (filterBrigade) {
+            const brigade = brigades.find(b => b.id.toString() === filterBrigade);
+            if (!brigade?.members?.some(m => m.id === agent.id)) {
+                return false;
+            }
+        }
+        // Filter by Vehicle
+        if (filterVehicle) {
+            const vehicle = vehicles.find(v => v.id.toString() === filterVehicle);
+            if (vehicle?.assigned_technician_id !== agent.id) {
+                return false;
+            }
+        }
+        return true;
+    });
 
     const handleAddAgent = async (agent) => {
         try {
@@ -438,7 +469,51 @@ function AdminDashboard() {
                     }
                     setPreviewRoute(null);
                 }}
+
             />
+
+            {/* Top Filter Bar */}
+            <div style={{
+                position: 'fixed', // Fixed to stay visible
+                top: 16,
+                right: 320, // Left of AgentsPanel trigger
+                zIndex: 40,
+                display: 'flex',
+                gap: 8,
+                background: 'rgba(15, 23, 42, 0.8)',
+                padding: 8,
+                borderRadius: 12,
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+                <select
+                    value={filterBrigade}
+                    onChange={e => setFilterBrigade(e.target.value)}
+                    style={{ background: '#1e293b', color: 'white', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', fontSize: 13 }}
+                >
+                    <option value="">Todas Brigadas</option>
+                    {brigades.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                </select>
+
+                <select
+                    value={filterVehicle}
+                    onChange={e => setFilterVehicle(e.target.value)}
+                    style={{ background: '#1e293b', color: 'white', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', fontSize: 13 }}
+                >
+                    <option value="">Todos Vehículos</option>
+                    {vehicles.map(v => (
+                        <option key={v.id} value={v.id}>{v.plate} ({v.type})</option>
+                    ))}
+                </select>
+
+                {(filterBrigade || filterVehicle) && (
+                    <button onClick={() => { setFilterBrigade(''); setFilterVehicle(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}>
+                        <X size={16} />
+                    </button>
+                )}
+            </div>
 
             <MapComponent
                 waypoints={displayWaypoints}
@@ -458,7 +533,7 @@ function AdminDashboard() {
 
             {showAgentsPanel && (
                 <AgentsPanel
-                    agents={agents}
+                    agents={filteredAgents}
                     onAddAgent={handleAddAgent}
                     onDeleteAgent={handleDeleteAgent}
                     onClose={() => setShowAgentsPanel(false)}
@@ -467,7 +542,7 @@ function AdminDashboard() {
 
             {showDashboard && (
                 <Dashboard
-                    agents={agents}
+                    agents={filteredAgents}
                     onClose={() => setShowDashboard(false)}
                 />
             )}
@@ -476,7 +551,7 @@ function AdminDashboard() {
             <LiveTrackingPanel
                 isOpen={showTracking}
                 onClose={() => setShowTracking(false)}
-                driversList={agents}
+                driversList={filteredAgents}
             />
 
             {/* Data Ingestion Overlay */}
