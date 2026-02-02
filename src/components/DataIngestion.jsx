@@ -17,7 +17,16 @@ const DataIngestion = () => {
         try {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+            // Prefer 'Asignacion' sheet, fallback to first sheet
+            const targetSheetName = workbook.SheetNames.find(name =>
+                name.toLowerCase().includes('asignacion') ||
+                name.toLowerCase().includes('asignaciones')
+            ) || workbook.SheetNames[0];
+
+            console.log('📊 Using sheet:', targetSheetName, 'from', workbook.SheetNames);
+
+            const worksheet = workbook.Sheets[targetSheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
             if (jsonData.length === 0) {
