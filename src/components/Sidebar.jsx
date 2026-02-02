@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info } from 'lucide-react';
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
-import { sendToGemini } from '../utils/geminiService';
+// import { sendToGemini } from '../utils/geminiService'; // Removed - chatbot feature deprecated
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
-import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService';
+// import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService'; // Removed - using OSRM
 
 const Sidebar = ({
     waypoints, setWaypoints,

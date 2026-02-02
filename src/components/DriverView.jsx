@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw, AlertTriangle, AlertOctagon, Lock, XCircle, Search, Siren } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
-import { TrackingService } from '../utils/trackingService';
+// import { TrackingService } from '../utils/trackingService'; // Removed - using Socket.io directly
 import { getDriverRoutes, getDrivers } from '../utils/backendService';
 import { initAutoSync, getPendingCount, syncPending, onSyncEvent, isOnline } from '../utils/offlineSyncService';
 import PODModal from './PODModal';

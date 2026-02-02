@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { io } from 'socket.io-client';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { reverseGeocode, setUserLocation } from '../utils/geocodingService';
 import { Plus, Minus, Maximize, LocateFixed, Layers, MapPin, Hand, Compass, Box, Car, Trash2 } from 'lucide-react';
 
@@ -22,9 +21,10 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
     const userMarkerRef = useRef(null);
     const currentRouteCoords = useRef([]);
     const previewRouteCoords = useRef([]);
-    const driverMarkersRef = useRef({}); // New ref for driver markers { driverId: marker }
+    const driverMarkersRef = useRef({}); // Store driver data { driverId: { lat, lng, name, ... } }
+    const driversDataRef = useRef({}); // Raw driver data for clustering
 
-    // Socket.io Connection for Driver Tracking
+    // Socket.io Connection for Driver Tracking with Clustering
     useEffect(() => {
         // Connect to the Production Backend
         const socket = io('https://dashboard-backend.zvkdyr.easypanel.host');
@@ -34,35 +34,156 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
         });
 
         socket.on('admin:driver-update', (data) => {
-            // console.log('📍 Driver Update:', data);
-            const { driverId, location } = data;
+            const { driverId, location, name, status } = data;
 
-            if (!map.current || !location) return;
+            if (!location) return;
 
-            // Update or Create Marker
-            if (driverMarkersRef.current[driverId]) {
-                // Animate to new position
-                driverMarkersRef.current[driverId].setLngLat([location.lng, location.lat]);
-            } else {
-                // Create new marker
-                const el = document.createElement('div');
-                el.className = 'driver-marker';
-                el.innerHTML = `
-                    <div style="background: #10b981; border: 2px solid white; border-radius: 50%; width: 24px; height: 24px; box-shadow: 0 0 10px rgba(16,185,129,0.5); display: flex; align-items: center; justify-content: center;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
-                    </div>
-                `;
+            // Store driver data
+            driversDataRef.current[driverId] = {
+                lat: location.lat,
+                lng: location.lng,
+                name: name || `Técnico ${driverId}`,
+                status: status || 'active',
+                timestamp: Date.now()
+            };
 
-                // Add label popup logic if needed, for now just the icon
-                driverMarkersRef.current[driverId] = new maplibregl.Marker({ element: el })
-                    .setLngLat([location.lng, location.lat])
-                    .addTo(map.current);
-            }
+            // Update map if ready
+            updateDriverClusters();
         });
 
         return () => {
             if (socket) socket.disconnect();
         };
+    }, []);
+
+    // Update driver clusters on map
+    const updateDriverClusters = useCallback(() => {
+        if (!map.current || !map.current.isStyleLoaded()) return;
+
+        const drivers = Object.entries(driversDataRef.current);
+
+        // Create GeoJSON FeatureCollection
+        const geojson = {
+            type: 'FeatureCollection',
+            features: drivers.map(([id, data]) => ({
+                type: 'Feature',
+                properties: {
+                    id,
+                    name: data.name,
+                    status: data.status
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: [data.lng, data.lat]
+                }
+            }))
+        };
+
+        // Check if source exists
+        if (map.current.getSource('drivers')) {
+            map.current.getSource('drivers').setData(geojson);
+        } else {
+            // Add source with clustering
+            map.current.addSource('drivers', {
+                type: 'geojson',
+                data: geojson,
+                cluster: true,
+                clusterMaxZoom: 14, // Max zoom to cluster
+                clusterRadius: 50  // Radius in pixels
+            });
+
+            // Cluster circles (when 2+ drivers nearby)
+            map.current.addLayer({
+                id: 'driver-clusters',
+                type: 'circle',
+                source: 'drivers',
+                filter: ['has', 'point_count'],
+                paint: {
+                    'circle-color': '#10b981',
+                    'circle-radius': [
+                        'step', ['get', 'point_count'],
+                        18, 5, 22, 10, 28
+                    ],
+                    'circle-stroke-width': 3,
+                    'circle-stroke-color': '#ffffff'
+                }
+            });
+
+            // Cluster count labels
+            map.current.addLayer({
+                id: 'driver-cluster-count',
+                type: 'symbol',
+                source: 'drivers',
+                filter: ['has', 'point_count'],
+                layout: {
+                    'text-field': '{point_count_abbreviated}',
+                    'text-font': ['Open Sans Bold'],
+                    'text-size': 14
+                },
+                paint: {
+                    'text-color': '#ffffff'
+                }
+            });
+
+            // Individual driver markers
+            map.current.addLayer({
+                id: 'driver-unclustered',
+                type: 'circle',
+                source: 'drivers',
+                filter: ['!', ['has', 'point_count']],
+                paint: {
+                    'circle-color': '#10b981',
+                    'circle-radius': 10,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#ffffff'
+                }
+            });
+
+            // Click on cluster to zoom in
+            map.current.on('click', 'driver-clusters', (e) => {
+                const features = map.current.queryRenderedFeatures(e.point, { layers: ['driver-clusters'] });
+                const clusterId = features[0].properties.cluster_id;
+                map.current.getSource('drivers').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                    if (err) return;
+                    map.current.easeTo({
+                        center: features[0].geometry.coordinates,
+                        zoom: zoom + 1
+                    });
+                });
+            });
+
+            // Click on individual driver to show popup
+            map.current.on('click', 'driver-unclustered', (e) => {
+                const { name, status } = e.features[0].properties;
+                const coords = e.features[0].geometry.coordinates.slice();
+
+                new maplibregl.Popup()
+                    .setLngLat(coords)
+                    .setHTML(`
+                        <div style="color: #333; padding: 4px;">
+                            <strong>🚗 ${name}</strong><br/>
+                            <span style="color: ${status === 'active' ? '#10b981' : '#f59e0b'}">
+                                ${status === 'active' ? '● Activo' : '● En pausa'}
+                            </span>
+                        </div>
+                    `)
+                    .addTo(map.current);
+            });
+
+            // Cursor pointer on hover
+            map.current.on('mouseenter', 'driver-clusters', () => {
+                map.current.getCanvas().style.cursor = 'pointer';
+            });
+            map.current.on('mouseleave', 'driver-clusters', () => {
+                map.current.getCanvas().style.cursor = '';
+            });
+            map.current.on('mouseenter', 'driver-unclustered', () => {
+                map.current.getCanvas().style.cursor = 'pointer';
+            });
+            map.current.on('mouseleave', 'driver-unclustered', () => {
+                map.current.getCanvas().style.cursor = '';
+            });
+        }
     }, []);
 
     const [mapReady, setMapReady] = useState(false);

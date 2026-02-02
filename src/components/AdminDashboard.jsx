@@ -5,9 +5,10 @@ import Sidebar from './Sidebar';
 import AgentsPanel from './AgentsPanel';
 import Dashboard from './Dashboard';
 import LiveTrackingPanel from './LiveTrackingPanel';
-import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
-import { recordRouteCreated } from '../utils/metricsService';
-import { getGoogleRoute } from '../utils/googleDirectionsService';
+// Deleted services - functionality moved or deprecated
+// import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
+// import { recordRouteCreated } from '../utils/metricsService';
+// import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { fetchRouteWithStats } from '../utils/osrmService';
 import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 
