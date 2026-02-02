@@ -1175,5 +1175,244 @@ module.exports = (pool, io) => {
         }
     });
 
+    // ============================================
+    // OPERATIVE PRE-ASSIGNMENTS
+    // Pre-assign technicians to specific operations/zones
+    // ============================================
+
+    // List all pre-assignments (with filters)
+    router.get('/preassignments', async (req, res) => {
+        const { technician_id, operative_type, zone_code, is_active, include_expired } = req.query;
+
+        try {
+            let query = `
+                SELECT 
+                    p.*,
+                    d.name as technician_name,
+                    d.phone as technician_phone,
+                    b.name as brigade_name,
+                    v.plate as vehicle_plate
+                FROM operative_preassignments p
+                LEFT JOIN drivers d ON p.technician_id = d.id
+                LEFT JOIN brigades b ON p.brigade_id = b.id
+                LEFT JOIN vehicles v ON p.vehicle_id = v.id
+                WHERE 1=1
+            `;
+            const params = [];
+
+            if (technician_id) {
+                params.push(technician_id);
+                query += ` AND p.technician_id = $${params.length}`;
+            }
+            if (operative_type) {
+                params.push(operative_type);
+                query += ` AND p.operative_type = $${params.length}`;
+            }
+            if (zone_code) {
+                params.push(zone_code);
+                query += ` AND p.zone_code = $${params.length}`;
+            }
+            if (is_active !== undefined) {
+                params.push(is_active === 'true');
+                query += ` AND p.is_active = $${params.length}`;
+            }
+            if (include_expired !== 'true') {
+                query += ` AND (p.effective_until IS NULL OR p.effective_until >= CURRENT_DATE)`;
+            }
+
+            query += ` ORDER BY p.priority ASC, p.created_at DESC`;
+
+            const result = await pool.query(query, params);
+            res.json({ success: true, preassignments: result.rows });
+        } catch (error) {
+            console.error('Error fetching preassignments:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get pre-assignments for a specific day (for routing engine)
+    router.get('/preassignments/today', async (req, res) => {
+        const dayOfWeek = new Date().getDay(); // 0=Sunday, 1=Monday...
+
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    p.*,
+                    d.name as technician_name,
+                    b.name as brigade_name,
+                    v.plate as vehicle_plate
+                FROM operative_preassignments p
+                LEFT JOIN drivers d ON p.technician_id = d.id
+                LEFT JOIN brigades b ON p.brigade_id = b.id
+                LEFT JOIN vehicles v ON p.vehicle_id = v.id
+                WHERE p.is_active = TRUE
+                  AND $1 = ANY(p.days_of_week)
+                  AND p.effective_from <= CURRENT_DATE
+                  AND (p.effective_until IS NULL OR p.effective_until >= CURRENT_DATE)
+                ORDER BY p.operative_type, p.zone_code, p.priority
+            `, [dayOfWeek]);
+
+            res.json({ success: true, preassignments: result.rows });
+        } catch (error) {
+            console.error('Error fetching today preassignments:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Create pre-assignment
+    router.post('/preassignments', async (req, res) => {
+        const {
+            technician_id, brigade_id, vehicle_id, operative_type,
+            zone_code, product_codes, priority, effective_from,
+            effective_until, days_of_week, notes
+        } = req.body;
+
+        if (!technician_id || !operative_type) {
+            return res.status(400).json({ error: 'technician_id and operative_type are required' });
+        }
+
+        const validOperatives = ['suspension', 'corte', 'reconexion', 'revision', 'cobro'];
+        if (!validOperatives.includes(operative_type)) {
+            return res.status(400).json({ error: `operative_type must be one of: ${validOperatives.join(', ')}` });
+        }
+
+        try {
+            const result = await pool.query(`
+                INSERT INTO operative_preassignments 
+                (technician_id, brigade_id, vehicle_id, operative_type, zone_code, 
+                 product_codes, priority, effective_from, effective_until, days_of_week, notes)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING *
+            `, [
+                technician_id,
+                brigade_id || null,
+                vehicle_id || null,
+                operative_type,
+                zone_code || null,
+                product_codes || null,
+                priority || 1,
+                effective_from || new Date().toISOString().split('T')[0],
+                effective_until || null,
+                days_of_week || [1, 2, 3, 4, 5],
+                notes || null
+            ]);
+
+            io.emit('preassignment:created', result.rows[0]);
+            res.status(201).json({ success: true, preassignment: result.rows[0] });
+        } catch (error) {
+            if (error.code === '23505') {
+                return res.status(409).json({ error: 'Pre-assignment already exists for this tech/operative/zone/date' });
+            }
+            console.error('Error creating preassignment:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Update pre-assignment
+    router.put('/preassignments/:id', async (req, res) => {
+        const { id } = req.params;
+        const {
+            brigade_id, vehicle_id, zone_code, product_codes,
+            priority, effective_until, days_of_week, is_active, notes
+        } = req.body;
+
+        try {
+            const result = await pool.query(`
+                UPDATE operative_preassignments SET
+                    brigade_id = COALESCE($1, brigade_id),
+                    vehicle_id = COALESCE($2, vehicle_id),
+                    zone_code = COALESCE($3, zone_code),
+                    product_codes = COALESCE($4, product_codes),
+                    priority = COALESCE($5, priority),
+                    effective_until = COALESCE($6, effective_until),
+                    days_of_week = COALESCE($7, days_of_week),
+                    is_active = COALESCE($8, is_active),
+                    notes = COALESCE($9, notes),
+                    updated_at = NOW()
+                WHERE id = $10
+                RETURNING *
+            `, [brigade_id, vehicle_id, zone_code, product_codes, priority,
+                effective_until, days_of_week, is_active, notes, id]);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: 'Pre-assignment not found' });
+            }
+
+            io.emit('preassignment:updated', result.rows[0]);
+            res.json({ success: true, preassignment: result.rows[0] });
+        } catch (error) {
+            console.error('Error updating preassignment:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Delete pre-assignment
+    router.delete('/preassignments/:id', async (req, res) => {
+        const { id } = req.params;
+
+        try {
+            const result = await pool.query(
+                'DELETE FROM operative_preassignments WHERE id = $1 RETURNING id', [id]
+            );
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: 'Pre-assignment not found' });
+            }
+
+            io.emit('preassignment:deleted', { id: parseInt(id) });
+            res.json({ success: true, message: 'Pre-assignment deleted' });
+        } catch (error) {
+            console.error('Error deleting preassignment:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Toggle pre-assignment active status
+    router.patch('/preassignments/:id/toggle', async (req, res) => {
+        const { id } = req.params;
+
+        try {
+            const result = await pool.query(`
+                UPDATE operative_preassignments 
+                SET is_active = NOT is_active, updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            `, [id]);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: 'Pre-assignment not found' });
+            }
+
+            io.emit('preassignment:toggled', result.rows[0]);
+            res.json({ success: true, preassignment: result.rows[0] });
+        } catch (error) {
+            console.error('Error toggling preassignment:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get pre-assignment summary by operative type
+    router.get('/preassignments/summary', async (req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    operative_type,
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE is_active) as active,
+                    COUNT(DISTINCT technician_id) as technicians,
+                    COUNT(DISTINCT zone_code) as zones
+                FROM operative_preassignments
+                WHERE effective_until IS NULL OR effective_until >= CURRENT_DATE
+                GROUP BY operative_type
+                ORDER BY operative_type
+            `);
+
+            res.json({ success: true, summary: result.rows });
+        } catch (error) {
+            console.error('Error fetching preassignment summary:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
     return router;
 };

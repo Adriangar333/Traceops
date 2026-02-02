@@ -402,6 +402,29 @@ const initDB = async () => {
         `);
         console.log('✅ Table work_schedules ready');
 
+        // 1.7 Operative Pre-Assignments (Pre-asignación de técnicos a operativas)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS operative_preassignments (
+                id SERIAL PRIMARY KEY,
+                technician_id INTEGER NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+                brigade_id INTEGER REFERENCES brigades(id),
+                vehicle_id INTEGER REFERENCES vehicles(id),
+                operative_type TEXT NOT NULL, -- 'suspension', 'corte', 'reconexion', 'revision', 'cobro'
+                zone_code TEXT, -- Specific zone/municipality (e.g., 'SOLEDAD', 'BARRANQUILLA')
+                product_codes TEXT[], -- Array of product codes this tech handles: ['TO501', 'TO502']
+                priority INTEGER DEFAULT 1, -- 1=Primary, 2=Secondary/Backup
+                effective_from DATE DEFAULT CURRENT_DATE,
+                effective_until DATE, -- NULL means indefinite
+                days_of_week INTEGER[] DEFAULT '{1,2,3,4,5}', -- 1-5 = Monday-Friday
+                is_active BOOLEAN DEFAULT TRUE,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(technician_id, operative_type, zone_code, effective_from)
+            );
+        `);
+        console.log('✅ Table operative_preassignments ready');
+
         // 2. SCRC Orders (Órdenes de Trabajo - Mapped from ASIGNACION DE TRABAJOS ISES.xlsx)
         await client.query(`
             CREATE TABLE IF NOT EXISTS scrc_orders (
