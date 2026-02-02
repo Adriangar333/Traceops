@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, Truck, MapPin, Clock, Users, BarChart3, Calendar, Download, Trash2 } from 'lucide-react';
+import { X, TrendingUp, Truck, MapPin, Clock, Users, BarChart3, Calendar, Download, Trash2, Fuel } from 'lucide-react';
 import { fetchDashboardData, fetchAuditReport, exportMetrics, resetMetrics } from '../utils/metricsService';
+import RouteAnalytics from './RouteAnalytics';
 
 const Dashboard = ({ onClose, agents }) => {
     const [summary, setSummary] = useState(null);
@@ -93,6 +94,8 @@ const Dashboard = ({ onClose, agents }) => {
         color: '#0f172a'
     };
 
+    const [selectedTech, setSelectedTech] = useState(null);
+
     return (
         <div style={{
             position: 'fixed',
@@ -105,6 +108,14 @@ const Dashboard = ({ onClose, agents }) => {
             justifyContent: 'center',
             padding: '0'
         }}>
+            {selectedTech && (
+                <RouteAnalytics
+                    techId={selectedTech.id}
+                    techName={selectedTech.name}
+                    onClose={() => setSelectedTech(null)}
+                />
+            )}
+
             <div style={{
                 background: '#f8fafc',
                 borderRadius: '16px',
@@ -279,6 +290,28 @@ const Dashboard = ({ onClose, agents }) => {
                             </div>
                             <span style={{ ...valueStyle, color: '#9DBD39' }}>{summary.totalDistanceKm} km</span>
                         </div>
+
+                        <div style={statCardStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Fuel size={18} color="#ef4444" />
+                                <span style={labelStyle}>Consumo Aprox</span>
+                            </div>
+                            <span style={{ ...valueStyle, color: '#ef4444' }}>
+                                {summary.totalDistanceKm ? Math.round(summary.totalDistanceKm / 35) : 0} GL
+                            </span>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                ~35 km/gl
+                            </div>
+                        </div>
+
+
+                        <div style={statCardStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Clock size={18} color="#9DBD39" />
+                                <span style={labelStyle}>Distancia Total</span>
+                            </div>
+                            <span style={{ ...valueStyle, color: '#9DBD39' }}>{summary.totalDistanceKm} km</span>
+                        </div>
                     </div>
 
                     {/* Weekly Chart (Simple) */}
@@ -357,53 +390,6 @@ const Dashboard = ({ onClose, agents }) => {
                         </div>
                     </div>
 
-                    {/* Recent Routes */}
-                    <div style={cardStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                            <Truck size={18} color="#9DBD39" />
-                            <span style={{ color: '#0f172a', fontWeight: '600' }}>Rutas Recientes</span>
-                        </div>
-                        {summary.recentRoutes.length === 0 ? (
-                            <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
-                                No hay rutas registradas aún
-                            </p>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {summary.recentRoutes.map((route, i) => (
-                                    <div key={i} style={{
-                                        padding: '10px 12px',
-                                        background: '#f8fafc',
-                                        borderRadius: '8px',
-                                        border: '1px solid #e2e8f0',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
-                                        <div>
-                                            <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: '500' }}>
-                                                {route.name || `Ruta #${route.id}`}
-                                            </div>
-                                            <div style={{ color: '#64748b', fontSize: '11px' }}>
-                                                {route.waypoints} paradas · {route.distanceKm} km
-                                            </div>
-                                        </div>
-                                        <span style={{
-                                            padding: '4px 8px',
-                                            background: route.status === 'completed' ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)',
-                                            color: route.status === 'completed' ? '#10b981' : '#3b82f6',
-                                            borderRadius: '4px',
-                                            fontSize: '10px',
-                                            fontWeight: '600',
-                                            textTransform: 'uppercase'
-                                        }}>
-                                            {route.status === 'completed' ? 'Completada' : 'Creada'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
                     {/* Drivers Stats */}
                     <div style={cardStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -420,8 +406,9 @@ const Dashboard = ({ onClose, agents }) => {
                                         border: '1px solid #e2e8f0',
                                         display: 'flex',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
+                                        alignItems: 'center',
+                                        cursor: 'pointer'
+                                    }} onClick={() => setSelectedTech(agent)}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <div style={{
                                                 width: '32px',
@@ -445,6 +432,14 @@ const Dashboard = ({ onClose, agents }) => {
                                                     {agent.assignedRoutes?.length || 0} rutas asignadas
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{
+                                                fontSize: '11px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)',
+                                                padding: '4px 8px', borderRadius: '12px'
+                                            }}>
+                                                Ver Analítica
+                                            </span>
                                         </div>
                                     </div>
                                 ))}
