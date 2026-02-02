@@ -68,8 +68,7 @@ export const generateGoogleRouteOptions = async (waypoints, config = {}) => {
             optimizeWaypoints: true, // This is the key optimization feature
             travelMode: googleMaps.TravelMode.DRIVING,
             drivingOptions: {
-                departureTime: new Date(),
-                trafficModel: 'best_guess'
+                departureTime: new Date(), // Important for traffic info
             }
         });
 

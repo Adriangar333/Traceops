@@ -1,14 +1,26 @@
 export const sendToN8N = async (payload) => {
     try {
-        // Replace with actual N8N webhook if available, or just mock success
-        // console.log("Sending to N8N:", payload);
-        // const res = await fetch('YOUR_N8N_WEBHOOK_URL', { ... });
+        const WEBHOOK_URL = 'https://n8n-n8n.zvkdyr.easypanel.host/webhook/proyecto-rutas';
 
-        // Mock success for now as no URL was provided in context
-        return { success: true };
+        console.log("Sending to N8N:", payload);
+
+        const res = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            throw new Error(`n8n responded with status: ${res.status}`);
+        }
+
+        const data = await res.json().catch(() => ({})); // Handle empty responses
+        return { success: true, data };
     } catch (error) {
         console.error("N8N Error:", error);
-        return { success: false, error };
+        return { success: false, error: error.message };
     }
 };
 
