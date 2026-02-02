@@ -5,6 +5,7 @@ import { Toaster, toast } from 'sonner';
 // import { TrackingService } from '../utils/trackingService'; // Removed - using Socket.io directly
 import { getDriverRoutes, getDrivers } from '../utils/backendService';
 import { initAutoSync, getPendingCount, syncPending, onSyncEvent, isOnline } from '../utils/offlineSyncService';
+import { gpsWatcher } from '../utils/gpsWatcherService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -260,9 +261,29 @@ const DriverView = ({ params }) => {
         };
     }, []);
 
-    const handleDriverLogin = (selectedId) => {
+    const handleDriverLogin = async (selectedId) => {
         if (!selectedId) return;
         localStorage.setItem('traceops_driver_id', selectedId);
+
+        // Start GPS watcher with the technician ID
+        try {
+            await gpsWatcher.start(selectedId);
+            console.log('✅ GPS Watcher started for technician:', selectedId);
+
+            // Subscribe to GPS alerts
+            gpsWatcher.subscribe((eventType, data) => {
+                if (eventType === 'alert') {
+                    if (data.type === 'GPS_DISABLED') {
+                        toast.error('⚠️ GPS Desactivado - Active la ubicación', { duration: 10000 });
+                    } else if (data.type === 'GPS_PERMISSION_DENIED') {
+                        toast.error('🚫 Permisos de ubicación denegados', { duration: 10000 });
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to start GPS watcher:', error);
+        }
+
         // Reload with driverId param to trigger flow
         window.location.replace(`/driver?driverId=${selectedId}`);
     };
