@@ -5,6 +5,15 @@ const bcrypt = require('bcryptjs');
 const { validateOrderClosure } = require('../services/auditService');
 const { BRIGADE_CAPACITIES, RoutingEngine, ALCANCE_BRIGADE_MATRIX } = require('../services/routingEngine');
 
+// Technician type/capacity mapping from Distribución Operativa SCR
+let TECHNICIAN_TYPES = {};
+try {
+    TECHNICIAN_TYPES = require('../config/technicianTypes.json');
+    console.log(`📋 Loaded ${Object.keys(TECHNICIAN_TYPES).length} technician type mappings`);
+} catch (e) {
+    console.warn('⚠️ technicianTypes.json not found, using default types');
+}
+
 
 // SCRC Routes for ISES Field Service Management
 // Accepts pool as dependency injection from index.js
@@ -168,15 +177,20 @@ module.exports = (pool, io) => {
             // Upsert detected brigades
             let newBrigadesCount = 0;
             for (const b of brigadesMap.values()) {
+                // Look up technician in config to get correct type and capacity
+                const nameKey = b.name.toUpperCase();
+                const techConfig = TECHNICIAN_TYPES[nameKey];
+                const brigadeType = techConfig ? techConfig.type : b.type;
+                const brigadeCapacity = techConfig ? techConfig.capacity : b.capacity_per_day;
+
                 await client.query(`
                     INSERT INTO brigades (name, type, capacity_per_day, current_zone, members, status)
                     VALUES ($1, $2, $3, $4, $5, 'active')
                     ON CONFLICT (name) DO UPDATE SET
                         type = EXCLUDED.type,
+                        capacity_per_day = EXCLUDED.capacity_per_day,
                         updated_at = NOW()
-                    -- Note: We generally don't overwrite capacity/members if they already exist 
-                    -- to avoid resetting manual configs. But updating 'type' is reasonable if it changes.
-                `, [b.name, b.type, b.capacity_per_day, b.current_zone, JSON.stringify(b.members)]);
+                `, [b.name, brigadeType, brigadeCapacity, b.current_zone, JSON.stringify(b.members)]);
 
                 // -----------------------------------------------------
                 // Auto-create User for App Login
