@@ -90,6 +90,15 @@ app.use('/api/schedules', scheduleRoutes);
 const brigadeRoutes = require('./routes/brigadeRoutes')(pool, io);
 app.use('/api/brigades', brigadeRoutes);
 
+// Swagger API Documentation
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./config/swagger.json');
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'TraceOps API Docs'
+}));
+console.log('📚 Swagger UI available at /api/docs');
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================
