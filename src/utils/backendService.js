@@ -30,7 +30,8 @@ export const getBrigades = async () => {
     try {
         const res = await fetch(`${API_URL}/api/brigades`);
         if (!res.ok) throw new Error('Error fetching brigades');
-        return await res.json();
+        const data = await res.json();
+        return data.brigades || [];
     } catch (error) {
         console.error('Get Brigades Error:', error);
         return [];
@@ -41,7 +42,8 @@ export const getVehicles = async () => {
     try {
         const res = await fetch(`${API_URL}/api/vehicles`);
         if (!res.ok) throw new Error('Error fetching vehicles');
-        return await res.json();
+        const data = await res.json();
+        return data.vehicles || [];
     } catch (error) {
         console.error('Get Vehicles Error:', error);
         return [];
