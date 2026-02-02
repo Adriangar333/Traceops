@@ -1,29 +1,43 @@
 import { loadGoogleMaps } from './loadGoogleMaps';
 
-export const getGoogleRoute = async (origin, destination, waypoints = []) => {
+export const getGoogleRoute = async (waypoints, config = {}) => {
+    if (!waypoints || waypoints.length < 2) return { success: false };
+
     try {
         const googleMaps = await loadGoogleMaps();
         const directionsService = new googleMaps.DirectionsService();
 
+        const origin = waypoints[0];
+        const destination = waypoints[waypoints.length - 1];
+        const intermediate = waypoints.slice(1, -1);
+
+        const stops = intermediate.map(wp => ({
+            location: { lat: parseFloat(wp.lat), lng: parseFloat(wp.lng) },
+            stopover: true
+        }));
+
         const result = await directionsService.route({
-            origin,
-            destination,
-            waypoints: waypoints.map(wp => ({
-                location: wp,
-                stopover: true
-            })),
-            optimizeWaypoints: true,
+            origin: { lat: parseFloat(origin.lat), lng: parseFloat(origin.lng) },
+            destination: { lat: parseFloat(destination.lat), lng: parseFloat(destination.lng) },
+            waypoints: stops,
+            optimizeWaypoints: config.optimize === true, // Respect config
             travelMode: googleMaps.TravelMode.DRIVING,
-            drivingOptions: {
-                departureTime: new Date(), // Important for traffic info
-                trafficModel: 'best_guess'
-            }
         });
 
-        return result;
+        if (result.routes && result.routes[0]) {
+            const route = result.routes[0];
+            const coordinates = route.overview_path.map(p => [p.lng(), p.lat()]);
+            return {
+                success: true,
+                coordinates: coordinates,
+                distance: route.legs.reduce((acc, leg) => acc + leg.distance.value, 0),
+                duration: route.legs.reduce((acc, leg) => acc + leg.duration.value, 0)
+            };
+        }
+        return { success: false };
     } catch (error) {
         console.error('Google Maps Route Error:', error);
-        throw error;
+        return { success: false, error: error.message };
     }
 };
 

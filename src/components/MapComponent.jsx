@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { io } from 'socket.io-client';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { reverseGeocode, setUserLocation } from '../utils/geocodingService';
+import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { Plus, Minus, Maximize, LocateFixed, Layers, MapPin, Hand, Compass, Box, Car, Trash2 } from 'lucide-react';
 
 const MAP_STYLES = {
