@@ -4,6 +4,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import AdminDashboard from './components/AdminDashboard';
 import DriverView from './components/DriverView';
+import TechnicianApp from './components/TechnicianApp';
 import MainLayout from './components/MainLayout';
 import DashboardHome from './components/DashboardHome';
 import InventoryPage from './components/InventoryPage';
@@ -87,6 +88,9 @@ function App() {
       {/* Driver View (Standalone - Full Screen, No Auth Required) */}
       <Route path="/driver" component={DriverView} />
       <Route path="/driver/:routeId" component={DriverView} />
+
+      {/* Technician Mobile App (Standalone - Offline First) */}
+      <Route path="/tecnico" component={TechnicianApp} />
 
       {/* Admin Views (With Layout - Auth Required) */}
       <Route>
