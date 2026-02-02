@@ -189,14 +189,9 @@ const Sidebar = ({
             returnToStart: returnToStart
         };
 
-        // Try Google Directions first (has traffic data)
-        let result = await generateGoogleRouteOptions(allWaypoints, routeConfig);
-
-        // Fallback to OSRM if Google fails
-        if (!result?.success || !result.options?.length) {
-            console.log('Google Directions failed, using OSRM fallback');
-            result = await generateRouteOptions(allWaypoints);
-        }
+        // Use OSRM for route optimization
+        console.log('Optimizing route using OSRM...');
+        const result = await generateRouteOptions(allWaypoints, routeConfig);
 
         setIsOptimizing(false);
 
