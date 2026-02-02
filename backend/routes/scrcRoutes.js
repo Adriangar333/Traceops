@@ -926,5 +926,254 @@ module.exports = (pool, io) => {
         }
     });
 
+    // ============================================
+    // BRIGADE MANAGEMENT
+    // ============================================
+
+    // List all brigades with member details
+    router.get('/brigades', async (req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT 
+                    b.*,
+                    (SELECT COUNT(*) FROM scrc_orders WHERE assigned_brigade_id = b.id AND status = 'pending') as pending_orders,
+                    (SELECT COUNT(*) FROM scrc_orders WHERE assigned_brigade_id = b.id AND status = 'completed' AND DATE(execution_date) = CURRENT_DATE) as completed_today
+                FROM brigades b
+                ORDER BY b.name
+            `);
+            res.json({ success: true, brigades: result.rows });
+        } catch (error) {
+            console.error('Error fetching brigades:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get single brigade
+    router.get('/brigades/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await pool.query('SELECT * FROM brigades WHERE id = $1', [id]);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+            res.json({ success: true, brigade: result.rows[0] });
+        } catch (error) {
+            console.error('Error fetching brigade:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Create brigade
+    router.post('/brigades', async (req, res) => {
+        const { name, type, members, capacity_per_day, current_zone } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: 'Brigade name is required' });
+        }
+
+        try {
+            const result = await pool.query(`
+                INSERT INTO brigades (name, type, members, capacity_per_day, current_zone)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+            `, [
+                name,
+                type || 'mixed',
+                JSON.stringify(members || []),
+                capacity_per_day || 30,
+                current_zone || null
+            ]);
+
+            io.emit('brigade:created', result.rows[0]);
+            res.status(201).json({ success: true, brigade: result.rows[0] });
+        } catch (error) {
+            if (error.code === '23505') {
+                return res.status(409).json({ error: 'Brigade name already exists' });
+            }
+            console.error('Error creating brigade:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Update brigade
+    router.put('/brigades/:id', async (req, res) => {
+        const { id } = req.params;
+        const { name, type, capacity_per_day, current_zone, status } = req.body;
+
+        try {
+            const result = await pool.query(`
+                UPDATE brigades SET
+                    name = COALESCE($1, name),
+                    type = COALESCE($2, type),
+                    capacity_per_day = COALESCE($3, capacity_per_day),
+                    current_zone = COALESCE($4, current_zone),
+                    status = COALESCE($5, status),
+                    updated_at = NOW()
+                WHERE id = $6
+                RETURNING *
+            `, [name, type, capacity_per_day, current_zone, status, id]);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            io.emit('brigade:updated', result.rows[0]);
+            res.json({ success: true, brigade: result.rows[0] });
+        } catch (error) {
+            console.error('Error updating brigade:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Add member to brigade (with role: titular or auxiliar)
+    router.post('/brigades/:id/members', async (req, res) => {
+        const { id } = req.params;
+        const { technician_id, technician_name, role } = req.body;
+
+        if (!technician_id || !role) {
+            return res.status(400).json({ error: 'technician_id and role required' });
+        }
+        if (!['titular', 'auxiliar'].includes(role)) {
+            return res.status(400).json({ error: 'role must be "titular" or "auxiliar"' });
+        }
+
+        try {
+            // Get current members
+            const brigade = await pool.query('SELECT members FROM brigades WHERE id = $1', [id]);
+            if (brigade.rowCount === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            let members = brigade.rows[0].members || [];
+
+            // Check if setting titular when one already exists
+            if (role === 'titular') {
+                const existingTitular = members.find(m => m.role === 'titular');
+                if (existingTitular) {
+                    // Demote existing titular to auxiliar
+                    existingTitular.role = 'auxiliar';
+                }
+            }
+
+            // Remove if already member, then add with new role
+            members = members.filter(m => m.id !== technician_id);
+            members.push({
+                id: technician_id,
+                name: technician_name || `Tech ${technician_id}`,
+                role: role,
+                added_at: new Date().toISOString()
+            });
+
+            const result = await pool.query(`
+                UPDATE brigades SET members = $1, updated_at = NOW()
+                WHERE id = $2 RETURNING *
+            `, [JSON.stringify(members), id]);
+
+            io.emit('brigade:member_added', { brigade_id: id, member: members[members.length - 1] });
+            res.json({ success: true, brigade: result.rows[0] });
+        } catch (error) {
+            console.error('Error adding member:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Remove member from brigade
+    router.delete('/brigades/:id/members/:techId', async (req, res) => {
+        const { id, techId } = req.params;
+
+        try {
+            const brigade = await pool.query('SELECT members FROM brigades WHERE id = $1', [id]);
+            if (brigade.rowCount === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            let members = brigade.rows[0].members || [];
+            const removedMember = members.find(m => m.id === techId || m.id === parseInt(techId));
+            members = members.filter(m => m.id !== techId && m.id !== parseInt(techId));
+
+            const result = await pool.query(`
+                UPDATE brigades SET members = $1, updated_at = NOW()
+                WHERE id = $2 RETURNING *
+            `, [JSON.stringify(members), id]);
+
+            io.emit('brigade:member_removed', { brigade_id: id, technician_id: techId });
+            res.json({ success: true, brigade: result.rows[0], removed: removedMember });
+        } catch (error) {
+            console.error('Error removing member:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Update member role in brigade
+    router.patch('/brigades/:id/members/:techId', async (req, res) => {
+        const { id, techId } = req.params;
+        const { role } = req.body;
+
+        if (!role || !['titular', 'auxiliar'].includes(role)) {
+            return res.status(400).json({ error: 'role must be "titular" or "auxiliar"' });
+        }
+
+        try {
+            const brigade = await pool.query('SELECT members FROM brigades WHERE id = $1', [id]);
+            if (brigade.rowCount === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            let members = brigade.rows[0].members || [];
+
+            // If promoting to titular, demote existing titular
+            if (role === 'titular') {
+                members = members.map(m => m.role === 'titular' ? { ...m, role: 'auxiliar' } : m);
+            }
+
+            // Update target member's role
+            const memberIdx = members.findIndex(m => m.id === techId || m.id === parseInt(techId));
+            if (memberIdx === -1) {
+                return res.status(404).json({ error: 'Member not found in brigade' });
+            }
+            members[memberIdx].role = role;
+
+            const result = await pool.query(`
+                UPDATE brigades SET members = $1, updated_at = NOW()
+                WHERE id = $2 RETURNING *
+            `, [JSON.stringify(members), id]);
+
+            io.emit('brigade:member_updated', { brigade_id: id, technician_id: techId, role });
+            res.json({ success: true, brigade: result.rows[0] });
+        } catch (error) {
+            console.error('Error updating member:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+    // Get brigade members summary (for quick lookup)
+    router.get('/brigades/:id/members', async (req, res) => {
+        const { id } = req.params;
+
+        try {
+            const brigade = await pool.query('SELECT id, name, members FROM brigades WHERE id = $1', [id]);
+            if (brigade.rowCount === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            const members = brigade.rows[0].members || [];
+            const titular = members.find(m => m.role === 'titular') || null;
+            const auxiliares = members.filter(m => m.role === 'auxiliar');
+
+            res.json({
+                success: true,
+                brigade_id: id,
+                brigade_name: brigade.rows[0].name,
+                titular,
+                auxiliares,
+                total_members: members.length
+            });
+        } catch (error) {
+            console.error('Error fetching members:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
     return router;
 };
