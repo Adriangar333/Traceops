@@ -9,8 +9,8 @@ export const getDrivers = async () => {
         // Ensure every driver has an email for n8n/notifications
         return data.map(d => ({
             ...d,
-            email: d.email || `driver.${d.id || Math.floor(Math.random() * 1000)}@example.com`,
-            phone: d.phone || '3001234567'
+            email: d.email || '', // Use empty string if no email, do not invent one
+            phone: d.phone || ''
         }));
     } catch (error) {
         console.error('Get Drivers Error:', error);

@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { getDriverHistory, optimizeRoutePath } from '../utils/backendService';
+import { getDriverHistory, optimizeRoutePath, getDriverRoutes } from '../utils/backendService';
 
 // Vehicle Icons (SVG Strings)
 // Vehicle Icons (SVG Strings)
@@ -386,9 +386,38 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                 .setLngLat([driver.lng, driver.lat])
                 .addTo(map.current);
 
-            el.addEventListener('click', () => {
+            el.addEventListener('click', async () => {
                 setSelectedDriver(driver.driverId);
                 map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 15 });
+
+                // Show Active Route on Click
+                try {
+                    toast.info('Cargando ruta asignada...');
+                    const routes = await getDriverRoutes(driver.driverId);
+
+                    if (routes && routes.length > 0) {
+                        // Prioritize 'in_progress' or 'assigned' routes
+                        const activeRoute = routes.find(r => r.status === 'in_progress' || r.status === 'assigned') || routes[0];
+
+                        if (activeRoute && activeRoute.waypoints) { // Assuming backend returns Full Route Object
+                            // Construct GeoJSON LineString
+                            const coordinates = JSON.parse(activeRoute.waypoints).map(wp => [wp.lng, wp.lat]);
+
+                            drawHistoryRoute({
+                                type: 'LineString',
+                                coordinates: coordinates
+                            });
+                            toast.success(`Ruta: ${activeRoute.name}`);
+                        } else {
+                            toast.warning('Conductor sin ruta activa detallada');
+                        }
+                    } else {
+                        toast.warning('No tiene rutas asignadas hoy');
+                    }
+                } catch (err) {
+                    console.error('Error fetching route:', err);
+                    toast.error('Error al cargar la ruta');
+                }
             });
 
             markers.current[markerId] = marker;

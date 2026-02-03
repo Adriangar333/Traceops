@@ -354,8 +354,13 @@ body {
   }
 }
 
-.panic-active div {
+/* Fix: Only target the inner circular background div, not the container */
+.panic-active div:first-child > div:first-child {
   background: #ef4444 !important;
-  /* Force red background on inner circle */
   border-color: #fee2e2 !important;
+}
+
+/* Ensure the container remains transparent */
+.panic-active, .panic-active > div {
+  background: transparent !important;
 }

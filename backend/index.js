@@ -475,14 +475,15 @@ app.get('/api/drivers', authRequired, async (req, res) => {
 // PUBLIC: Minimal driver data (no sensitive info)
 app.get('/drivers', publicLimiter, async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, status, cuadrilla FROM drivers ORDER BY created_at DESC');
+        const result = await pool.query('SELECT id, name, status, cuadrilla, email, phone FROM drivers ORDER BY created_at DESC');
         // Only return non-sensitive fields
         const drivers = result.rows.map(d => ({
             id: d.id,
             name: d.name,
             status: d.status,
-            cuadrilla: d.cuadrilla
-            // NO email, NO phone, NO assigned_routes
+            cuadrilla: d.cuadrilla,
+            email: d.email,
+            phone: d.phone
         }));
         res.json(drivers);
     } catch (err) {
