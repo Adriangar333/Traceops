@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, Truck, MapPin, Clock, Users, BarChart3, Calendar, Download, Trash2, Fuel } from 'lucide-react';
+import { X, TrendingUp, Truck, MapPin, Clock, Users, BarChart3, Calendar, Download, Trash2 } from 'lucide-react';
 import { fetchDashboardData, fetchAuditReport, exportMetrics, resetMetrics } from '../utils/metricsService';
-import RouteAnalytics from './RouteAnalytics';
 
 const Dashboard = ({ onClose, agents }) => {
     const [summary, setSummary] = useState(null);
@@ -41,29 +40,6 @@ const Dashboard = ({ onClose, agents }) => {
         }
     };
 
-    // Excel Export Handlers
-    const API_URL = import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
-
-    const handleExportSIPREM = async () => {
-        try {
-            const today = new Date().toISOString().split('T')[0];
-            window.open(`${API_URL}/api/scrc/export/siprem?date=${today}`, '_blank');
-        } catch (error) {
-            console.error('Error exporting SIPREM:', error);
-            alert('Error al exportar SIPREM');
-        }
-    };
-
-    const handleExportConsolidado = async () => {
-        try {
-            const today = new Date().toISOString().split('T')[0];
-            window.open(`${API_URL}/api/scrc/export/consolidado?date=${today}`, '_blank');
-        } catch (error) {
-            console.error('Error exporting Consolidado:', error);
-            alert('Error al exportar Consolidado');
-        }
-    };
-
     if (!summary) return null;
 
     const cardStyle = {
@@ -94,8 +70,6 @@ const Dashboard = ({ onClose, agents }) => {
         color: '#0f172a'
     };
 
-    const [selectedTech, setSelectedTech] = useState(null);
-
     return (
         <div style={{
             position: 'fixed',
@@ -108,14 +82,6 @@ const Dashboard = ({ onClose, agents }) => {
             justifyContent: 'center',
             padding: '0'
         }}>
-            {selectedTech && (
-                <RouteAnalytics
-                    techId={selectedTech.id}
-                    techName={selectedTech.name}
-                    onClose={() => setSelectedTech(null)}
-                />
-            )}
-
             <div style={{
                 background: '#f8fafc',
                 borderRadius: '16px',
@@ -183,43 +149,7 @@ const Dashboard = ({ onClose, agents }) => {
                                 fontSize: '13px'
                             }}
                         >
-                            <Download size={16} /> JSON
-                        </button>
-                        <button
-                            onClick={handleExportSIPREM}
-                            style={{
-                                background: 'rgba(16,185,129,0.2)',
-                                border: '1px solid #10b981',
-                                borderRadius: '8px',
-                                padding: '8px 12px',
-                                color: '#10b981',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                fontSize: '13px'
-                            }}
-                            title="Descargar Excel para SIPREM"
-                        >
-                            <Download size={16} /> SIPREM
-                        </button>
-                        <button
-                            onClick={handleExportConsolidado}
-                            style={{
-                                background: 'rgba(139,92,246,0.2)',
-                                border: '1px solid #8b5cf6',
-                                borderRadius: '8px',
-                                padding: '8px 12px',
-                                color: '#8b5cf6',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                fontSize: '13px'
-                            }}
-                            title="Descargar Excel Consolidado"
-                        >
-                            <Download size={16} /> Consolidado
+                            <Download size={16} /> Exportar
                         </button>
                         <button
                             onClick={onClose}
@@ -282,28 +212,6 @@ const Dashboard = ({ onClose, agents }) => {
                             </div>
                             <span style={{ ...valueStyle, color: '#f59e0b' }}>{summary.totalDeliveries}</span>
                         </div>
-
-                        <div style={statCardStyle}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Clock size={18} color="#9DBD39" />
-                                <span style={labelStyle}>Distancia Total</span>
-                            </div>
-                            <span style={{ ...valueStyle, color: '#9DBD39' }}>{summary.totalDistanceKm} km</span>
-                        </div>
-
-                        <div style={statCardStyle}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Fuel size={18} color="#ef4444" />
-                                <span style={labelStyle}>Consumo Aprox</span>
-                            </div>
-                            <span style={{ ...valueStyle, color: '#ef4444' }}>
-                                {summary.totalDistanceKm ? Math.round(summary.totalDistanceKm / 35) : 0} GL
-                            </span>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>
-                                ~35 km/gl
-                            </div>
-                        </div>
-
 
                         <div style={statCardStyle}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -390,88 +298,172 @@ const Dashboard = ({ onClose, agents }) => {
                         </div>
                     </div>
 
-                    {/* Drivers Stats */}
-                    <div style={cardStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                            <Users size={18} color="#9DBD39" />
-                            <span style={{ color: '#0f172a', fontWeight: '600' }}>Conductores Activos</span>
-                        </div>
-                        {agents && agents.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {agents.slice(0, 5).map((agent, i) => (
-                                    <div key={i} style={{
-                                        padding: '10px 12px',
-                                        background: '#f8fafc',
-                                        borderRadius: '8px',
-                                        border: '1px solid #e2e8f0',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        cursor: 'pointer'
-                                    }} onClick={() => setSelectedTech(agent)}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{
-                                                width: '32px',
-                                                height: '32px',
-                                                background: '#9DBD39',
-                                                borderRadius: '50%',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: 'white',
-                                                fontSize: '12px',
-                                                fontWeight: '700'
-                                            }}>
-                                                {agent.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: '500' }}>
-                                                    {agent.name}
-                                                </div>
-                                                <div style={{ color: '#64748b', fontSize: '11px' }}>
-                                                    {agent.assignedRoutes?.length || 0} rutas asignadas
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <span style={{
-                                                fontSize: '11px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)',
-                                                padding: '4px 8px', borderRadius: '12px'
-                                            }}>
-                                                Ver Analítica
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
-                                No hay conductores registrados
-                            </p>
-                        )}
+                    {/* Two Column Layout */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                        <Users size={20} color="#6366f1" />
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Auditoría de Cierres</h3>
+                    </div>
+
+                    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                <tr>
+                                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Orden</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Técnico</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Anomalía</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {auditReport.length === 0 ? (
+                                    <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>Sin anomalías detectadas</td></tr>
+                                ) : (
+                                    auditReport.map(item => (
+                                        <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '12px', fontWeight: 500 }}>{item.order_number}</td>
+                                            <td style={{ padding: '12px' }}>{item.technician_name || 'N/A'}</td>
+                                            <td style={{ padding: '12px' }}>
+                                                {item.audit_flags?.gps_mismatch && (
+                                                    <span style={{ background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', marginRight: '6px' }}>
+                                                        GPS Distante ({item.audit_flags.distance_off}m)
+                                                    </span>
+                                                )}
+                                                {item.audit_flags?.too_fast && (
+                                                    <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                                                        Cierre Rápido
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px', color: '#64748b' }}>
+                                                {new Date(item.execution_date).toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+                {/* Recent Routes */}
+                <div style={cardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <Truck size={18} color="#9DBD39" />
+                        <span style={{ color: '#0f172a', fontWeight: '600' }}>Rutas Recientes</span>
+                    </div>
+                    {summary.recentRoutes.length === 0 ? (
+                        <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
+                            No hay rutas registradas aún
+                        </p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {summary.recentRoutes.map((route, i) => (
+                                <div key={i} style={{
+                                    padding: '10px 12px',
+                                    background: '#f8fafc',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: '500' }}>
+                                            {route.name || `Ruta #${route.id}`}
+                                        </div>
+                                        <div style={{ color: '#64748b', fontSize: '11px' }}>
+                                            {route.waypoints} paradas · {route.distanceKm} km
+                                        </div>
+                                    </div>
+                                    <span style={{
+                                        padding: '4px 8px',
+                                        background: route.status === 'completed' ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)',
+                                        color: route.status === 'completed' ? '#10b981' : '#3b82f6',
+                                        borderRadius: '4px',
+                                        fontSize: '10px',
+                                        fontWeight: '600',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        {route.status === 'completed' ? 'Completada' : 'Creada'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
-                {/* Averages */}
-                <div style={{ ...cardStyle, marginTop: '16px' }}>
-                    <div style={{ marginBottom: '12px', color: '#0f172a', fontWeight: '600' }}>Promedios por Ruta</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#3b82f6' }}>{summary.avgDeliveriesPerRoute}</div>
-                            <div style={{ fontSize: '12px', color: '#64748b' }}>Entregas/Ruta</div>
+                {/* Drivers Stats */}
+                <div style={cardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <Users size={18} color="#9DBD39" />
+                        <span style={{ color: '#0f172a', fontWeight: '600' }}>Conductores Activos</span>
+                    </div>
+                    {agents && agents.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {agents.slice(0, 5).map((agent, i) => (
+                                <div key={i} style={{
+                                    padding: '10px 12px',
+                                    background: '#f8fafc',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: '#9DBD39',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontSize: '12px',
+                                            fontWeight: '700'
+                                        }}>
+                                            {agent.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: '500' }}>
+                                                {agent.name}
+                                            </div>
+                                            <div style={{ color: '#64748b', fontSize: '11px' }}>
+                                                {agent.assignedRoutes?.length || 0} rutas asignadas
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#9DBD39' }}>{summary.avgDistancePerRoute} km</div>
-                            <div style={{ fontSize: '12px', color: '#64748b' }}>Distancia/Ruta</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>{summary.avgTimePerRoute} min</div>
-                            <div style={{ fontSize: '12px', color: '#64748b' }}>Tiempo/Ruta</div>
-                        </div>
+                    ) : (
+                        <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
+                            No hay conductores registrados
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Averages */}
+            <div style={{ ...cardStyle, marginTop: '16px' }}>
+                <div style={{ marginBottom: '12px', color: '#0f172a', fontWeight: '600' }}>Promedios por Ruta</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '24px', fontWeight: '700', color: '#3b82f6' }}>{summary.avgDeliveriesPerRoute}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>Entregas/Ruta</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '24px', fontWeight: '700', color: '#9DBD39' }}>{summary.avgDistancePerRoute} km</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>Distancia/Ruta</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>{summary.avgTimePerRoute} min</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>Tiempo/Ruta</div>
                     </div>
                 </div>
             </div>
         </div>
+        </div >
     );
 };
 

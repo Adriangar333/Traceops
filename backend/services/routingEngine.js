@@ -108,30 +108,25 @@ class RoutingEngine {
      */
     getEligibleBrigades(order) {
         // Extract alcance code from strategic_line (e.g., "B - Bornera" -> "B")
-        // Robust regex to find the single letter code at start (B, T, M, etc.)
-        const strategicLine = (order.strategic_line || '').toUpperCase().trim();
-        const match = strategicLine.match(/^([A-Z])\s*[-–]/) || strategicLine.match(/^([A-Z])$/);
-        const alcanceCode = match ? match[1] : 'DEFAULT';
+        const strategicLine = order.strategic_line || '';
+        const alcanceCode = strategicLine.charAt(0).toUpperCase();
 
         // Determine if rural or urban
         const isRural = (order.zone_code || '').toLowerCase().includes('rural') ||
-            (order.neighborhood || '').toLowerCase().includes('rural') ||
-            (order.municipality || '').toLowerCase().includes('rural');
+            (order.neighborhood || '').toLowerCase().includes('rural');
 
         const zoneType = isRural ? 'rural' : 'urban';
 
         // Get eligible brigades from matrix
         const matrix = ALCANCE_BRIGADE_MATRIX[alcanceCode];
         if (!matrix) {
-            // Default fallback if no code matched - usually PESADA DISPONIBILIDAD covers most general cases
-            // or return all types if unknown
+            // Default to PESADA DISPONIBILIDAD for unknown alcance
             return ['SCR PESADA DISPONIBILIDAD'];
         }
 
         let eligibleBrigades = [...matrix[zoneType]];
 
-        // Special rule from Matriz:
-        // N - Minicanasta with DEUDA > 1,000,000 requires CANASTA
+        // Special rule: N - Minicanasta with DEUDA > 1,000,000 requires CANASTA
         if (alcanceCode === 'N' && order.amount_due > 1000000) {
             eligibleBrigades = ['CANASTA'];
         }
@@ -160,8 +155,8 @@ class RoutingEngine {
     /**
      * Get available brigades with remaining capacity
      */
-    async getAvailableBrigades(targetBrigadeId = null, boostCapacity = 0) {
-        let query = `
+    async getAvailableBrigades() {
+        const result = await this.pool.query(`
             SELECT 
                 b.*,
                 COALESCE(
@@ -173,25 +168,14 @@ class RoutingEngine {
                 ) as orders_today
             FROM brigades b
             WHERE b.status = 'active'
-        `;
-
-        const params = [];
-        if (targetBrigadeId) {
-            query += ` AND b.id = $1`;
-            params.push(targetBrigadeId);
-        }
-
-        const result = await this.pool.query(query, params);
+        `);
 
         return result.rows.map(brigade => {
-            const baseCapacity = BRIGADE_CAPACITIES[brigade.type] || 20;
-            // Apply boost if this is the target brigade
-            const effectiveCapacity = baseCapacity + (targetBrigadeId && brigade.id === targetBrigadeId ? boostCapacity : 0);
-
+            const capacity = BRIGADE_CAPACITIES[brigade.type] || 20;
             return {
                 ...brigade,
-                capacity: effectiveCapacity,
-                remaining_capacity: effectiveCapacity - brigade.orders_today
+                capacity,
+                remaining_capacity: capacity - brigade.orders_today
             };
         }).filter(b => b.remaining_capacity > 0);
     }
@@ -219,8 +203,7 @@ class RoutingEngine {
             const orders = ordersResult.rows;
 
             // 2. Get available brigades
-            const { specificBrigadeId, boostCapacity = 0 } = options;
-            const brigades = await this.getAvailableBrigades(specificBrigadeId, boostCapacity);
+            const brigades = await this.getAvailableBrigades();
 
             // Create a map to track brigade assignments
             const brigadeAssignments = new Map();
@@ -240,11 +223,9 @@ class RoutingEngine {
                     for (const [id, brigade] of brigadeAssignments) {
                         if (brigade.type === brigadeType &&
                             brigade.assigned < brigade.remaining_capacity) {
-                            // Prefer brigades in same zone OR strict target
-                            if (specificBrigadeId) {
-                                // If targeting, only accept the specific one (already filtered by query, but good to be safe)
-                                if (brigade.id === specificBrigadeId) bestBrigade = brigade;
-                            } else if (!bestBrigade || brigade.current_zone === order.municipality) {
+                            // Prefer brigades in same zone
+                            if (!bestBrigade ||
+                                brigade.current_zone === order.municipality) {
                                 bestBrigade = brigade;
                             }
                         }

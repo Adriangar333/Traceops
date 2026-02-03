@@ -1,48 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
-import { X, FileText, Users, Map, ChevronLeft, ChevronRight, Navigation, Upload } from 'lucide-react';
+import { X } from 'lucide-react';
 import MapComponent from './MapComponent';
 import Sidebar from './Sidebar';
 import AgentsPanel from './AgentsPanel';
 import Dashboard from './Dashboard';
 import LiveTrackingPanel from './LiveTrackingPanel';
 import DataIngestion from './DataIngestion';
-import SCRCOrdersPanel from './SCRCOrdersPanel';
-import WorkforcePanel from './WorkforcePanel';
-// Restoration of n8n service
-import { sendToN8N, transformCoordinates } from '../utils/n8nService';
-// import { recordRouteCreated } from '../utils/metricsService'; // Keep commented if not needed
+// Deleted services - functionality moved or deprecated
+// import { sendToN8N, transformCoordinates, notifyDriverAssignment } from '../utils/n8nService';
+// import { recordRouteCreated } from '../utils/metricsService';
 // import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { fetchRouteWithStats } from '../utils/osrmService';
-import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute, getBrigades, getVehicles } from '../utils/backendService';
-import { io } from 'socket.io-client'; // Import Socket.IO
-
-// View Toggle Button Component
-const ViewToggle = ({ icon: Icon, label, active, onClick }) => (
-    <button
-        onClick={onClick}
-        style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 16px',
-            borderRadius: 10,
-            border: 'none',
-            background: active
-                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                : 'rgba(255,255,255,0.05)',
-            color: active ? 'white' : '#94a3b8',
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: active ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
-        }}
-    >
-        <Icon size={16} />
-        {label}
-    </button>
-);
+import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 
 function AdminDashboard() {
     const [waypoints, setWaypoints] = useState([]);
@@ -52,27 +22,12 @@ function AdminDashboard() {
         const saved = localStorage.getItem('logisticsRoutes');
         return saved ? JSON.parse(saved) : [];
     });
-
-    // Panel states - for modals/overlays only
     const [showAgentsPanel, setShowAgentsPanel] = useState(false);
     const [showDashboard, setShowDashboard] = useState(false);
     const [showTracking, setShowTracking] = useState(false);
     const [showIngestion, setShowIngestion] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Main content view: 'map' | 'orders' | 'workforce'
-    const [activeView, setActiveView] = useState('map');
-
-    // Sidebar collapse state
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
     const [previewRoute, setPreviewRoute] = useState(null);
-
-    // Filters
-    const [brigades, setBrigades] = useState([]);
-    const [vehicles, setVehicles] = useState([]);
-    const [filterBrigade, setFilterBrigade] = useState('');
-    const [filterVehicle, setFilterVehicle] = useState('');
 
     const [fixedStart, setFixedStart] = useState(() => {
         const saved = localStorage.getItem('fixedStart');
@@ -83,39 +38,6 @@ function AdminDashboard() {
         return saved ? JSON.parse(saved) : null;
     });
     const [returnToStart, setReturnToStart] = useState(() => localStorage.getItem('returnToStart') === 'true');
-
-    // Socket.IO Listener for Real-time Updates (Cancellation)
-    useEffect(() => {
-        const socket = io(import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host');
-
-        socket.on('connect', () => {
-            console.log('🔌 Socket Connected to Backend');
-        });
-
-        socket.on('scrc:orders-cancelled', (data) => {
-            console.log('⚡ Real-time Cancellation Received:', data);
-            toast.warning(`⚠️ ${data.count} Orden(es) Cancelada(s) por Pago!`);
-
-            // Logic to remove cancelling orders from waypoints if they exist
-            if (data.cancelled_orders && data.cancelled_orders.length > 0) {
-                const cancelledNics = data.cancelled_orders.map(o => o.nic);
-
-                setWaypoints(current => {
-                    // Filter logic: Check if waypoint description/address contains NIC (heuristic)
-                    // Or if we had a proper ID structure. 
-                    // For now, we assume waypoints might not have NIC explicitly, 
-                    // but if this dashboard is used for SCRC, they should.
-                    // If simply showing notification, that is step 1.
-                    return current;
-                });
-            }
-        });
-
-        return () => {
-            socket.off('scrc:orders-cancelled');
-            socket.disconnect();
-        };
-    }, []);
 
     // Save configuration to localStorage
     useEffect(() => {
@@ -132,118 +54,280 @@ function AdminDashboard() {
         localStorage.setItem('returnToStart', returnToStart);
     }, [returnToStart]);
 
+    // Load agents from Backend
+    useEffect(() => {
+        const loadAgents = async () => {
+            const data = await getDrivers();
+            setAgents(data);
+        };
+        loadAgents();
+    }, []);
+
+    // Save routes to localStorage
     useEffect(() => {
         localStorage.setItem('logisticsRoutes', JSON.stringify(savedRoutes));
     }, [savedRoutes]);
 
-    // Load agents/drivers from backend
+    // Listen for cross-tab updates (Sync with DriverView on same device)
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                const drivers = await getDrivers();
-                setAgents(drivers || []);
-                const brigadesData = await getBrigades();
-                setBrigades(brigadesData || []);
-                const vehiclesData = await getVehicles();
-                setVehicles(vehiclesData || []);
-            } catch (error) {
-                console.error('Error loading data:', error);
+        const handleStorageChange = () => {
+            const freshRoutes = localStorage.getItem('logisticsRoutes');
+            if (freshRoutes) {
+                console.log('Syncing routes from storage...');
+                setSavedRoutes(JSON.parse(freshRoutes));
             }
         };
-        loadData();
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    // Filter agents based on selected brigade/vehicle
-    const filteredAgents = agents.filter(agent => {
-        if (filterBrigade && agent.brigade_id !== filterBrigade) return false;
-        if (filterVehicle && agent.vehicle_id !== filterVehicle) return false;
-        return true;
-    });
+    // Combine waypoints for Map display
+    const displayWaypoints = [
+        ...(fixedStart ? [fixedStart] : []),
+        ...waypoints,
+        ...(fixedEnd && !returnToStart ? [fixedEnd] : []),
+        ...(returnToStart && fixedStart ? [fixedStart] : [])
+    ];
 
-    // Route handlers
-    const handleSaveRoute = (name) => {
-        if (!name || waypoints.length === 0) return;
-        const newRoute = {
-            id: Date.now(),
-            name,
-            waypoints,
-            fixedStart,
-            fixedEnd,
-            returnToStart,
-            createdAt: new Date().toISOString()
-        };
-        setSavedRoutes([...savedRoutes, newRoute]);
-        toast.success(`Ruta "${name}" guardada`);
-    };
-
-    const handleLoadRoute = (route) => {
-        setWaypoints(route.waypoints);
-        if (route.fixedStart) setFixedStart(route.fixedStart);
-        if (route.fixedEnd) setFixedEnd(route.fixedEnd);
-        if (route.returnToStart !== undefined) setReturnToStart(route.returnToStart);
-        toast.success(`Ruta "${route.name}" cargada`);
-    };
-
-    const handleDeleteRoute = (routeId) => {
-        setSavedRoutes(savedRoutes.filter(r => r.id !== routeId));
-        toast.success('Ruta eliminada');
-    };
-
-    const handleAddAgent = async (name, email, phone) => {
-        const result = await createDriver(name, email, phone);
-        if (result) {
-            setAgents([...agents, result]);
-            toast.success(`Conductor ${name} agregado`);
+    const handleAddAgent = async (agent) => {
+        try {
+            const newAgent = await createDriver(agent);
+            setAgents(prev => [newAgent, ...prev]);
+            toast.success(`Agente ${agent.name} agregado`);
+        } catch (error) {
+            toast.error('Error al guardar agente');
         }
     };
 
     const handleDeleteAgent = async (agentId) => {
-        const success = await deleteDriver(agentId);
-        if (success) {
-            setAgents(agents.filter(a => a.id !== agentId));
-            toast.success('Conductor eliminado');
+        try {
+            await deleteDriver(agentId);
+            setAgents(prev => prev.filter(a => a.id !== agentId));
+            if (selectedAgent?.id === agentId) setSelectedAgent(null);
+            toast.info('Agente eliminado');
+        } catch (error) {
+            toast.error('Error al eliminar agente');
         }
     };
 
+    const handleSaveRoute = async (routeName) => {
+        // Use all points for calculation
+        const allPoints = [
+            ...(fixedStart ? [fixedStart] : []),
+            ...waypoints,
+            ...(fixedEnd && !returnToStart ? [fixedEnd] : []),
+            ...(returnToStart && fixedStart ? [fixedStart] : [])
+        ];
+
+        if (allPoints.length < 2) {
+            toast.error('Necesitas al menos 2 puntos');
+            return;
+        }
+
+        // Get route stats (using Google Directions) - Use optimize: false to respect current order
+        const stats = await getGoogleRoute(allPoints, { optimize: false });
+
+        const newRoute = {
+            id: Date.now(),
+            name: routeName || `Ruta ${savedRoutes.length + 1}`,
+            waypoints: [...waypoints], // Save just intermediates? Or generic structure?
+            // Ideally we save the configuration too using specific fields, but for now lets keep compat
+            fixedStart,
+            fixedEnd,
+            returnToStart,
+            createdAt: new Date().toISOString(),
+            distanceKm: stats?.distanceKm || 0,
+            duration: stats?.duration || 0
+        };
+
+        setSavedRoutes(prev => [...prev, newRoute]);
+
+        // Record metrics
+        recordRouteCreated(newRoute, allPoints, stats);
+
+        toast.success('Ruta guardada');
+    };
+
+    const handleLoadRoute = (route) => {
+        setWaypoints(route.waypoints || []);
+        setFixedStart(route.fixedStart || null);
+        setFixedEnd(route.fixedEnd || null);
+        setReturnToStart(route.returnToStart || false);
+
+        // If route has geometry, show it nicely
+        if (route.geometry && route.geometry.coordinates) {
+            setPreviewRoute({
+                ...route,
+                coordinates: route.geometry.coordinates,
+                distanceKm: route.distanceKm,
+                durationFormatted: route.durationFormatted || (route.duration ? Math.round(route.duration / 60) + ' min' : '')
+            });
+        } else if (route.route_geometry && route.route_geometry.coordinates) {
+            setPreviewRoute({
+                ...route,
+                coordinates: route.route_geometry.coordinates,
+                distanceKm: route.distanceKm,
+                durationFormatted: route.durationFormatted
+            });
+        }
+
+        toast.info(`Ruta "${route.name}" cargada`);
+    };
+
+    const handleDeleteRoute = (routeId) => {
+        setSavedRoutes(prev => prev.filter(r => r.id !== routeId));
+        toast.info('Ruta eliminada');
+    };
+
     const handleAssignRoute = async () => {
-        if (!selectedAgent || waypoints.length === 0) {
-            toast.error('Selecciona un conductor y agrega puntos de ruta');
+        const allPoints = [
+            ...(fixedStart ? [fixedStart] : []),
+            ...waypoints,
+            ...(fixedEnd && !returnToStart ? [fixedEnd] : []),
+            ...(returnToStart && fixedStart ? [fixedStart] : [])
+        ];
+
+        if (allPoints.length < 2) {
+            toast.error('Selecciona al menos 2 puntos');
+            return;
+        }
+
+        if (!selectedAgent) {
+            toast.error('Selecciona un agente primero');
             return;
         }
 
         setIsSubmitting(true);
-        const toastId = toast.loading('Asignando ruta...');
+        const toastId = toast.loading('Asignando ruta al agente...');
 
         try {
-            // Get route with stats
-            const routeData = await fetchRouteWithStats(waypoints, fixedStart, fixedEnd, returnToStart);
+            const routeId = Date.now();
+            const formattedWaypoints = allPoints.map(transformCoordinates);
 
-            // Create persistent route in database
-            const routeResult = await createRoute({
-                name: `Ruta ${new Date().toLocaleDateString('es-CO')} - ${selectedAgent.name}`,
-                driver_id: selectedAgent.id,
-                waypoints: waypoints.map((wp, idx) => ({
-                    ...wp,
-                    sequence: idx + 1,
-                    status: 'pending'
-                })),
-                fixed_start: fixedStart,
-                fixed_end: fixedEnd,
-                return_to_start: returnToStart,
-                estimated_distance: routeData?.distance || null,
-                estimated_duration: routeData?.duration || null
-            });
-
-            if (!routeResult || routeResult.error) {
-                throw new Error(routeResult?.error || 'Error creando ruta');
+            // 1. Check if we already have a calculated route in preview (The "WYSIWYG" fix)
+            // If the user sees curves on screen, send THOSE curves.
+            let stats = null;
+            if (previewRoute && previewRoute.coordinates && previewRoute.coordinates.length > 0) {
+                console.log('Using geometry from Preview Route (WYSIWYG)');
+                stats = {
+                    success: true,
+                    distance: 0, // Not critical for geometry
+                    distanceKm: previewRoute.distanceKm,
+                    duration: previewRoute.duration || 0,
+                    coordinates: previewRoute.coordinates
+                };
             }
 
-            // Assign to driver (sends notification)
-            const result = await assignRouteToDriver(selectedAgent.id, waypoints, routeResult.id);
+            // 2. If not found in preview, calculate fresh using Google Directions
+            if (!stats) {
+                stats = await getGoogleRoute(allPoints, { optimize: false });
+            }
+
+            // Fallback to OSRM if Google fails to provide geometry
+            if (!stats || !stats.success || !stats.coordinates || stats.coordinates.length === 0) {
+                console.warn('Google Directions failed to return geometry in assignment. Attempting OSRM fallback...');
+                try {
+                    const osrmStats = await fetchRouteWithStats(allPoints);
+                    if (osrmStats && osrmStats.success && osrmStats.coordinates && osrmStats.coordinates.length > 0) {
+                        console.log('OSRM Fallback successful');
+                        // Merge OSRM stats, preferring OSRM geometry but keeping basic info if needed
+                        stats = {
+                            ...(stats || {}),
+                            ...osrmStats,
+                            // Ensure we use the OSRM geometry
+                            coordinates: osrmStats.coordinates
+                        };
+                    } else {
+                        console.warn('OSRM Fallback also failed or returned no geometry');
+                    }
+                } catch (fallbackError) {
+                    console.error('OSRM Fallback error:', fallbackError);
+                }
+            }
+
+            const route = {
+                id: routeId,
+                name: `RUTA - ${new Date().toLocaleDateString()}`,
+                type: 'optimized',
+                distanceKm: stats?.distanceKm || 0,
+                duration: stats?.duration || 0
+            };
+
+            // Build stateless driver link
+            // ALWAYS use the production URL so links work for drivers anywhere
+            const baseUrl = 'https://dashboard-frontend.zvkdyr.easypanel.host';
+
+            // Minimal data for URL to keep length down
+            const routeDataForUrl = {
+                id: route.id,
+                name: route.name,
+                distanceKm: route.distanceKm,
+                waypoints: allPoints.map(wp => ({
+                    lat: Number(wp.lat.toFixed(5)), // Reduce precision to save space
+                    lng: Number(wp.lng.toFixed(5)),
+                    address: wp.address ? wp.address.substring(0, 40) : undefined // Truncate address
+                }))
+            };
+
+            const encodedData = encodeURIComponent(JSON.stringify(routeDataForUrl));
+            // Use query param 'data' so we don't rely on localStorage
+            const driverLink = `${baseUrl}/driver/${routeId}?driverId=${selectedAgent.id}&data=${encodedData}`;
+
+            const payload = {
+                route: {
+                    ...route,
+                    params: { waypoints: formattedWaypoints }
+                },
+                assignedAgent: {
+                    id: selectedAgent.id,
+                    name: selectedAgent.name,
+                    email: selectedAgent.email,
+                    phone: selectedAgent.phone,
+                    assignedRouteIds: [routeId]
+                },
+                driverLink: driverLink  // Include the stateless link
+            };
+
+            // Send to n8n (this will trigger the email automatically)
+            const result = await sendToN8N(payload);
 
             if (result.success) {
-                // Send to n8n for logging
-                await sendToN8N(waypoints, transformCoordinates(waypoints));
+                // Update Backend (Persistent Route)
+                await createRoute({
+                    id: routeId,
+                    name: route.name,
+                    driverId: selectedAgent.id,
+                    waypoints: allPoints,
+                    distanceKm: stats?.distanceKm || 0,
+                    duration: stats?.duration || 0,
+                    geometry: { type: 'LineString', coordinates: stats?.coordinates || [] } // Send geometry
+                });
+
+                // We still save to localStorage for Admin view persistence/debugging
+                const savedRoutes = JSON.parse(localStorage.getItem('logisticsRoutes') || '[]');
+                const routeToSave = {
+                    ...route,
+                    waypoints: waypoints,
+                    fixedStart,
+                    fixedEnd,
+                    returnToStart,
+                    assignedAgent: selectedAgent,
+                    geometry: { type: 'LineString', coordinates: stats?.coordinates || [] }, // Save geometry locally too
+                    createdAt: new Date().toISOString()
+                };
+                savedRoutes.push(routeToSave);
+                localStorage.setItem('logisticsRoutes', JSON.stringify(savedRoutes));
+
+                // Update agent's assigned routes locally
+                setAgents(prev => prev.map(a =>
+                    a.id === selectedAgent.id
+                        ? { ...a, assignedRoutes: [...(a.assignedRoutes || []), routeId] }
+                        : a
+                ));
+
+                // Record metrics
+                recordRouteCreated(route, allPoints, stats);
+
                 toast.success(`¡Ruta asignada a ${selectedAgent.name}! Se envió notificación por email.`, { id: toastId });
             } else {
                 throw new Error(result.error);
@@ -255,270 +339,92 @@ function AdminDashboard() {
         }
     };
 
-    // Calculate sidebar width based on collapse state
-    const sidebarWidth = sidebarCollapsed ? 0 : 420;
-
     return (
-        <div style={{
-            width: '100%',
-            height: '100vh',
-            overflow: 'hidden',
-            position: 'relative',
-            fontFamily: 'Inter, system-ui',
-            background: '#0f172a',
-            display: 'flex',
-            flexDirection: 'column' // Changed to column for Top Bar + Body
-        }}>
+        <div style={{ width: '100%', height: '100vh', overflow: 'hidden', position: 'relative', fontFamily: 'Inter, system-ui', background: '#f8fafc' }}>
             <Toaster position="top-right" richColors />
 
-            {/* === GLOBAL TOP BAR === */}
+            {/* --- Stats HUD (Top Right - below selectors) --- */}
             <div style={{
-                height: 60,
-                width: '100%',
-                background: 'rgba(15, 23, 42, 0.98)',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 20px',
-                zIndex: 60, // Higher than sidebar
-                flexShrink: 0
+                position: 'absolute', top: 80, right: 20, zIndex: 90,
+                display: 'flex', gap: 12, pointerEvents: 'none'
             }}>
-                {/* Brand */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{
-                        width: 32, height: 32,
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        borderRadius: 8,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
-                    }}>
-                        <Navigation size={18} color="white" />
-                    </div>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Traceops</h1>
-                        <p style={{ margin: 0, fontSize: 10, color: '#64748b' }}>Logistics Intelligence</p>
-                    </div>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>RUTAS HOY</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
                 </div>
-
-                {/* View Toggles (Center) */}
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <ViewToggle
-                        icon={Map}
-                        label="Mapa"
-                        active={activeView === 'map'}
-                        onClick={() => setActiveView('map')}
-                    />
-                    <ViewToggle
-                        icon={FileText}
-                        label="Órdenes SCRC"
-                        active={activeView === 'orders'}
-                        onClick={() => setActiveView('orders')}
-                    />
-                    <ViewToggle
-                        icon={Users}
-                        label="Personal"
-                        active={activeView === 'workforce'}
-                        onClick={() => setActiveView('workforce')}
-                    />
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>CONDUCTORES</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
                 </div>
-
-                {/* Right Actions & Stats */}
-                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <button
-                        onClick={() => setShowIngestion(true)}
-                        style={{
-                            background: 'rgba(245, 158, 11, 0.1)',
-                            border: '1px solid rgba(245, 158, 11, 0.2)',
-                            color: '#fbbf24',
-                            borderRadius: 8,
-                            padding: '8px 12px',
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            fontSize: 12, fontWeight: 600,
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <Upload size={14} /> Importar Excel
-                    </button>
-
-                    <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
-
-                    <div style={{ display: 'flex', gap: 12 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1 }}>
-                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>RUTAS</span>
-                            <span style={{ fontSize: 15, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1 }}>
-                            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>CONDUCTORES</span>
-                            <span style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
-                        </div>
-                    </div>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>ALERTAS</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#6366f1' }}>0</span>
                 </div>
             </div>
 
-            {/* === MAIN BODY (Sidebar + Content) === */}
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                overflow: 'hidden',
-                position: 'relative'
-            }}>
-                {/* Left Sidebar */}
-                {!sidebarCollapsed && activeView === 'map' && ( // Only show route planner sidebar in Map view? Or always? Let's keep it consistent but conditionally render content if needed.
-                    <div style={{
-                        width: sidebarWidth,
-                        height: '100%',
-                        flexShrink: 0,
-                        position: 'relative',
-                        zIndex: 50,
-                        borderRight: '1px solid rgba(255,255,255,0.05)',
-                        background: 'rgba(15, 23, 42, 0.4)'
-                    }}>
-                        <Sidebar
-                            embedded={true} // Enable embedded mode!
-                            waypoints={waypoints}
-                            setWaypoints={setWaypoints}
-                            fixedStart={fixedStart}
-                            setFixedStart={setFixedStart}
-                            fixedEnd={fixedEnd}
-                            setFixedEnd={setFixedEnd}
-                            returnToStart={returnToStart}
-                            setReturnToStart={setReturnToStart}
-                            agents={agents}
-                            selectedAgent={selectedAgent}
-                            setSelectedAgent={setSelectedAgent}
-                            savedRoutes={savedRoutes}
-                            onSaveRoute={handleSaveRoute}
-                            onLoadRoute={handleLoadRoute}
-                            onDeleteRoute={handleDeleteRoute}
-                            onAssign={handleAssignRoute}
-                            isSubmitting={isSubmitting}
-                            onOpenAgents={() => setShowAgentsPanel(true)}
-                            onOpenDashboard={() => setShowDashboard(true)}
-                            onOpenIngestion={() => setShowIngestion(true)}
-                            onPreviewRoute={setPreviewRoute}
-                            onApplyRoute={(route) => {
-                                if (route?.optimizedWaypoints) {
-                                    setWaypoints(route.optimizedWaypoints);
-                                }
-                            }}
-                        />
-                    </div>
-                )}
+            <Sidebar
+                waypoints={waypoints}
+                setWaypoints={setWaypoints}
+                fixedStart={fixedStart}
+                setFixedStart={setFixedStart}
+                fixedEnd={fixedEnd}
+                setFixedEnd={setFixedEnd}
+                returnToStart={returnToStart}
+                setReturnToStart={setReturnToStart}
+                agents={agents}
+                selectedAgent={selectedAgent}
+                setSelectedAgent={setSelectedAgent}
+                savedRoutes={savedRoutes}
+                onSaveRoute={handleSaveRoute}
+                onLoadRoute={handleLoadRoute}
+                onDeleteRoute={handleDeleteRoute}
+                onAssign={handleAssignRoute}
+                isSubmitting={isSubmitting}
+                onOpenAgents={() => setShowAgentsPanel(true)}
+                onOpenDashboard={() => setShowDashboard(true)}
+                onOpenIngestion={() => setShowIngestion(true)}
+                onPreviewRoute={setPreviewRoute}
+                onApplyRoute={(route) => {
+                    if (route?.optimizedWaypoints) {
+                        // When optimizing, we usually get back the FULL route including start/ends.
+                        // We need to parse this back to fixedStart/End if they exist, or just put everything in waypoints if not valid?
+                        // For simplicity, if we have fixed points, we trust they kept their place (or we enforce it).
+                        // If optimization changed order, we update 'waypoints' with the INTERMEDIATE points.
 
-                {/* Sidebar Toggle Button - Adjusted position */}
-                {activeView === 'map' && (
-                    <button
-                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        style={{
-                            position: 'absolute',
-                            left: !sidebarCollapsed ? sidebarWidth - 12 : 0,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            width: 20,
-                            height: 40,
-                            background: '#1e293b',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: !sidebarCollapsed ? '8px 0 0 8px' : '0 8px 8px 0',
-                            color: '#94a3b8',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            zIndex: 100,
-                            transition: 'left 0.3s ease'
-                        }}
-                    >
-                        {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                    </button>
-                )}
+                        let newWaypoints = [...route.optimizedWaypoints];
 
-                {/* Content Area */}
-                <div style={{
-                    flex: 1,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column'
-                }}>
-                    {/* Filter Bar for Map View - Optional, can stay inside MapComponent or here. 
-                         Keeping it here (from previous layout) or moving to MapComponent? 
-                         Previous layout had it in the header. Let's put it as a sub-bar if in Map view and sidebar is collapsed? 
-                         Or just rely on defaults. The previous Global Top Bar had filters. 
-                         Let's put the filters INSIDE the MapComponent or a thin bar above it if needed.
-                         For now, I'll put them in a floating status bar in the map or just omitted to clean up interface as per user request for "clean UI".
-                         actually user didn't ask to remove filters, but "horrible layout".
-                         I will keep filters in a floating bar within MapComponent or strictly for map view.
-                     */}
+                        // If we had fixed start, assume first point is start
+                        if (fixedStart) newWaypoints.shift();
 
-                    {/* Map View */}
-                    {activeView === 'map' && (
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            {/* Floating Filters for Map */}
-                            <div style={{
-                                position: 'absolute', top: 16, right: 16, zIndex: 10,
-                                display: 'flex', gap: 8
-                            }}>
-                                <select
-                                    value={filterBrigade}
-                                    onChange={(e) => setFilterBrigade(e.target.value)}
-                                    style={{
-                                        background: 'rgba(15, 23, 42, 0.9)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 12
-                                    }}
-                                >
-                                    <option value="">Todas las Cuadrillas</option>
-                                    {brigades.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
+                        // If we had fixed end, assume last point is end
+                        if (fixedEnd && !returnToStart) newWaypoints.pop();
+                        if (returnToStart && fixedStart) newWaypoints.pop(); // Remove the return-to-start point
 
-                            <MapComponent
-                                waypoints={waypoints}
-                                setWaypoints={setWaypoints}
-                                fixedStart={fixedStart}
-                                setFixedStart={setFixedStart}
-                                fixedEnd={fixedEnd}
-                                setFixedEnd={setFixedEnd}
-                                returnToStart={returnToStart}
-                                previewRoute={previewRoute}
-                                filterBrigade={filterBrigade}
-                                setFilterBrigade={setFilterBrigade}
-                                brigades={brigades}
-                                vehicles={vehicles}
-                                filterVehicle={filterVehicle}
-                                setFilterVehicle={setFilterVehicle}
-                                onClearWaypoints={() => setWaypoints([])}
-                            />
-                        </div>
-                    )}
+                        setWaypoints(newWaypoints);
+                    }
+                    setPreviewRoute(null);
+                }}
+            />
 
-                    {/* Orders View */}
-                    {activeView === 'orders' && (
-                        <div style={{ width: '100%', height: '100%', padding: 16, overflow: 'hidden' }}>
-                            <SCRCOrdersPanel
-                                brigades={brigades}
-                                onClose={() => setActiveView('map')}
-                                onSelectOrders={(selectedWaypoints) => {
-                                    setWaypoints(prev => [...prev, ...selectedWaypoints]);
-                                    toast.success(`${selectedWaypoints.length} órdenes agregadas`);
-                                    setActiveView('map');
-                                }}
-                            />
-                        </div>
-                    )}
+            <MapComponent
+                waypoints={displayWaypoints}
+                previewRoute={previewRoute}
+                onClearPreview={() => setPreviewRoute(null)}
 
-                    {/* Workforce View */}
-                    {activeView === 'workforce' && (
-                        <div style={{ width: '100%', height: '100%', padding: 16, overflow: 'hidden' }}>
-                            <WorkforcePanel onClose={() => setActiveView('map')} />
-                        </div>
-                    )}
-                </div>
-            </div>
+                onAddWaypoint={(newPoint) => {
+                    setWaypoints(prev => [...prev, newPoint]);
+                }}
+                fixedStartConfigured={!!fixedStart}
+                fixedEndConfigured={!!fixedEnd || returnToStart}
+                returnToStart={returnToStart}
+                onClearRoute={() => {
+                    setWaypoints([]);
+                }}
+            />
 
-            {/* Modal Overlays - These are true overlays that cover everything */}
             {showAgentsPanel && (
                 <AgentsPanel
-                    agents={filteredAgents}
+                    agents={agents}
                     onAddAgent={handleAddAgent}
                     onDeleteAgent={handleDeleteAgent}
                     onClose={() => setShowAgentsPanel(false)}
@@ -527,7 +433,7 @@ function AdminDashboard() {
 
             {showDashboard && (
                 <Dashboard
-                    agents={filteredAgents}
+                    agents={agents}
                     onClose={() => setShowDashboard(false)}
                 />
             )}
@@ -536,7 +442,7 @@ function AdminDashboard() {
             <LiveTrackingPanel
                 isOpen={showTracking}
                 onClose={() => setShowTracking(false)}
-                driversList={filteredAgents}
+                driversList={agents}
             />
 
             {/* Data Ingestion Overlay */}
@@ -562,12 +468,12 @@ function AdminDashboard() {
                 onClick={() => setShowTracking(true)}
                 style={{
                     position: 'fixed',
-                    bottom: 25,
-                    right: 90, // Moved to avoid overlapping map controls
+                    bottom: 20,
+                    right: 20,
                     background: '#9DBD39',
                     border: 'none',
                     borderRadius: 50,
-                    padding: '12px 20px',
+                    padding: '14px 20px',
                     color: 'white',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -575,7 +481,7 @@ function AdminDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
-                    zIndex: 50 // Lower z-index slightly
+                    zIndex: 100
                 }}
             >
                 <span style={{ fontSize: '1.2rem' }}>📡</span> Rastreo en Vivo

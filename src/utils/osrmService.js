@@ -1,44 +1,6 @@
 // OSRM Service - Route calculation and optimization
 const OSRM_BASE_URL = 'https://router.project-osrm.org';
 
-// Route profiles available in OSRM
-export const ROUTE_PROFILES = {
-    DRIVING: 'driving',    // For vehicles (cars, trucks)
-    WALKING: 'foot',       // For technicians on foot
-    CYCLING: 'bike'        // For bicycle/motorcycle (faster than walking)
-};
-
-// Zone types for routing adjustments
-export const ZONE_TYPES = {
-    URBAN: 'urban',
-    RURAL: 'rural',
-    MIXED: 'mixed'
-};
-
-// Detect if a zone is rural based on municipality name patterns
-export const detectZoneType = (municipality) => {
-    if (!municipality) return ZONE_TYPES.MIXED;
-
-    const ruralIndicators = [
-        'corregimiento', 'vereda', 'finca', 'hacienda', 'rural',
-        'parque', 'km ', 'kilometro', 'autopista', 'carretera'
-    ];
-
-    const urbanIndicators = [
-        'barrio', 'urbanización', 'manzana', 'calle', 'carrera',
-        'avenida', 'centro', 'norte', 'sur', 'sector'
-    ];
-
-    const lowerMuni = municipality.toLowerCase();
-
-    const isRural = ruralIndicators.some(ind => lowerMuni.includes(ind));
-    const isUrban = urbanIndicators.some(ind => lowerMuni.includes(ind));
-
-    if (isRural && !isUrban) return ZONE_TYPES.RURAL;
-    if (isUrban && !isRural) return ZONE_TYPES.URBAN;
-    return ZONE_TYPES.MIXED;
-};
-
 // Format duration to readable string
 const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -46,68 +8,30 @@ const formatDuration = (seconds) => {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
 };
 
-/**
- * Fetch route with stats (distance, duration)
- * @param {Array} waypoints - Array of {lat, lng} objects
- * @param {Object} options - Routing options
- * @param {string} options.profile - 'driving' | 'foot' | 'bike' (default: 'driving')
- * @param {string} options.zoneType - 'urban' | 'rural' | 'mixed' (affects speed estimates)
- * @param {boolean} options.alternatives - Request alternative routes
- */
-export const fetchRouteWithStats = async (waypoints, options = {}) => {
+// Fetch route with stats (distance, duration)
+export const fetchRouteWithStats = async (waypoints) => {
     if (waypoints.length < 2) return null;
-
-    const {
-        profile = ROUTE_PROFILES.DRIVING,
-        zoneType = ZONE_TYPES.URBAN,
-        alternatives = false
-    } = options;
 
     const coordinatesString = waypoints
         .map(wp => `${wp.lng},${wp.lat}`)
         .join(';');
 
     try {
-        const altParam = alternatives ? '&alternatives=true' : '';
         const response = await fetch(
-            `${OSRM_BASE_URL}/route/v1/${profile}/${coordinatesString}?overview=full&geometries=geojson&steps=false${altParam}`
+            `${OSRM_BASE_URL}/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson&steps=false`
         );
         const data = await response.json();
 
         if (data.code === 'Ok' && data.routes && data.routes[0]) {
             const route = data.routes[0];
-
-            // Adjust duration for rural zones (add 20% buffer for unpaved/difficult roads)
-            let adjustedDuration = route.duration;
-            if (zoneType === ZONE_TYPES.RURAL) {
-                adjustedDuration = Math.round(route.duration * 1.2);
-            }
-
-            const result = {
+            return {
                 success: true,
                 coordinates: route.geometry.coordinates,
                 distance: route.distance,
-                duration: adjustedDuration,
-                originalDuration: route.duration,
+                duration: route.duration,
                 distanceKm: (route.distance / 1000).toFixed(1),
-                durationFormatted: formatDuration(adjustedDuration),
-                profile,
-                zoneType,
-                isWalking: profile === ROUTE_PROFILES.WALKING
+                durationFormatted: formatDuration(route.duration)
             };
-
-            // Include alternatives if requested
-            if (alternatives && data.routes.length > 1) {
-                result.alternatives = data.routes.slice(1).map(alt => ({
-                    coordinates: alt.geometry.coordinates,
-                    distance: alt.distance,
-                    duration: alt.duration,
-                    distanceKm: (alt.distance / 1000).toFixed(1),
-                    durationFormatted: formatDuration(alt.duration)
-                }));
-            }
-
-            return result;
         }
         return { success: false, error: 'Route not found' };
     } catch (error) {

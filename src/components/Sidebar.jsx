@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, FileText } from 'lucide-react';
+import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, FileValues } from 'lucide-react';
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
 // import { sendToGemini } from '../utils/geminiService'; // Removed - chatbot feature deprecated
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
-import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService'; // Restored
+// import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService'; // Removed - using OSRM
 
 const Sidebar = ({
     waypoints, setWaypoints,
@@ -13,7 +13,7 @@ const Sidebar = ({
     agents, selectedAgent, setSelectedAgent,
     savedRoutes, onSaveRoute, onLoadRoute, onDeleteRoute,
     onAssign, isSubmitting, onOpenAgents, onOpenDashboard, onOpenIngestion,
-    onPreviewRoute, onApplyRoute, embedded = false
+    onPreviewRoute, onApplyRoute
 }) => {
     // Core states
     const [addressInput, setAddressInput] = useState('');
@@ -195,7 +195,7 @@ const Sidebar = ({
         // Fallback to OSRM if Google fails
         if (!result?.success || !result.options?.length) {
             console.log('Google Directions failed, using OSRM fallback');
-            result = await generateRouteOptions(allWaypoints, routeConfig);
+            result = await generateRouteOptions(allWaypoints);
         }
 
         setIsOptimizing(false);
@@ -312,16 +312,10 @@ const Sidebar = ({
     const styles = {
         // Modular Container - no longer one big box
         sidebar: {
-            position: embedded ? 'relative' : 'absolute',
-            top: embedded ? 0 : 16,
-            left: embedded ? 0 : 16,
-            zIndex: 100,
-            width: embedded ? '100%' : 360,
-            height: embedded ? '100%' : 'auto',
+            position: 'absolute', top: 16, left: 16, zIndex: 100, width: 360,
             display: 'flex', flexDirection: 'column', gap: 12,
             fontFamily: 'Inter, system-ui',
-            pointerEvents: embedded ? 'auto' : 'none', // Allow click-through except on children
-            padding: embedded ? '16px 0' : 0
+            pointerEvents: 'none' // Allow click-through except on children
         },
         // Compact floating header
         headerCard: {
@@ -426,89 +420,86 @@ const Sidebar = ({
             {/* Standard Sidebar Content - Hide in Carousel Mode */}
             {!isCarouselMode && (
                 <>
-                    {/* === COMPACT FLOATING HEADER - Hidden if embedded === */}
-                    {!embedded && (
-                        <div style={styles.headerCard}>
-
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <div style={{
-                                        width: 40, height: 40,
-                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                        borderRadius: 12,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
-                                    }}>
-                                        <Navigation size={20} color="white" />
-                                    </div>
-                                    <div>
-                                        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Traceops</h1>
-                                        <p style={{ margin: 0, fontSize: 10, color: '#64748b' }}>Logistics Intelligence</p>
-                                    </div>
+                    {/* === COMPACT FLOATING HEADER === */}
+                    <div style={styles.headerCard}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{
+                                    width: 40, height: 40,
+                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                    borderRadius: 12,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                                }}>
+                                    <Navigation size={20} color="white" />
                                 </div>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    <button
-                                        onClick={() => togglePanel('config')}
-                                        style={{
-                                            ...styles.iconBtn,
-                                            background: activePanel === 'config' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.05)',
-                                            borderColor: activePanel === 'config' ? '#10b981' : 'rgba(255,255,255,0.1)'
-                                        }}
-                                        title="Mi Negocio"
-                                    >
-                                        <Settings size={16} color={activePanel === 'config' ? '#10b981' : '#94a3b8'} />
-                                    </button>
-                                    <button
-                                        onClick={() => togglePanel('routes')}
-                                        style={{
-                                            ...styles.iconBtn,
-                                            background: activePanel === 'routes' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
-                                            borderColor: activePanel === 'routes' ? '#6366f1' : 'rgba(255,255,255,0.1)'
-                                        }}
-                                        title="Rutas Guardadas"
-                                    >
-                                        <FolderOpen size={16} color={activePanel === 'routes' ? '#818cf8' : '#94a3b8'} />
-                                    </button>
-                                    <button
-                                        onClick={() => togglePanel('import')}
-                                        style={{
-                                            ...styles.iconBtn,
-                                            background: activePanel === 'import' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255,255,255,0.05)',
-                                            borderColor: activePanel === 'import' ? '#f59e0b' : 'rgba(255,255,255,0.1)'
-                                        }}
-                                        title="Importar"
-                                    >
-                                        <Upload size={16} color={activePanel === 'import' ? '#fbbf24' : '#94a3b8'} />
-                                    </button>
-                                    <button onClick={onOpenAgents} style={styles.iconBtn} title="Agentes">
-                                        <Users size={16} color="#10b981" />
-                                    </button>
-                                    <button onClick={onOpenDashboard} style={styles.iconBtn} title="Dashboard">
-                                        <BarChart3 size={16} color="#10b981" />
-                                    </button>
-                                    <button onClick={onOpenIngestion} style={styles.iconBtn} title="Carga Masiva (Excel)">
-                                        <FileText size={16} color="#f59e0b" />
-                                    </button>
+                                <div>
+                                    <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Traceops</h1>
+                                    <p style={{ margin: 0, fontSize: 10, color: '#64748b' }}>Logistics Intelligence</p>
                                 </div>
                             </div>
-
-                            {/* Stats Row - Only show when has data */}
-                            {routeStats && (
-                                <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                                    <div style={styles.stat}>
-                                        <Route size={16} color="#10b981" style={{ marginBottom: 4 }} />
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{routeStats.distanceKm}</div>
-                                        <div style={{ fontSize: 10, color: '#64748b' }}>km</div>
-                                    </div>
-                                    <div style={styles.stat}>
-                                        <Clock size={16} color="#3b82f6" style={{ marginBottom: 4 }} />
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{routeStats.durationFormatted}</div>
-                                        <div style={{ fontSize: 10, color: '#64748b' }}>estimado</div>
-                                    </div>
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                    onClick={() => togglePanel('config')}
+                                    style={{
+                                        ...styles.iconBtn,
+                                        background: activePanel === 'config' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: activePanel === 'config' ? '#10b981' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    title="Mi Negocio"
+                                >
+                                    <Settings size={16} color={activePanel === 'config' ? '#10b981' : '#94a3b8'} />
+                                </button>
+                                <button
+                                    onClick={() => togglePanel('routes')}
+                                    style={{
+                                        ...styles.iconBtn,
+                                        background: activePanel === 'routes' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: activePanel === 'routes' ? '#6366f1' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    title="Rutas Guardadas"
+                                >
+                                    <FolderOpen size={16} color={activePanel === 'routes' ? '#818cf8' : '#94a3b8'} />
+                                </button>
+                                <button
+                                    onClick={() => togglePanel('import')}
+                                    style={{
+                                        ...styles.iconBtn,
+                                        background: activePanel === 'import' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255,255,255,0.05)',
+                                        borderColor: activePanel === 'import' ? '#f59e0b' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    title="Importar"
+                                >
+                                    <Upload size={16} color={activePanel === 'import' ? '#fbbf24' : '#94a3b8'} />
+                                </button>
+                                <button onClick={onOpenAgents} style={styles.iconBtn} title="Agentes">
+                                    <Users size={16} color="#10b981" />
+                                </button>
+                                <button onClick={onOpenDashboard} style={styles.iconBtn} title="Dashboard">
+                                    <BarChart3 size={16} color="#10b981" />
+                                </button>
+                                <button onClick={onOpenIngestion} style={styles.iconBtn} title="Carga Masiva (Excel)">
+                                    <FileValues size={16} color="#f59e0b" />
+                                </button>
+                            </div>
                         </div>
-                    )}
+
+                        {/* Stats Row - Only show when has data */}
+                        {routeStats && (
+                            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                                <div style={styles.stat}>
+                                    <Route size={16} color="#10b981" style={{ marginBottom: 4 }} />
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{routeStats.distanceKm}</div>
+                                    <div style={{ fontSize: 10, color: '#64748b' }}>km</div>
+                                </div>
+                                <div style={styles.stat}>
+                                    <Clock size={16} color="#3b82f6" style={{ marginBottom: 4 }} />
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{routeStats.durationFormatted}</div>
+                                    <div style={{ fontSize: 10, color: '#64748b' }}>estimado</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {/* === NAVIGATION TABS === */}
                     {!activePanel && (
@@ -1036,8 +1027,9 @@ const Sidebar = ({
                             ))}
                         </div>
                     </div>
-                )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
