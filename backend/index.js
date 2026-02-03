@@ -9,7 +9,7 @@ const helmet = require('helmet');
 // Security Middleware
 const { authRequired, requireRole, optionalAuth, driverAuth } = require('./middleware/auth');
 const { apiLimiter, publicLimiter } = require('./middleware/rateLimiter');
-const authRoutes = require('./routes/authRoutes');
+// const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -50,7 +50,7 @@ app.use(express.json());
 app.use('/api/', apiLimiter);
 
 // Auth Routes (login, register, etc.)
-app.use('/api/auth', authRoutes);
+// app.use('/api/auth', authRoutes);
 
 // SCRC Routes - initialized after pool (see below)
 
