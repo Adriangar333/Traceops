@@ -463,7 +463,6 @@ const Dashboard = ({ onClose, agents }) => {
                 </div>
             </div>
         </div>
-        </div >
     );
 };
 

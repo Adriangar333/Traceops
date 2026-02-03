@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, FileValues } from 'lucide-react';
+import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, FileSpreadsheet } from 'lucide-react';
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
 // import { sendToGemini } from '../utils/geminiService'; // Removed - chatbot feature deprecated
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
@@ -479,7 +479,7 @@ const Sidebar = ({
                                     <BarChart3 size={16} color="#10b981" />
                                 </button>
                                 <button onClick={onOpenIngestion} style={styles.iconBtn} title="Carga Masiva (Excel)">
-                                    <FileValues size={16} color="#f59e0b" />
+                                    <FileSpreadsheet size={16} color="#f59e0b" />
                                 </button>
                             </div>
                         </div>
