@@ -4,7 +4,14 @@ export const getDrivers = async () => {
     try {
         const res = await fetch(`${API_URL}/drivers`);
         if (!res.ok) throw new Error('Error fetching drivers');
-        return await res.json();
+        const data = await res.json();
+
+        // Ensure every driver has an email for n8n/notifications
+        return data.map(d => ({
+            ...d,
+            email: d.email || `driver.${d.id || Math.floor(Math.random() * 1000)}@example.com`,
+            phone: d.phone || '3001234567'
+        }));
     } catch (error) {
         console.error('Get Drivers Error:', error);
         return [];
