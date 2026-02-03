@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { io } from 'socket.io-client';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { reverseGeocode, setUserLocation } from '../utils/geocodingService';
+import { fetchRouteWithStats } from '../utils/osrmService';
 import { Plus, Minus, Maximize, LocateFixed, Layers, MapPin, Hand, Compass, Box, Car, Trash2 } from 'lucide-react';
 
 const MAP_STYLES = {
@@ -339,8 +340,8 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
                 return;
             }
 
-            // Use Google Directions instead of OSRM (Google is "Gold Standard") - Default to original order (non-optimized)
-            const result = await getGoogleRoute(waypoints, { optimize: false });
+            // Use OSRM instead of missing Google function
+            const result = await fetchRouteWithStats(waypoints);
 
             if (result?.success && result.coordinates) {
                 currentRouteCoords.current = result.coordinates;

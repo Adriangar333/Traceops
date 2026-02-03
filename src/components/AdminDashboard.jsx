@@ -14,6 +14,18 @@ import DataIngestion from './DataIngestion';
 import { fetchRouteWithStats } from '../utils/osrmService';
 import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 
+// Helper functions replacing n8nService
+const transformCoordinates = (point) => ({
+    lat: Number(point.lat),
+    lng: Number(point.lng),
+    address: point.address || ''
+});
+
+const sendToN8N = async (payload) => {
+    console.log('Simulating N8N Email Notification:', payload);
+    return { success: true }; // Mock success for now
+};
+
 function AdminDashboard() {
     const [waypoints, setWaypoints] = useState([]);
     const [agents, setAgents] = useState([]);
@@ -124,8 +136,8 @@ function AdminDashboard() {
             return;
         }
 
-        // Get route stats (using Google Directions) - Use optimize: false to respect current order
-        const stats = await getGoogleRoute(allPoints, { optimize: false });
+        // Get route stats (using OSRM)
+        const stats = await fetchRouteWithStats(allPoints);
 
         const newRoute = {
             id: Date.now(),
@@ -218,9 +230,9 @@ function AdminDashboard() {
                 };
             }
 
-            // 2. If not found in preview, calculate fresh using Google Directions
+            // 2. If not found in preview, calculate fresh using OSRM
             if (!stats) {
-                stats = await getGoogleRoute(allPoints, { optimize: false });
+                stats = await fetchRouteWithStats(allPoints);
             }
 
             // Fallback to OSRM if Google fails to provide geometry
