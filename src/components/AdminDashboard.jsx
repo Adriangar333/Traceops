@@ -12,18 +12,13 @@ import DataIngestion from './DataIngestion';
 // import { recordRouteCreated } from '../utils/metricsService';
 // import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { fetchRouteWithStats } from '../utils/osrmService';
+import { getGoogleRoute, transformCoordinates } from '../utils/googleDirectionsService';
 import { getDrivers, createDriver, deleteDriver, assignRouteToDriver, createRoute } from '../utils/backendService';
 
-// Helper functions replacing n8nService
-const transformCoordinates = (point) => ({
-    lat: Number(point.lat),
-    lng: Number(point.lng),
-    address: point.address || ''
-});
-
+// Helper: mock N8N email notification (restore real service later)
 const sendToN8N = async (payload) => {
     console.log('Simulating N8N Email Notification:', payload);
-    return { success: true }; // Mock success for now
+    return { success: true };
 };
 
 function AdminDashboard() {
@@ -136,8 +131,9 @@ function AdminDashboard() {
             return;
         }
 
-        // Get route stats (using OSRM)
-        const stats = await fetchRouteWithStats(allPoints);
+        // Get route stats (using Google Directions for traffic data)
+        let stats = await getGoogleRoute(allPoints, { optimize: false });
+        if (!stats?.success) stats = await fetchRouteWithStats(allPoints);
 
         const newRoute = {
             id: Date.now(),
@@ -230,9 +226,9 @@ function AdminDashboard() {
                 };
             }
 
-            // 2. If not found in preview, calculate fresh using OSRM
+            // 2. If not found in preview, calculate fresh using Google Directions
             if (!stats) {
-                stats = await fetchRouteWithStats(allPoints);
+                stats = await getGoogleRoute(allPoints, { optimize: false });
             }
 
             // Fallback to OSRM if Google fails to provide geometry

@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { reverseGeocode, setUserLocation } from '../utils/geocodingService';
 import { fetchRouteWithStats } from '../utils/osrmService';
+import { getGoogleRoute } from '../utils/googleDirectionsService';
 import { Plus, Minus, Maximize, LocateFixed, Layers, MapPin, Hand, Compass, Box, Car, Trash2 } from 'lucide-react';
 
 const MAP_STYLES = {
@@ -340,8 +341,14 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
                 return;
             }
 
-            // Use OSRM instead of missing Google function
-            const result = await fetchRouteWithStats(waypoints);
+            // Use Google Directions for route display (with traffic data)
+            let result = await getGoogleRoute(waypoints, { optimize: false });
+
+            // Fallback to OSRM if Google fails
+            if (!result?.success) {
+                console.log('Google Directions failed, using OSRM fallback');
+                result = await fetchRouteWithStats(waypoints);
+            }
 
             if (result?.success && result.coordinates) {
                 currentRouteCoords.current = result.coordinates;
