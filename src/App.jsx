@@ -7,9 +7,6 @@ import DriverView from './components/DriverView';
 import TechnicianApp from './components/TechnicianApp';
 import MainLayout from './components/MainLayout';
 import DashboardHome from './components/DashboardHome';
-import FleetManagement from './components/FleetManagement';
-import ScheduleManagement from './components/ScheduleManagement';
-import BrigadeManagement from './components/BrigadeManagement';
 import InventoryPage from './components/InventoryPage';
 import LoginPage from './components/LoginPage';
 
@@ -106,9 +103,12 @@ function App() {
               <Route path="/operations" component={AdminDashboard} />
               <Route path="/inventory" component={InventoryPage} />
 
-              <Route path="/fleet" component={FleetManagement} />
-              <Route path="/schedules" component={ScheduleManagement} />
-              <Route path="/brigades" component={BrigadeManagement} />
+              <Route path="/fleet">
+                <div style={{ padding: '40px 60px' }}>
+                  <h1 style={{ color: '#f8fafc', fontSize: 28, fontWeight: 700 }}>🚚 Administración Vehicular</h1>
+                  <p style={{ color: '#94a3b8', marginTop: 10 }}>Gestión de vehículos y conductores (Próximamente)</p>
+                </div>
+              </Route>
 
               <Route path="/calls">
                 <div style={{ padding: '40px 60px' }}>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'wouter';
-import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone, Calendar, Shield } from 'lucide-react';
+import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone } from 'lucide-react';
 
 const MainLayout = ({ children, user, onLogout }) => {
     const [location, setLocation] = useLocation();
@@ -9,8 +9,6 @@ const MainLayout = ({ children, user, onLogout }) => {
         { icon: <LayoutDashboard size={20} />, label: 'Inicio', path: '/' },
         { icon: <Map size={20} />, label: 'Planeación Operativa', path: '/operations' },
         { icon: <Truck size={20} />, label: 'Adm. Vehicular', path: '/fleet' },
-        { icon: <Calendar size={20} />, label: 'Turnos / Jornadas', path: '/schedules' },
-        { icon: <Shield size={20} />, label: 'Brigadas / Cuadrillas', path: '/brigades' },
         { icon: <Boxes size={20} />, label: 'Adm. Logística', path: '/inventory' },
         { icon: <Phone size={20} />, label: 'Llamadas', path: '/calls' },
         { icon: <Settings size={20} />, label: 'Configuración', path: '/settings' },

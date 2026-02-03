@@ -20,7 +20,6 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.17.2",
-    "socket.io": "^4.8.3",
-    "swagger-ui-express": "^5.0.1"
+    "socket.io": "^4.8.3"
   }
 }

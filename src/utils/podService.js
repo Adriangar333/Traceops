@@ -1,42 +1,83 @@
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+
 /**
- * POD Service Stub
- * Proof of Delivery functions for DriverView
+ * POD Service - Proof of Delivery
+ * Handles photo capture, geofencing validation, and POD submission
  */
 
-// Capture photo using native camera
-export const capturePhoto = async () => {
-    return new Promise((resolve, reject) => {
-        // Create a file input and trigger it
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.capture = 'environment';
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
 
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) {
-                resolve(null);
-                return;
-            }
+/**
+ * Calculate distance between two points using Haversine formula
+ * @param {Object} point1 - {lat, lng}
+ * @param {Object} point2 - {lat, lng}
+ * @returns {number} Distance in meters
+ */
+export const calculateDistance = (point1, point2) => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = (point1.lat * Math.PI) / 180;
+    const φ2 = (point2.lat * Math.PI) / 180;
+    const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
+    const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
 
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                // Return base64 without prefix
-                const base64 = reader.result.split(',')[1];
-                resolve(base64);
-            };
-            reader.onerror = () => reject(new Error('Failed to read photo'));
-            reader.readAsDataURL(file);
-        };
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        input.click();
-    });
+    return R * c; // Distance in meters
 };
 
-// Get current location
+/**
+ * Check if driver is within acceptable range of destination
+ * @param {Object} driverLocation - {lat, lng}
+ * @param {Object} destination - {lat, lng}
+ * @param {number} maxDistance - Maximum allowed distance in meters (default 100m)
+ * @returns {Object} { isWithinRange, distance }
+ */
+export const validateGeofence = (driverLocation, destination, maxDistance = 100) => {
+    const distance = calculateDistance(driverLocation, destination);
+    return {
+        isWithinRange: distance <= maxDistance,
+        distance: Math.round(distance)
+    };
+};
+
+/**
+ * Capture photo for POD using device camera
+ * @returns {Promise<string|null>} Base64 encoded image or null on failure
+ */
+export const capturePhoto = async () => {
+    try {
+        const image = await Camera.getPhoto({
+            quality: 80,
+            allowEditing: false,
+            resultType: CameraResultType.Base64,
+            source: CameraSource.Camera,
+            width: 1024,
+            height: 1024,
+            correctOrientation: true
+        });
+
+        return image.base64String;
+    } catch (error) {
+        console.error('Camera error:', error);
+        // Check if user cancelled
+        if (error.message?.includes('cancelled') || error.message?.includes('User cancelled')) {
+            return null;
+        }
+        throw error;
+    }
+};
+
+/**
+ * Get current location using browser/device geolocation
+ * @returns {Promise<{lat, lng}|null>}
+ */
 export const getCurrentLocation = () => {
     return new Promise((resolve) => {
         if (!navigator.geolocation) {
+            console.error('Geolocation not supported');
             resolve(null);
             return;
         }
@@ -49,48 +90,56 @@ export const getCurrentLocation = () => {
                     accuracy: position.coords.accuracy
                 });
             },
-            () => resolve(null),
-            { enableHighAccuracy: true, timeout: 10000 }
+            (error) => {
+                console.error('Geolocation error:', error);
+                resolve(null);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
         );
     });
 };
 
-// Validate if user is within geofence radius
-export const validateGeofence = (currentLocation, waypoint, maxDistance = 150) => {
-    if (!currentLocation || !waypoint) {
-        return { isWithinRange: false, distance: 0 };
-    }
-
-    // Calculate distance using Haversine formula
-    const R = 6371000; // Earth's radius in meters
-    const lat1 = currentLocation.lat * Math.PI / 180;
-    const lat2 = (waypoint.lat || waypoint.coordinates?.[1]) * Math.PI / 180;
-    const deltaLat = (lat2 - lat1);
-    const deltaLng = ((waypoint.lng || waypoint.coordinates?.[0]) - currentLocation.lng) * Math.PI / 180;
-
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-        Math.cos(lat1) * Math.cos(lat2) *
-        Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = Math.round(R * c);
-
-    return {
-        isWithinRange: distance <= maxDistance,
-        distance
-    };
-};
-
-// Submit POD to backend
+/**
+ * Submit POD data to backend
+ * @param {Object} podData
+ * @returns {Promise<boolean>}
+ */
 export const submitPOD = async (podData) => {
     try {
-        const response = await fetch('https://dashboard-backend.zvkdyr.easypanel.host/api/pod', {
+        const response = await fetch(`${API_URL}/pod`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(podData)
+            body: JSON.stringify({
+                routeId: podData.routeId,
+                waypointIndex: podData.waypointIndex,
+                driverId: podData.driverId,
+                photo: podData.photo, // Base64
+                signature: podData.signature, // Base64
+                location: podData.location,
+                timestamp: new Date().toISOString(),
+                notes: podData.notes || ''
+            })
         });
-        return response.ok;
-    } catch (err) {
-        console.error('POD submission failed:', err);
+
+        if (!response.ok) {
+            throw new Error('Failed to submit POD');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('POD submission error:', error);
         return false;
     }
+};
+
+export default {
+    calculateDistance,
+    validateGeofence,
+    capturePhoto,
+    getCurrentLocation,
+    submitPOD
 };

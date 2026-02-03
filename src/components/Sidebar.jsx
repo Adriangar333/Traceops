@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, FileSpreadsheet } from 'lucide-react';
+import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info } from 'lucide-react';
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
-// import { sendToGemini } from '../utils/geminiService'; // Removed - chatbot feature deprecated
+import { sendToGemini } from '../utils/geminiService';
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
-import { generateGoogleRouteOptions } from '../utils/googleDirectionsService';
+import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService';
 
 const Sidebar = ({
     waypoints, setWaypoints,
@@ -12,7 +12,7 @@ const Sidebar = ({
     returnToStart, setReturnToStart,
     agents, selectedAgent, setSelectedAgent,
     savedRoutes, onSaveRoute, onLoadRoute, onDeleteRoute,
-    onAssign, isSubmitting, onOpenAgents, onOpenDashboard, onOpenIngestion,
+    onAssign, isSubmitting, onOpenAgents, onOpenDashboard,
     onPreviewRoute, onApplyRoute
 }) => {
     // Core states
@@ -477,9 +477,6 @@ const Sidebar = ({
                                 </button>
                                 <button onClick={onOpenDashboard} style={styles.iconBtn} title="Dashboard">
                                     <BarChart3 size={16} color="#10b981" />
-                                </button>
-                                <button onClick={onOpenIngestion} style={styles.iconBtn} title="Carga Masiva (Excel)">
-                                    <FileSpreadsheet size={16} color="#f59e0b" />
                                 </button>
                             </div>
                         </div>
