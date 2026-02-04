@@ -303,7 +303,11 @@ const initDB = async () => {
             ALTER TABLE drivers 
             ADD COLUMN IF NOT EXISTS vehicle_type TEXT DEFAULT 'car';
         `);
-        console.log('✅ Table drivers ready (with vehicle_type)');
+        await client.query(`
+            ALTER TABLE drivers 
+            ADD COLUMN IF NOT EXISTS brigade_role TEXT;
+        `);
+        console.log('✅ Table drivers ready (with vehicle_type & roles)');
 
         // Create delivery_proofs table for POD
         await client.query(`
@@ -522,7 +526,7 @@ app.get('/api/drivers', authRequired, async (req, res) => {
 // PUBLIC: Minimal driver data (no sensitive info)
 app.get('/drivers', publicLimiter, async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, status, cuadrilla, email, phone, vehicle_type FROM drivers ORDER BY created_at DESC');
+        const result = await pool.query('SELECT id, name, status, cuadrilla, email, phone, vehicle_type, brigade_role FROM drivers ORDER BY created_at DESC');
         // Only return non-sensitive fields
         const drivers = result.rows.map(d => ({
             id: d.id,
@@ -531,7 +535,8 @@ app.get('/drivers', publicLimiter, async (req, res) => {
             cuadrilla: d.cuadrilla,
             email: d.email,
             phone: d.phone,
-            vehicleType: d.vehicle_type || 'car'
+            vehicleType: d.vehicle_type || 'car',
+            brigadeRole: d.brigade_role || ''
         }));
         res.json(drivers);
     } catch (err) {
@@ -593,15 +598,15 @@ app.post('/routes', async (req, res) => {
 });
 
 app.post('/drivers', async (req, res) => {
-    const { name, email, phone, cuadrilla, vehicleType } = req.body;
+    const { name, email, phone, cuadrilla, vehicleType, brigadeRole } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     try {
         const result = await pool.query(
-            'INSERT INTO drivers (name, email, phone, cuadrilla, vehicle_type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [name, email, phone, cuadrilla, vehicleType || 'car']
+            'INSERT INTO drivers (name, email, phone, cuadrilla, vehicle_type, brigade_role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [name, email, phone, cuadrilla, vehicleType || 'car', brigadeRole]
         );
         const driver = result.rows[0];
-        res.status(201).json({ ...driver, vehicleType: driver.vehicle_type, assignedRoutes: [] });
+        res.status(201).json({ ...driver, vehicleType: driver.vehicle_type, brigadeRole: driver.brigade_role, assignedRoutes: [] });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to create driver' });

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, Trash2, Plus, X, Users, Car } from 'lucide-react';
+import { User, Mail, Phone, Trash2, Plus, X, Users, Car, Briefcase } from 'lucide-react';
 
 const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
-    const [newAgent, setNewAgent] = useState({ name: '', email: '', phone: '', cuadrilla: '', vehicleType: 'car' });
+    const [newAgent, setNewAgent] = useState({ name: '', email: '', phone: '', cuadrilla: '', vehicleType: 'car', brigadeRole: '' });
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -11,7 +11,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
             return;
         }
         onAddAgent(newAgent);
-        setNewAgent({ name: '', email: '', phone: '', cuadrilla: '', vehicleType: 'car' });
+        setNewAgent({ name: '', email: '', phone: '', cuadrilla: '', vehicleType: 'car', brigadeRole: '' });
     };
 
     // Desktop: sidebar on right. Mobile: CSS overrides to fullscreen
@@ -147,6 +147,20 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                         </select>
                         <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
                     </div>
+                    <div style={{ position: 'relative' }}>
+                        <Briefcase style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', width: '16px' }} />
+                        <select
+                            value={newAgent.brigadeRole}
+                            onChange={(e) => setNewAgent(p => ({ ...p, brigadeRole: e.target.value }))}
+                            style={{ ...inputStyle, paddingLeft: '40px', appearance: 'none', cursor: 'pointer' }}
+                        >
+                            <option value="">Seleccionar Rol en Cuadrilla...</option>
+                            <option value="tecnico">🛠️ Técnico</option>
+                            <option value="auxiliar">👷 Auxiliar</option>
+                            <option value="conductor">🚚 Conductor</option>
+                        </select>
+                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
+                    </div>
                     <button
                         type="submit"
                         style={{
@@ -195,6 +209,22 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                                             border: '1px solid rgba(245, 158, 11, 0.2)'
                                         }}>
                                             {agent.cuadrilla}
+                                        </div>
+                                    )}
+                                    {agent.brigadeRole && (
+                                        <div style={{
+                                            display: 'inline-block',
+                                            fontSize: '10px',
+                                            background: agent.brigadeRole === 'conductor' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(99, 102, 241, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            marginTop: '4px',
+                                            marginRight: '8px',
+                                            color: agent.brigadeRole === 'conductor' ? '#3b82f6' : '#6366f1',
+                                            border: `1px solid ${agent.brigadeRole === 'conductor' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(99, 102, 241, 0.2)'}`,
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {agent.brigadeRole}
                                         </div>
                                     )}
                                     <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
