@@ -536,14 +536,32 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                         setSelectedDriver(driver.driverId);
                         map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 16 });
                         try {
-                            toast.info('Cargando ruta...');
                             const routes = await getDriverRoutes(driver.driverId);
                             const activeRoute = routes?.find(r => r.status === 'in_progress' || r.status === 'assigned') || routes?.[0];
+
                             if (activeRoute?.waypoints) {
-                                drawHistoryRoute({ type: 'LineString', coordinates: JSON.parse(activeRoute.waypoints).map(wp => [wp.lng, wp.lat]) });
-                                toast.success(`Ruta: ${activeRoute.name}`);
-                            } else toast.warning('Sin ruta activa');
-                        } catch (e) { toast.error('Error cargando ruta'); }
+                                let coordinates = [];
+                                try {
+                                    // Safely handle specific waypoints format (string or object)
+                                    const waypointsData = typeof activeRoute.waypoints === 'string'
+                                        ? JSON.parse(activeRoute.waypoints)
+                                        : activeRoute.waypoints;
+
+                                    if (Array.isArray(waypointsData)) {
+                                        coordinates = waypointsData.map(wp => [wp.lng, wp.lat]);
+                                        drawHistoryRoute({ type: 'LineString', coordinates });
+                                        toast.success(`Ruta: ${activeRoute.name}`);
+                                    }
+                                } catch (parseError) {
+                                    console.error('Error parsing waypoints:', parseError);
+                                }
+                            } else {
+                                toast.info('Sin ruta activa');
+                            }
+                        } catch (e) {
+                            console.error('Error loading route:', e);
+                            toast.error('Error cargando ruta');
+                        }
                     });
 
                     newMarkers[markerId] = marker;
