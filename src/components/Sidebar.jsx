@@ -861,7 +861,7 @@ const Sidebar = ({
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: 4 }}>
 
                                     {/* === SEARCH MODULE === */}
-                                    <div style={styles.moduleCard}>
+                                    <div style={{ ...styles.moduleCard, position: 'relative', zIndex: showSuggestions ? 50 : 2 }}>
                                         <div
                                             style={styles.moduleHeader}
                                             onClick={() => toggleModule('search')}
