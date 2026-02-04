@@ -275,47 +275,50 @@ async function getOSMSignal(lat, lng) {
 }
 
 /**
- * ML Signal - Using K-Means clustering (placeholder for now)
- * Will be replaced with actual model loading
+ * ML Signal - Pre-calculated centroids for Barranquilla
+ * (Acts as a fallback until actual K-Means model is trained with user history)
  */
 async function getMLSignal(lat, lng) {
-    // TODO: Load actual K-Means model for the city
-    // For now, return a placeholder based on distance from city center
+    // Defined centroids for Barranquilla zones (Manual "Pre-training")
+    // Based on key landmarks and neighborhoods
+    const BARRANQUILLA_ZONES = [
+        { id: 'Norte_Riomar', lat: 11.0110, lng: -74.8050, score: 0.90, type: 'URBAN_RES' }, // Buenavista/Riomar - Residencial Alta
+        { id: 'Prado_Alto', lat: 10.9950, lng: -74.8000, score: 0.95, type: 'URBAN_RES' },   // El Prado - Histórico/Residencial
+        { id: 'Centro', lat: 10.9800, lng: -74.7800, score: 0.95, type: 'URBAN_CORE' },      // Centro Histórico - Tráfico denso
+        { id: 'Sur_Ciudadela', lat: 10.9300, lng: -74.8100, score: 0.70, type: 'SUBURBAN' }, // Ciudadela 20 Julio - Media densidad
+        { id: 'Via40_Industry', lat: 11.0200, lng: -74.7900, score: 0.50, type: 'INDUSTRIAL' }, // Vía 40 - Zona Industrial
+        { id: 'Soledad_Centro', lat: 10.9100, lng: -74.7700, score: 0.65, type: 'SUBURBAN' }, // Soledad - Tráfico medio/alto
+        { id: 'Juan_Mina', lat: 10.9500, lng: -74.8500, score: 0.20, type: 'RURAL_NEAR' },    // Zona Franca / Juan Mina - Rural cercano
+        { id: 'Galapa', lat: 10.9000, lng: -74.8800, score: 0.15, type: 'RURAL_NEAR' }         // Galapa - Periferia
+    ];
 
-    // Barranquilla city center
-    const cityCenters = {
-        barranquilla: { lat: 10.9878, lng: -74.7889 },
-        bogota: { lat: 4.7110, lng: -74.0721 },
-        medellin: { lat: 6.2442, lng: -75.5812 }
-    };
-
-    // Find closest city center
-    let closestCity = 'barranquilla';
+    let bestMatch = null;
     let minDistance = Infinity;
 
-    for (const [city, center] of Object.entries(cityCenters)) {
-        const dist = haversineDistance(lat, lng, center.lat, center.lng);
+    // Find closest centroid
+    for (const zone of BARRANQUILLA_ZONES) {
+        const dist = haversineDistance(lat, lng, zone.lat, zone.lng);
         if (dist < minDistance) {
             minDistance = dist;
-            closestCity = city;
+            bestMatch = zone;
         }
     }
 
-    // Calculate density score based on distance from center
-    // Closer to center = higher density
-    let densityScore;
-    if (minDistance < 5) densityScore = 0.95;      // < 5km = urban core
-    else if (minDistance < 10) densityScore = 0.80; // 5-10km = urban
-    else if (minDistance < 20) densityScore = 0.60; // 10-20km = suburban
-    else if (minDistance < 40) densityScore = 0.35; // 20-40km = rural near
-    else densityScore = 0.15;                        // > 40km = rural far
+    // Heuristics based on distance to centroid
+    // If it's very close (< 1.5km) to a known centroid, rely heavily on it
+    let confidence = 0.5;
+    if (minDistance < 1.0) confidence = 0.95;
+    else if (minDistance < 2.5) confidence = 0.8;
+    else if (minDistance < 5.0) confidence = 0.5;
+    else confidence = 0.3; // Too far from known points
 
     return {
-        city: closestCity,
-        distanceToCenter: minDistance,
-        densityScore,
-        clusterId: null, // Will be filled by actual ML model
-        clusterName: null
+        city: 'Barranquilla',
+        clusterId: bestMatch ? bestMatch.id : 'Unknown',
+        distanceToCluster: minDistance,
+        densityScore: bestMatch ? bestMatch.score : 0.4, // Default falloff
+        suggestedType: bestMatch ? bestMatch.type : null,
+        confidence
     };
 }
 
