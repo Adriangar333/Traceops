@@ -508,7 +508,7 @@ export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) =
         // For round trip, use 2-opt for best results, then add start at end
         const sortedWaypoints = twoOptSort(waypoints, false, !!fixedStart);
         const roundTripWaypoints = [...sortedWaypoints, sortedWaypoints[0]];
-        const roundTrip = await getGoogleRoute(roundTripWaypoints, { optimize: false });
+        const roundTrip = await getGoogleRoute(roundTripWaypoints, { optimize: false, travelMode });
         if (roundTrip.success) {
             options.push({
                 name: '🔄 Ruta circular',
