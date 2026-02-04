@@ -10,6 +10,7 @@ PORT=80
 DATABASE_URL=postgres://postgres:5e56da087e6f571ab145@72.60.124.121:5433/dashboard?sslmode=disable
 REDIS_URL=redis://default:Secso29%40@redis:6379
 JWT_SECRET=traceops-super-secret-key-change-in-prod
+GOOGLE_MAPS_API_KEY=AIzaSyAjNacW2ioCzCuK-TcMmh7upwwDh5ntdpg
 ```
 
 ### Frontend (Easypanel)
