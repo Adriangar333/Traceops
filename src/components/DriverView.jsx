@@ -1039,6 +1039,7 @@ const DriverView = ({ params }) => {
                     routeId={routeId}
                     driverId={driverId}
                     driverName={driverName} // Pass driver name
+                    operationType={route?.name?.toUpperCase().includes('CORTE') ? 'Corte' : route?.name?.toUpperCase().includes('RECONEXION') ? 'Reconexión' : 'Entrega'}
                 />
             )}
         </div>
