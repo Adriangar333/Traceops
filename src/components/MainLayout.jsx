@@ -19,7 +19,7 @@ const MainLayout = ({ children, user, onLogout }) => {
 
     const navItems = [
         { icon: <LayoutDashboard size={20} />, label: 'Inicio', path: '/' },
-        { icon: <Map size={20} />, label: 'Planeación Operativa', path: '/operations' },
+        { icon: <Map size={20} />, label: 'Torre de Control', path: '/operations' },
         { icon: <Truck size={20} />, label: 'Adm. Vehicular', path: '/fleet' },
         { icon: <Boxes size={20} />, label: 'Adm. Logística', path: '/inventory' },
         { icon: <Phone size={20} />, label: 'Llamadas', path: '/calls' },
