@@ -249,19 +249,38 @@ const initDB = async () => {
         await client.query('CREATE EXTENSION IF NOT EXISTS postgis;');
         console.log('✅ PostGIS Extension Activated');
 
-        // Create table if not exists
+        // Create driver_locations table (TimescaleDB compatible)
         await client.query(`
             CREATE TABLE IF NOT EXISTS driver_locations (
-                id SERIAL PRIMARY KEY,
+                id SERIAL,
                 driver_id TEXT NOT NULL,
                 latitude FLOAT NOT NULL,
                 longitude FLOAT NOT NULL,
                 speed FLOAT,
                 heading FLOAT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 location GEOMETRY(POINT, 4326)
             );
         `);
+
+        // Try to convert to TimescaleDB hypertable (if TimescaleDB is available)
+        try {
+            await client.query(`SELECT create_hypertable('driver_locations', 'timestamp', if_not_exists => TRUE);`);
+            console.log('✅ driver_locations converted to TimescaleDB hypertable');
+
+            // Enable compression for old data
+            await client.query(`
+                ALTER TABLE driver_locations SET (
+                    timescaledb.compress,
+                    timescaledb.compress_segmentby = 'driver_id'
+                );
+            `);
+            await client.query(`SELECT add_compression_policy('driver_locations', INTERVAL '7 days', if_not_exists => TRUE);`);
+            console.log('✅ Compression policy enabled (>7 days)');
+        } catch (tsErr) {
+            // TimescaleDB not available, continue with regular table
+            console.log('ℹ️ TimescaleDB not available, using regular table');
+        }
         // Create drivers table
         await client.query(`
             CREATE TABLE IF NOT EXISTS drivers (
