@@ -44,10 +44,121 @@ export const validateGeofence = (driverLocation, destination, maxDistance = 100)
 };
 
 /**
+ * Add watermark with metadata to a photo
+ * @param {string} base64Image - Base64 encoded image
+ * @param {Object} metadata - Metadata to overlay
+ * @returns {Promise<string>} Base64 encoded watermarked image
+ */
+const addWatermarkToPhoto = async (base64Image, metadata = {}) => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+
+            // Draw original image
+            ctx.drawImage(img, 0, 0);
+
+            // Semi-transparent overlay at bottom
+            const overlayHeight = 120;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight);
+
+            // Text settings
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Arial, sans-serif';
+            ctx.textBaseline = 'top';
+
+            const padding = 10;
+            let y = canvas.height - overlayHeight + padding;
+            const lineHeight = 18;
+
+            // Format date/time
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('es-CO', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+            const timeStr = now.toLocaleTimeString('es-CO', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            // Line 1: Date & Time
+            ctx.fillText(`📅 ${dateStr} ${timeStr}`, padding, y);
+            y += lineHeight;
+
+            // Line 2: Technician name
+            if (metadata.driverName) {
+                ctx.fillText(`👷 ${metadata.driverName}`, padding, y);
+                y += lineHeight;
+            }
+
+            // Line 3: Operation
+            if (metadata.operationType) {
+                ctx.fillText(`📦 ${metadata.operationType}`, padding, y);
+                y += lineHeight;
+            }
+
+            // Line 4: Address (truncate if too long)
+            if (metadata.address) {
+                const maxWidth = canvas.width - (padding * 2);
+                let address = metadata.address;
+                if (ctx.measureText(address).width > maxWidth) {
+                    while (ctx.measureText(address + '...').width > maxWidth && address.length > 0) {
+                        address = address.slice(0, -1);
+                    }
+                    address += '...';
+                }
+                ctx.fillText(`📍 ${address}`, padding, y);
+                y += lineHeight;
+            }
+
+            // Line 5: Coordinates
+            if (metadata.location) {
+                ctx.fillText(`🌐 ${metadata.location.lat.toFixed(6)}, ${metadata.location.lng.toFixed(6)}`, padding, y);
+            }
+
+            // Mini map placeholder on right side (optional visual cue)
+            const mapSize = 80;
+            const mapX = canvas.width - mapSize - padding;
+            const mapY = canvas.height - overlayHeight + padding;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(mapX, mapY, mapSize, mapSize);
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.fillRect(mapX, mapY, mapSize, mapSize);
+
+            // Draw a simple marker in center
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(mapX + mapSize / 2, mapY + mapSize / 2, 6, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Convert back to base64
+            const watermarkedBase64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+            resolve(watermarkedBase64);
+        };
+
+        img.onerror = () => {
+            console.error('Failed to load image for watermarking');
+            resolve(base64Image); // Return original if watermarking fails
+        };
+
+        img.src = `data:image/jpeg;base64,${base64Image}`;
+    });
+};
+
+/**
  * Capture photo for POD using device camera
+ * @param {Object} metadata - Optional metadata to add as watermark
  * @returns {Promise<string|null>} Base64 encoded image or null on failure
  */
-export const capturePhoto = async () => {
+export const capturePhoto = async (metadata = null) => {
     try {
         const image = await Camera.getPhoto({
             quality: 80,
@@ -59,7 +170,14 @@ export const capturePhoto = async () => {
             correctOrientation: true
         });
 
-        return image.base64String;
+        let photoBase64 = image.base64String;
+
+        // Add watermark if metadata provided
+        if (metadata) {
+            photoBase64 = await addWatermarkToPhoto(photoBase64, metadata);
+        }
+
+        return photoBase64;
     } catch (error) {
         console.error('Camera error:', error);
         // Check if user cancelled

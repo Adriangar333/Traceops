@@ -15,7 +15,9 @@ const PODModal = ({
     waypoint,
     waypointIndex,
     routeId,
-    driverId
+    driverId,
+    driverName, // New prop
+    operationType = 'Entrega' // New prop or default
 }) => {
     const [step, setStep] = useState('location'); // location, photo, signature, submitting
     const [photo, setPhoto] = useState(null);
@@ -69,13 +71,22 @@ const PODModal = ({
         setError(null);
 
         try {
-            const photoData = await capturePhoto();
+            // Prepare metadata for watermark
+            const metadata = {
+                driverName: driverName || 'Técnico',
+                operationType: operationType,
+                address: waypoint?.address || 'Ubicación desconocida',
+                location: location || { lat: 0, lng: 0 } // Use current confirmed location
+            };
+
+            const photoData = await capturePhoto(metadata);
 
             if (photoData) {
                 setPhoto(photoData);
                 setStep('signature');
             }
         } catch (err) {
+            console.error(err);
             setError('Error al tomar la foto. Intenta de nuevo.');
         }
 
@@ -150,7 +161,7 @@ const PODModal = ({
             right: 0,
             bottom: 0,
             background: 'rgba(0,0,0,0.8)',
-            zIndex: 1000,
+            zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

@@ -35,6 +35,7 @@ const DriverView = ({ params }) => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [networkStatus, setNetworkStatus] = useState(navigator.onLine);
     const [showPanicMenu, setShowPanicMenu] = useState(false);
+    const [driverName, setDriverName] = useState(''); // Driver name for watermark
 
     // Get driverId from URL params or generate one
     const searchParams = new URLSearchParams(window.location.search);
@@ -207,6 +208,22 @@ const DriverView = ({ params }) => {
                     }
                 }
             }
+
+
+            // 4. Fetch Driver Name for Watermark
+            if (effectiveDriverId) {
+                try {
+                    const allDrivers = await getDrivers();
+                    const currentDriver = allDrivers.find(d => d.id.toString() === effectiveDriverId.toString());
+                    if (currentDriver) {
+                        setDriverName(currentDriver.name);
+                    }
+                    // Optional: Update list if needed, but primarily we needed the name
+                } catch (e) {
+                    console.error('Error fetching driver details:', e);
+                }
+            }
+
             setLoading(false);
         };
         load();
@@ -1017,6 +1034,7 @@ const DriverView = ({ params }) => {
                     waypointIndex={podModal.waypointIndex}
                     routeId={routeId}
                     driverId={driverId}
+                    driverName={driverName} // Pass driver name
                 />
             )}
         </div>
