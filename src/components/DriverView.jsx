@@ -80,7 +80,7 @@ const DriverView = ({ params }) => {
                         socket.emit('driver:panic', {
                             driverId: activeDriverId,
                             routeId,
-                            type: 'panic',
+                            type: config.label, // FIX: Use correct alert type even without GPS
                             subtype: type,
                             details: config.label,
                             error: 'No GPS'
