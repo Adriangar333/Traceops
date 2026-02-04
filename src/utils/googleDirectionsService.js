@@ -211,124 +211,217 @@ export const getGoogleRoute = async (waypoints, options = {}) => {
             useGoogleOptimize = false;
         } else if (options.strategy === 'google') {
             // Google TSP - Let Google handle optimization
-            orderedWaypoints = waypoints;
-            useGoogleOptimize = true;
+            // NOTE: Google TSP only works for <= 25 waypoints (23 intermediates).
+            // If > 25, we MUST fallback to a local sort first, then just use Google for drawing.
+            if (waypoints.length > 25) {
+                console.warn('Google TSP limit (25) exceeded. Falling back to 2-Opt for optimization, using Google for drawing only.');
+                orderedWaypoints = twoOptSort(waypoints, fixedEnd, fixedStart);
+                useGoogleOptimize = false;
+            } else {
+                orderedWaypoints = waypoints;
+                useGoogleOptimize = true;
+            }
         } else if (options.optimize) {
             // Backward compatibility
             orderedWaypoints = nearestNeighborSort(waypoints, fixedEnd, fixedStart);
         }
 
-        return new Promise((resolve) => {
-            const directionsService = new window.google.maps.DirectionsService();
+        const MAX_WAYPOINTS_PER_REQUEST = 25; // Limit includes origin and destination
 
-            const origin = orderedWaypoints[0];
-            const destination = orderedWaypoints[orderedWaypoints.length - 1];
-            // For Google TSP (strategy='google'), intermediate waypoints must be just the points between start/end
-            // But if we let Google optimize, we pass ALL points (except start/end).
-            // Actually for good TSP, typically start is fixed, end is fixed or flexible.
-            // Google optimizeWaypoints keeps start/end fixed and reorders intermediates.
+        // Helper to fetch a single leg/segment
+        const fetchSegment = (segmentWaypoints) => {
+            return new Promise((resolve) => {
+                const directionsService = new window.google.maps.DirectionsService();
+                const origin = segmentWaypoints[0];
+                const destination = segmentWaypoints[segmentWaypoints.length - 1];
+                const intermediateWaypoints = segmentWaypoints.slice(1, -1).map(wp => ({
+                    location: new window.google.maps.LatLng(wp.lat, wp.lng),
+                    stopover: true
+                }));
 
-            const intermediateWaypoints = orderedWaypoints.slice(1, -1).map(wp => ({
-                location: new window.google.maps.LatLng(wp.lat, wp.lng),
-                stopover: true
-            }));
+                // Determine travel mode from options
+                const travelModeMap = {
+                    'walking': window.google.maps.TravelMode.WALKING,
+                    'bicycle': window.google.maps.TravelMode.BICYCLING,
+                    'transit': window.google.maps.TravelMode.TRANSIT,
+                    'driving': window.google.maps.TravelMode.DRIVING,
+                    'car': window.google.maps.TravelMode.DRIVING,
+                    'motorcycle': window.google.maps.TravelMode.DRIVING,
+                    'truck': window.google.maps.TravelMode.DRIVING
+                };
+                const selectedTravelMode = travelModeMap[options.travelMode] || window.google.maps.TravelMode.DRIVING;
+                const isDriving = selectedTravelMode === window.google.maps.TravelMode.DRIVING;
 
-            // Determine travel mode from options
-            const travelModeMap = {
-                'walking': window.google.maps.TravelMode.WALKING,
-                'bicycle': window.google.maps.TravelMode.BICYCLING,
-                'transit': window.google.maps.TravelMode.TRANSIT,
-                'driving': window.google.maps.TravelMode.DRIVING,
-                'car': window.google.maps.TravelMode.DRIVING,
-                'motorcycle': window.google.maps.TravelMode.DRIVING, // Google treats same as driving
-                'truck': window.google.maps.TravelMode.DRIVING
-            };
-            const selectedTravelMode = travelModeMap[options.travelMode] || window.google.maps.TravelMode.DRIVING;
-            const isDriving = selectedTravelMode === window.google.maps.TravelMode.DRIVING;
+                const request = {
+                    origin: new window.google.maps.LatLng(origin.lat, origin.lng),
+                    destination: new window.google.maps.LatLng(destination.lat, destination.lng),
+                    waypoints: intermediateWaypoints,
+                    optimizeWaypoints: useGoogleOptimize && segmentWaypoints.length <= 25, // Only optimize if small enough (or if logic above allowed it)
+                    travelMode: selectedTravelMode,
+                    ...(isDriving && {
+                        drivingOptions: {
+                            departureTime: new Date(),
+                            trafficModel: window.google.maps.TrafficModel.BEST_GUESS
+                        }
+                    })
+                };
 
-            const request = {
-                origin: new window.google.maps.LatLng(origin.lat, origin.lng),
-                destination: new window.google.maps.LatLng(destination.lat, destination.lng),
-                waypoints: intermediateWaypoints,
-                optimizeWaypoints: useGoogleOptimize,
-                travelMode: selectedTravelMode,
-                ...(isDriving && {
-                    drivingOptions: {
-                        departureTime: new Date(), // Use current time for traffic
-                        trafficModel: window.google.maps.TrafficModel.BEST_GUESS
+                directionsService.route(request, (result, status) => {
+                    if (status === 'OK' && result.routes && result.routes[0]) {
+                        resolve({ success: true, result: result.routes[0] });
+                    } else {
+                        console.error('Directions segment failed:', status);
+                        resolve({ success: false, status });
                     }
-                }),
-                provideRouteAlternatives: options.alternatives || false
-            };
-
-            directionsService.route(request, (result, status) => {
-                if (status === 'OK' && result.routes && result.routes[0]) {
-                    const route = result.routes[0];
-
-                    // Calculate totals
-                    let totalDistance = 0;
-                    let totalDuration = 0;
-                    let totalDurationInTraffic = 0;
-
-                    route.legs.forEach(l => {
-                        totalDistance += l.distance.value;
-                        totalDuration += l.duration.value;
-                        totalDurationInTraffic += l.duration_in_traffic?.value || l.duration.value;
-                    });
-
-                    const coordinates = [];
-
-                    // Try to get detailed path from steps
-                    route.legs.forEach(l => {
-                        l.steps.forEach(step => {
-                            const path = step.path || step.lat_lngs || [];
-                            path.forEach(point => {
-                                if (typeof point.lat === 'function') {
-                                    coordinates.push([point.lng(), point.lat()]);
-                                }
-                            });
-                        });
-                    });
-
-                    // Fallback to overview_path if detailed steps are empty
-                    if (coordinates.length === 0 && route.overview_path) {
-                        console.warn('Using overview_path fallback for route geometry');
-                        route.overview_path.forEach(point => {
-                            if (typeof point.lat === 'function') {
-                                coordinates.push([point.lng(), point.lat()]);
-                            }
-                        });
-                    }
-
-                    // Determine final order
-                    let optimizedWaypoints = orderedWaypoints;
-                    if (useGoogleOptimize && route.waypoint_order) {
-                        // Google returned a new order for the intermediates
-                        const order = route.waypoint_order;
-                        const intermediates = orderedWaypoints.slice(1, -1);
-                        const reorderedIntermediates = order.map(idx => intermediates[idx]);
-                        optimizedWaypoints = [orderedWaypoints[0], ...reorderedIntermediates, orderedWaypoints[orderedWaypoints.length - 1]];
-                    }
-
-                    resolve({
-                        success: true,
-                        coordinates: coordinates,
-                        distance: totalDistance,
-                        distanceKm: (totalDistance / 1000).toFixed(1),
-                        duration: totalDuration,
-                        durationFormatted: formatDuration(totalDuration),
-                        durationInTraffic: totalDurationInTraffic,
-                        durationInTrafficFormatted: formatDuration(totalDurationInTraffic),
-                        hasTrafficData: totalDurationInTraffic !== totalDuration,
-                        optimizedWaypoints: optimizedWaypoints,
-                        waypointOrder: route.waypoint_order
-                    });
-                } else {
-                    console.error('Directions failed:', status);
-                    resolve({ success: false, error: status });
-                }
+                });
             });
-        });
+        };
+
+        // If simple enough, just one request
+        if (orderedWaypoints.length <= MAX_WAYPOINTS_PER_REQUEST) {
+            const response = await fetchSegment(orderedWaypoints);
+            if (!response.success) {
+                return { success: false, error: response.status };
+            }
+
+            const route = response.result;
+            // Process single route result (same as before)
+            let totalDistance = 0;
+            let totalDuration = 0;
+            let totalDurationInTraffic = 0;
+            route.legs.forEach(l => {
+                totalDistance += l.distance.value;
+                totalDuration += l.duration.value;
+                totalDurationInTraffic += l.duration_in_traffic?.value || l.duration.value;
+            });
+
+            const coordinates = [];
+
+            // Try to get detailed path from steps
+            route.legs.forEach(l => {
+                l.steps.forEach(step => {
+                    const path = step.path || step.lat_lngs || [];
+                    path.forEach(point => {
+                        if (typeof point.lat === 'function') {
+                            coordinates.push([point.lng(), point.lat()]);
+                        }
+                    });
+                });
+            });
+
+            // Fallback to overview_path if detailed steps are empty
+            if (coordinates.length === 0 && route.overview_path) {
+                route.overview_path.forEach(point => {
+                    if (typeof point.lat === 'function') {
+                        coordinates.push([point.lng(), point.lat()]);
+                    }
+                });
+            }
+
+            let optimizedWaypoints = orderedWaypoints;
+            if (useGoogleOptimize && route.waypoint_order) {
+                const order = route.waypoint_order;
+                const intermediates = orderedWaypoints.slice(1, -1);
+                const reorderedIntermediates = order.map(idx => intermediates[idx]);
+                optimizedWaypoints = [orderedWaypoints[0], ...reorderedIntermediates, orderedWaypoints[orderedWaypoints.length - 1]];
+            }
+
+            return {
+                success: true,
+                coordinates,
+                distance: totalDistance,
+                distanceKm: (totalDistance / 1000).toFixed(1),
+                duration: totalDuration,
+                durationFormatted: formatDuration(totalDuration),
+                durationInTraffic: totalDurationInTraffic,
+                durationInTrafficFormatted: formatDuration(totalDurationInTraffic),
+                hasTrafficData: totalDurationInTraffic !== totalDuration,
+                optimizedWaypoints,
+                waypointOrder: route.waypoint_order
+            };
+        }
+
+        // --- CHUNKING LOGIC FOR > 25 WAYPOINTS ---
+        // We must split into chunks.
+        // Chunk 1: 0 to 24 (25 pts)
+        // Chunk 2: 24 to 48 (25 pts) -> overlaps at 24
+        // etc.
+
+        console.log(`Route has ${orderedWaypoints.length} waypoints, splitting into chunks...`);
+
+        const chunks = [];
+        const chunkSize = MAX_WAYPOINTS_PER_REQUEST - 1; // -1 because we share end/start point
+
+        for (let i = 0; i < orderedWaypoints.length - 1; i += chunkSize) {
+            const chunk = orderedWaypoints.slice(i, i + chunkSize + 1);
+            if (chunk.length >= 2) {
+                chunks.push(chunk);
+            }
+        }
+
+        let totalDistance = 0;
+        let totalDuration = 0;
+        let totalDurationInTraffic = 0;
+        let coordinates = [];
+        let finalOptimizedWaypoints = [];
+
+        // Since we are chunking, we CANNOT rely on Google's global optimization (TSP).
+        // We relied on local sort (Greedy or 2-Opt) before entering this block if strategy was 'google' but points > 25.
+        // So here we validly assume `orderedWaypoints` is the final order we want to draw.
+
+        for (const chunk of chunks) {
+            const response = await fetchSegment(chunk);
+            if (!response.success) {
+                return { success: false, error: `Segment failed: ${response.status}` };
+            }
+
+            const route = response.result;
+
+            route.legs.forEach(l => {
+                totalDistance += l.distance.value;
+                totalDuration += l.duration.value;
+                totalDurationInTraffic += l.duration_in_traffic?.value || l.duration.value;
+            });
+
+            // Extract coordinates
+            route.legs.forEach(l => {
+                l.steps.forEach(step => {
+                    const path = step.path || step.lat_lngs || [];
+                    path.forEach(point => {
+                        if (typeof point.lat === 'function') {
+                            coordinates.push([point.lng(), point.lat()]);
+                        }
+                    });
+                });
+            });
+
+            // Allow overview_path fallback for chunks too if needed
+            if (coordinates.length === 0 && route.overview_path) {
+                route.overview_path.forEach(point => {
+                    if (typeof point.lat === 'function') {
+                        coordinates.push([point.lng(), point.lat()]);
+                    }
+                });
+            }
+        }
+
+        // Remove duplicate coordinates at stitch points (optional but cleaner)
+        // Simple filter might be expensive for huge arrays, leaving as is for now as exact duplicates don't hurt rendering much.
+
+        return {
+            success: true,
+            coordinates,
+            distance: totalDistance,
+            distanceKm: (totalDistance / 1000).toFixed(1),
+            duration: totalDuration,
+            durationFormatted: formatDuration(totalDuration),
+            durationInTraffic: totalDurationInTraffic,
+            durationInTrafficFormatted: formatDuration(totalDurationInTraffic),
+            hasTrafficData: totalDurationInTraffic !== totalDuration,
+            optimizedWaypoints: orderedWaypoints, // We didn't allow Google to reorder chunks internally
+            waypointOrder: [] // No meaningful single order to return
+        };
+
     } catch (error) {
         console.error('Google Directions error:', error);
         return { success: false, error: error.message };
