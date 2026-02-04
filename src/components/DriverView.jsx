@@ -767,69 +767,73 @@ const DriverView = ({ params }) => {
         <div style={{ background: '#f8fafc', height: '100dvh', display: 'flex', flexDirection: 'column', color: '#0f172a', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
             <Toaster position="top-center" richColors />
 
-            {/* SOS / Panic Button - Toggles Menu */}
-            <button
-                onClick={() => setShowPanicMenu(!showPanicMenu)}
-                style={{
-                    position: 'fixed',
-                    bottom: 180, // Positioned above other FABs
-                    right: 16,
-                    width: 56,
-                    height: 56,
-                    borderRadius: '50%',
-                    background: '#ef4444',
-                    color: 'white',
-                    border: '4px solid rgba(255,255,255,0.2)',
-                    boxShadow: '0 4px 20px rgba(220, 38, 38, 0.6)',
-                    zIndex: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    animation: 'pulse-red 2s infinite',
-                    transform: showPanicMenu ? 'rotate(45deg)' : 'none',
-                    transition: 'transform 0.3s ease'
-                }}
-                aria-label="Menú de Alertas"
-            >
-                {showPanicMenu ? <XCircle size={28} /> : <AlertTriangle size={28} strokeWidth={3} />}
-            </button>
+            {/* SOS / Panic Button - Hidden in list mode and during tracking */}
+            {viewMode !== 'list' && !isTracking && (
+                <>
+                    <button
+                        onClick={() => setShowPanicMenu(!showPanicMenu)}
+                        style={{
+                            position: 'fixed',
+                            bottom: 180,
+                            right: 16,
+                            width: 56,
+                            height: 56,
+                            borderRadius: '50%',
+                            background: '#ef4444',
+                            color: 'white',
+                            border: '4px solid rgba(255,255,255,0.2)',
+                            boxShadow: '0 4px 20px rgba(220, 38, 38, 0.6)',
+                            zIndex: 9999,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            outline: 'none',
+                            animation: 'pulse-red 2s infinite',
+                            transform: showPanicMenu ? 'rotate(45deg)' : 'none',
+                            transition: 'transform 0.3s ease'
+                        }}
+                        aria-label="Menú de Alertas"
+                    >
+                        {showPanicMenu ? <XCircle size={28} /> : <AlertTriangle size={28} strokeWidth={3} />}
+                    </button>
 
-            {/* Alert Menu Overlay */}
-            {showPanicMenu && (
-                <div style={{
-                    position: 'fixed',
-                    bottom: 250,
-                    right: 16,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    zIndex: 9998,
-                    animation: 'slide-up 0.3s ease-out'
-                }}>
-                    <button onClick={() => handlePanicOption('sos')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#dc2626', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
-                        <Siren size={20} /> SOS / EMERGENCIA
-                    </button>
-                    <button onClick={() => handlePanicOption('aggressive')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#ea580c', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
-                        <AlertOctagon size={20} /> Cliente Agresivo
-                    </button>
-                    <button onClick={() => handlePanicOption('closed')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#f59e0b', color: 'black', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
-                        <Lock size={20} /> Predio Cerrado
-                    </button>
-                    <button onClick={() => handlePanicOption('impossible')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#eab308', color: 'black', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
-                        <XCircle size={20} /> Imposibilidad
-                    </button>
-                    <style>{`@keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                </div>
+                    {/* Alert Menu Overlay */}
+                    {showPanicMenu && (
+                        <div style={{
+                            position: 'fixed',
+                            bottom: 250,
+                            right: 16,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 12,
+                            zIndex: 9998,
+                            animation: 'slide-up 0.3s ease-out'
+                        }}>
+                            <button onClick={() => handlePanicOption('sos')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#dc2626', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                                <Siren size={20} /> SOS / EMERGENCIA
+                            </button>
+                            <button onClick={() => handlePanicOption('aggressive')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#ea580c', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                                <AlertOctagon size={20} /> Cliente Agresivo
+                            </button>
+                            <button onClick={() => handlePanicOption('closed')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#f59e0b', color: 'black', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                                <Lock size={20} /> Predio Cerrado
+                            </button>
+                            <button onClick={() => handlePanicOption('impossible')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 12, border: 'none', background: '#eab308', color: 'black', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer' }}>
+                                <XCircle size={20} /> Imposibilidad
+                            </button>
+                            <style>{`@keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                        </div>
+                    )}
+                    <style>{`
+                    @keyframes pulse-red {
+                        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+                        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+                        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                    }
+                `}</style>
+                </>
             )}
-            <style>{`
-                @keyframes pulse-red {
-                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-                    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-                }
-            `}</style>
 
             {/* Header */}
             <div style={{

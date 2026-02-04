@@ -24,6 +24,7 @@ function AdminDashboard() {
     const [showTracking, setShowTracking] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [previewRoute, setPreviewRoute] = useState(null);
+    const [travelMode, setTravelMode] = useState('driving'); // For route color differentiation
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
     useEffect(() => {
@@ -394,6 +395,8 @@ function AdminDashboard() {
                 isSubmitting={isSubmitting}
                 onOpenAgents={() => setShowAgentsPanel(true)}
                 onOpenDashboard={() => setShowDashboard(true)}
+                travelMode={travelMode}
+                setTravelMode={setTravelMode}
                 onPreviewRoute={setPreviewRoute}
                 onApplyRoute={(route) => {
                     if (route?.optimizedWaypoints) {
@@ -421,6 +424,7 @@ function AdminDashboard() {
                 waypoints={displayWaypoints}
                 previewRoute={previewRoute}
                 onClearPreview={() => setPreviewRoute(null)}
+                travelMode={travelMode}
 
                 onAddWaypoint={(newPoint) => {
                     setWaypoints(prev => [...prev, newPoint]);

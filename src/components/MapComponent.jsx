@@ -14,7 +14,7 @@ const MAP_STYLES = {
     google_terrain: { name: 'Terreno', url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', icon: '⛰️', type: 'raster' }
 };
 
-const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, onClearPreview, onClearRoute, fixedStartConfigured, fixedEndConfigured, returnToStart }) => {
+const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, onClearPreview, onClearRoute, fixedStartConfigured, fixedEndConfigured, returnToStart, travelMode = 'driving' }) => {
     const mapContainer = useRef(null);
     const map = useRef(null);
     const markersRef = useRef([]);
@@ -113,15 +113,24 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
             });
         }
         if (!map.current.getLayer('route-line')) {
+            // Define route colors based on travel mode
+            const routeColors = {
+                driving: '#3b82f6',   // Blue for driving
+                walking: '#f59e0b',   // Orange for walking
+                bicycle: '#10b981'    // Green for bicycle
+            };
+            const routeColor = isSatellite ? '#ffffff' : (routeColors[travelMode] || '#3b82f6');
+
             map.current.addLayer({
                 id: 'route-line',
                 type: 'line',
                 source: 'route',
                 layout: { 'line-join': 'round', 'line-cap': 'round' },
                 paint: {
-                    'line-color': isSatellite ? '#ffffff' : '#3b82f6',
-                    'line-width': 6,
-                    'line-opacity': 0.9
+                    'line-color': routeColor,
+                    'line-width': travelMode === 'walking' ? 5 : 6, // Slightly thinner for walking
+                    'line-opacity': 0.9,
+                    'line-dasharray': travelMode === 'walking' ? [3, 2] : [1, 0] // Dashed for walking
                 }
             });
         }
@@ -151,6 +160,23 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
             });
         }
     }, [currentStyle, showTraffic]);
+
+    // Update route color when travel mode changes
+    useEffect(() => {
+        if (!map.current || !mapReady) return;
+        if (!map.current.getLayer('route-line')) return;
+
+        const routeColors = {
+            driving: '#3b82f6',   // Blue for driving
+            walking: '#f59e0b',   // Orange for walking  
+            bicycle: '#10b981'    // Green for bicycle
+        };
+        const routeColor = routeColors[travelMode] || '#3b82f6';
+
+        map.current.setPaintProperty('route-line', 'line-color', routeColor);
+        map.current.setPaintProperty('route-line', 'line-width', travelMode === 'walking' ? 5 : 6);
+        map.current.setPaintProperty('route-line', 'line-dasharray', travelMode === 'walking' ? [3, 2] : [1, 0]);
+    }, [travelMode, mapReady]);
 
     // Handle map initialization
     useEffect(() => {

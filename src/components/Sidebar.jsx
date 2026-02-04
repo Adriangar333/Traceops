@@ -14,7 +14,8 @@ const Sidebar = ({
     agents, selectedAgent, setSelectedAgent,
     savedRoutes, onSaveRoute, onLoadRoute, onDeleteRoute,
     onAssign, isSubmitting, onOpenAgents, onOpenDashboard,
-    onPreviewRoute, onApplyRoute
+    onPreviewRoute, onApplyRoute,
+    travelMode, setTravelMode
 }) => {
     // Core states
     const [addressInput, setAddressInput] = useState('');
@@ -34,7 +35,7 @@ const Sidebar = ({
     const [showRouteOptions, setShowRouteOptions] = useState(false);
     const [selectedRouteOption, setSelectedRouteOption] = useState(null);
     const [expandedInfo, setExpandedInfo] = useState(null);
-    const [travelMode, setTravelMode] = useState('driving'); // 'driving', 'walking', or 'bicycle'
+    // travelMode and setTravelMode are now passed as props from AdminDashboard
 
     // Panel states
     const [activePanel, setActivePanel] = useState(null); // 'config', 'routes', 'import', 'ai'
@@ -885,7 +886,19 @@ const Sidebar = ({
                                                     </button>
                                                 </div>
                                                 {showSuggestions && suggestions.length > 0 && (
-                                                    <div style={{ position: 'absolute', top: 'calc(100% - 8px)', left: 16, right: 16, background: 'rgba(15, 23, 42, 0.98)', borderRadius: '0 0 12px 12px', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 200, overflowY: 'auto', zIndex: 10 }}>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 'calc(100% - 8px)',
+                                                        left: 16,
+                                                        right: 16,
+                                                        background: 'rgba(15, 23, 42, 0.98)',
+                                                        borderRadius: '0 0 12px 12px',
+                                                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                        maxHeight: 250,
+                                                        overflowY: 'auto',
+                                                        zIndex: 1000,
+                                                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(59, 130, 246, 0.15)'
+                                                    }}>
                                                         {suggestions.map((s, i) => (
                                                             <div
                                                                 key={i}

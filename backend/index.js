@@ -14,6 +14,8 @@ const { createClient } = require('redis');
 const { authRequired, requireRole, optionalAuth, driverAuth } = require('./middleware/auth');
 const { apiLimiter, publicLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/authRoutes');
+// GraphQL
+const { createApolloServer, setupGraphQLMiddleware } = require('./graphql');
 
 const app = express();
 
@@ -932,6 +934,29 @@ app.get('/health', async (req, res) => {
     }
 });
 
-server.listen(PORT, () => {
-    console.log(`🚀 Backend server running on port ${PORT} `);
-});
+// ======================================
+// GRAPHQL + SERVER STARTUP
+// ======================================
+async function startServer() {
+    try {
+        // Initialize Apollo GraphQL Server
+        const apolloServer = createApolloServer();
+        await apolloServer.start();
+
+        // Mount GraphQL at /graphql endpoint using setupGraphQLMiddleware
+        await setupGraphQLMiddleware(app, apolloServer, pool);
+
+        console.log('✅ GraphQL endpoint available at /graphql');
+
+        // Start HTTP server
+        server.listen(PORT, () => {
+            console.log(`🚀 Backend server running on port ${PORT}`);
+            console.log(`📊 GraphQL Playground: http://localhost:${PORT}/graphql`);
+        });
+    } catch (error) {
+        console.error('❌ Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
