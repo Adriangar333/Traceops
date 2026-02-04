@@ -27,7 +27,7 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
     // Socket.io Connection for Driver Tracking
     useEffect(() => {
         // Connect to the Production Backend
-        const socket = io('https://dashboard-backend.zvkdyr.easypanel.host');
+        const socket = io('https://dashboard-backend.zvkdyr.easypanel.host', { transports: ['websocket'] });
 
         socket.on('connect', () => {
             console.log('🗺️ Map connected to backend tracking');

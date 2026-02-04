@@ -156,8 +156,9 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     useEffect(() => {
         if (!isOpen) return;
 
-        socketRef.current = io(BACKEND_URL);
-
+        // Initialize Socket
+        const socket = io(BACKEND_URL, { transports: ['websocket'] });
+        socketRef.current = socket;
         socketRef.current.on('connect', () => {
             console.log('📡 Connected to tracking server');
         });

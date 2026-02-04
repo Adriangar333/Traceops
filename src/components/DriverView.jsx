@@ -55,7 +55,7 @@ const DriverView = ({ params }) => {
 
         if (window.confirm(`¿Enviar reporte de: ${config.label}?`)) {
             try {
-                const socket = window.socket || io('https://dashboard-backend.zvkdyr.easypanel.host');
+                const socket = window.socket || io('https://dashboard-backend.zvkdyr.easypanel.host', { transports: ['websocket'] });
                 const activeDriverId = driverId || localStorage.getItem('traceops_driver_id');
 
                 navigator.geolocation.getCurrentPosition(
