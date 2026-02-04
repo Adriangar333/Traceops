@@ -77,6 +77,10 @@ const pool = new Pool({
 const scrcRoutes = require('./routes/scrcRoutes')(pool);
 app.use('/api/scrc', scrcRoutes);
 
+// Zone Classification Routes (Urban/Rural detection)
+const zoneRoutes = require('./routes/zones');
+app.use('/api/zones', zoneRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================
