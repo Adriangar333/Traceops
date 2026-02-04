@@ -207,6 +207,10 @@ const Sidebar = ({
         if (result?.success && result.options) {
             setRouteOptions(result.options);
             setShowRouteOptions(true);
+            // Feature: Auto-show optimization panel immediately
+            if (result.options.length > 0) {
+                handlePreviewRouteOption(result.options[0]);
+            }
         }
     };
 
@@ -356,7 +360,7 @@ const Sidebar = ({
             borderRadius: 14,
             border: '1px solid rgba(255, 255, 255, 0.08)',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-            overflow: 'hidden',
+            overflow: 'visible', // Fixed: Allow dropdowns to overflow
             pointerEvents: 'auto',
             transition: 'all 0.25s ease'
         },
@@ -870,47 +874,70 @@ const Sidebar = ({
                                             {expandedModules.search ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
                                         </div>
                                         {expandedModules.search && (
-                                            <div style={{ ...styles.moduleContent, position: 'relative' }}>
-                                                <div style={{ display: 'flex', gap: 8 }}>
-                                                    <input
-                                                        value={addressInput}
-                                                        onChange={e => setAddressInput(e.target.value)}
-                                                        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                                        placeholder="Buscar dirección..."
-                                                        style={{ ...styles.input, flex: 1 }}
-                                                        onKeyDown={e => e.key === 'Enter' && handleAddAddress()}
-                                                    />
-                                                    <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn }}>
-                                                        {isGeocoding ? '...' : <Search size={18} />}
+                                            <div style={{ ...styles.moduleContent, position: 'relative', zIndex: 20 }}>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <div style={{ position: 'relative', flex: 1 }}>
+                                                        <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                        <input
+                                                            value={addressInput}
+                                                            onChange={e => setAddressInput(e.target.value)}
+                                                            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                                            placeholder="Buscar dirección para agregar..."
+                                                            style={{
+                                                                ...styles.input,
+                                                                paddingLeft: 38,
+                                                                height: 42,
+                                                                background: 'rgba(0,0,0,0.2)',
+                                                                border: showSuggestions ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                                                                boxShadow: showSuggestions ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none'
+                                                            }}
+                                                            onKeyDown={e => e.key === 'Enter' && handleAddAddress()}
+                                                        />
+                                                    </div>
+                                                    <button onClick={handleAddAddress} disabled={isGeocoding} style={{ ...styles.btn, ...styles.primaryBtn, height: 42, width: 42, padding: 0, justifyContent: 'center' }}>
+                                                        {isGeocoding ? <div className="animate-spin" style={{ width: 16, height: 16, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%' }}></div> : <Check size={20} />}
                                                     </button>
                                                 </div>
                                                 {showSuggestions && suggestions.length > 0 && (
                                                     <div style={{
                                                         position: 'absolute',
-                                                        top: 'calc(100% - 8px)',
-                                                        left: 16,
-                                                        right: 16,
-                                                        background: 'rgba(15, 23, 42, 0.98)',
-                                                        borderRadius: '0 0 12px 12px',
-                                                        border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                        maxHeight: 250,
+                                                        top: 'calc(100% + 6px)',
+                                                        left: 0,
+                                                        right: 0,
+                                                        background: '#0f172a',
+                                                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                                                        borderRadius: 12,
+                                                        maxHeight: 280,
                                                         overflowY: 'auto',
                                                         zIndex: 1000,
-                                                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(59, 130, 246, 0.15)'
+                                                        boxShadow: '0 10px 40px -10px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05)'
                                                     }}>
                                                         {suggestions.map((s, i) => (
                                                             <div
                                                                 key={i}
                                                                 onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(s); }}
-                                                                style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}
-                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'}
+                                                                style={{
+                                                                    padding: '12px 16px',
+                                                                    cursor: 'pointer',
+                                                                    borderBottom: i === suggestions.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 12,
+                                                                    transition: 'background 0.2s'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
                                                                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                                             >
-                                                                <MapPin size={16} color="#3b82f6" />
+                                                                <div style={{
+                                                                    width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.1)',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                                                }}>
+                                                                    <MapPin size={16} color="#3b82f6" />
+                                                                </div>
                                                                 <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                                    <div style={{ fontSize: 13, fontWeight: 500, color: '#e2e8f0' }}>{s.shortName}</div>
-                                                                    <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
+                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', marginBottom: 2 }}>{s.shortName}</div>
+                                                                    <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.displayName}</div>
                                                                 </div>
                                                             </div>
                                                         ))}
