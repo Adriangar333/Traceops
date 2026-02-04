@@ -6,6 +6,10 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const helmet = require('helmet');
 
+// Redis Adapter for Socket.io Horizontal Scaling
+const { createAdapter } = require('@socket.io/redis-adapter');
+const { createClient } = require('redis');
+
 // Security Middleware
 const { authRequired, requireRole, optionalAuth, driverAuth } = require('./middleware/auth');
 const { apiLimiter, publicLimiter } = require('./middleware/rateLimiter');
@@ -76,6 +80,26 @@ app.use('/api/scrc', scrcRoutes);
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================
+
+// Redis Adapter Setup (if REDIS_URL configured)
+if (process.env.REDIS_URL) {
+    const pubClient = createClient({ url: process.env.REDIS_URL });
+    const subClient = pubClient.duplicate();
+
+    pubClient.on('error', (err) => console.error('Redis Pub Error:', err));
+    subClient.on('error', (err) => console.error('Redis Sub Error:', err));
+
+    Promise.all([pubClient.connect(), subClient.connect()])
+        .then(() => {
+            io.adapter(createAdapter(pubClient, subClient));
+            console.log('✅ Redis Adapter connected - Horizontal scaling enabled');
+        })
+        .catch((err) => {
+            console.warn('⚠️ Redis Adapter failed, falling back to in-memory:', err.message);
+        });
+} else {
+    console.log('ℹ️ REDIS_URL not configured - using in-memory Socket.io (single instance)');
+}
 
 // Buffer for batch inserts (reduces DB writes by ~94%)
 const locationBuffer = [];
