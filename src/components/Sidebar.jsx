@@ -481,6 +481,18 @@ const Sidebar = ({
                                 <button onClick={onOpenDashboard} style={styles.iconBtn} title="Dashboard">
                                     <BarChart3 size={16} color="#10b981" />
                                 </button>
+                                {isMobile && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setMobileCollapsed(!mobileCollapsed); }}
+                                        style={{
+                                            ...styles.iconBtn,
+                                            background: mobileCollapsed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                                            marginLeft: 6
+                                        }}
+                                    >
+                                        {mobileCollapsed ? <ChevronUp size={20} color="#10b981" /> : <ChevronDown size={20} color="#e2e8f0" />}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
