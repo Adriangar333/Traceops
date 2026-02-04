@@ -198,7 +198,7 @@ const Sidebar = ({
         // Fallback to OSRM if Google fails
         if (!result?.success || !result.options?.length) {
             console.log('Google Directions failed, using OSRM fallback');
-            result = await generateRouteOptions(allWaypoints);
+            result = await generateRouteOptions(allWaypoints, routeConfig);
         }
 
         setIsOptimizing(false);

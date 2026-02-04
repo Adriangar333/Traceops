@@ -430,9 +430,17 @@ export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) =
 };
 
 // Get Distance Matrix for multiple origins/destinations
-export const getDistanceMatrix = async (origins, destinations) => {
+export const getDistanceMatrix = async (origins, destinations, options = {}) => {
     try {
         await waitForGoogle();
+
+        const travelModeMap = {
+            'walking': window.google.maps.TravelMode.WALKING,
+            'bicycle': window.google.maps.TravelMode.BICYCLING,
+            'transit': window.google.maps.TravelMode.TRANSIT,
+            'driving': window.google.maps.TravelMode.DRIVING
+        };
+        const selectedTravelMode = travelModeMap[options.travelMode] || window.google.maps.TravelMode.DRIVING;
 
         return new Promise((resolve) => {
             const service = new window.google.maps.DistanceMatrixService();
@@ -440,11 +448,13 @@ export const getDistanceMatrix = async (origins, destinations) => {
             service.getDistanceMatrix({
                 origins: origins.map(o => new window.google.maps.LatLng(o.lat, o.lng)),
                 destinations: destinations.map(d => new window.google.maps.LatLng(d.lat, d.lng)),
-                travelMode: window.google.maps.TravelMode.DRIVING,
-                drivingOptions: {
-                    departureTime: new Date(),
-                    trafficModel: window.google.maps.TrafficModel.BEST_GUESS
-                }
+                travelMode: selectedTravelMode,
+                ...(selectedTravelMode === window.google.maps.TravelMode.DRIVING && {
+                    drivingOptions: {
+                        departureTime: new Date(),
+                        trafficModel: window.google.maps.TrafficModel.BEST_GUESS
+                    }
+                })
             }, (response, status) => {
                 if (status === 'OK') {
                     resolve({ success: true, data: response });

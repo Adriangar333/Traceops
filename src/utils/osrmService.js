@@ -8,17 +8,31 @@ const formatDuration = (seconds) => {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
 };
 
+// Helper to get OSRM profile from travel mode
+const getOsrmProfile = (mode) => {
+    const map = {
+        'walking': 'foot',
+        'bicycle': 'bike',
+        'driving': 'driving',
+        'car': 'driving',
+        'motorcycle': 'driving',
+        'truck': 'driving'
+    };
+    return map[mode] || 'driving';
+};
+
 // Fetch route with stats (distance, duration)
-export const fetchRouteWithStats = async (waypoints) => {
+export const fetchRouteWithStats = async (waypoints, options = {}) => {
     if (waypoints.length < 2) return null;
 
+    const profile = getOsrmProfile(options.travelMode || 'driving');
     const coordinatesString = waypoints
         .map(wp => `${wp.lng},${wp.lat}`)
         .join(';');
 
     try {
         const response = await fetch(
-            `${OSRM_BASE_URL}/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson&steps=false`
+            `${OSRM_BASE_URL}/route/v1/${profile}/${coordinatesString}?overview=full&geometries=geojson&steps=false`
         );
         const data = await response.json();
 
@@ -41,42 +55,45 @@ export const fetchRouteWithStats = async (waypoints) => {
 };
 
 // Generate multiple route options with different optimization strategies
-export const generateRouteOptions = async (waypoints) => {
+export const generateRouteOptions = async (waypoints, options = {}) => {
+    const travelMode = options.travelMode || 'driving';
+
     if (waypoints.length < 3) {
         // Not enough points for meaningful optimization
-        const basicRoute = await fetchRouteWithStats(waypoints);
+        const basicRoute = await fetchRouteWithStats(waypoints, { travelMode });
         return { success: true, options: [{ ...basicRoute, name: 'Ruta directa', strategy: 'direct' }] };
     }
 
-    const options = [];
+    const routeOptionsList = [];
 
     try {
         // Option 1: Keep first point as start, optimize rest (most common use case)
-        const opt1 = await optimizeFromStart(waypoints);
+        const opt1 = await optimizeFromStart(waypoints, travelMode);
         if (opt1.success) {
-            options.push({ ...opt1, name: '🚀 Más rápida (desde inicio)', strategy: 'from_start' });
+            routeOptionsList.push({ ...opt1, name: '🚀 Más rápida (desde inicio)', strategy: 'from_start' });
         }
 
         // Option 2: Round trip (return to start)
-        const opt2 = await optimizeRoundTrip(waypoints);
+        const opt2 = await optimizeRoundTrip(waypoints, travelMode);
         if (opt2.success) {
-            options.push({ ...opt2, name: '🔄 Circular (regresar al inicio)', strategy: 'round_trip' });
+            routeOptionsList.push({ ...opt2, name: '🔄 Circular (regresar al inicio)', strategy: 'round_trip' });
         }
 
         // Option 3: Nearest neighbor starting from first point
-        const opt3 = await optimizeNearestNeighbor(waypoints);
+        // Note: optimizeNearestNeighbor internally calls fetchRouteWithStats, so we need to pass travelMode there too
+        const opt3 = await optimizeNearestNeighbor(waypoints, travelMode);
         if (opt3.success) {
-            options.push({ ...opt3, name: '📍 Punto más cercano', strategy: 'nearest' });
+            routeOptionsList.push({ ...opt3, name: '📍 Punto más cercano', strategy: 'nearest' });
         }
 
-        if (options.length === 0) {
+        if (routeOptionsList.length === 0) {
             return { success: false, error: 'No se pudieron generar opciones' };
         }
 
         // Sort by distance
-        options.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+        routeOptionsList.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
 
-        return { success: true, options };
+        return { success: true, options: routeOptionsList };
     } catch (error) {
         console.error('Route options error:', error);
         return { success: false, error: error.message };
@@ -84,14 +101,15 @@ export const generateRouteOptions = async (waypoints) => {
 };
 
 // Optimize keeping first point as start
-const optimizeFromStart = async (waypoints) => {
+const optimizeFromStart = async (waypoints, travelMode = 'driving') => {
+    const profile = getOsrmProfile(travelMode);
     const coordinatesString = waypoints
         .map(wp => `${wp.lng},${wp.lat}`)
         .join(';');
 
     try {
         const response = await fetch(
-            `${OSRM_BASE_URL}/trip/v1/driving/${coordinatesString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`
+            `${OSRM_BASE_URL}/trip/v1/${profile}/${coordinatesString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`
         );
         const data = await response.json();
 
@@ -116,14 +134,15 @@ const optimizeFromStart = async (waypoints) => {
 };
 
 // Optimize as round trip
-const optimizeRoundTrip = async (waypoints) => {
+const optimizeRoundTrip = async (waypoints, travelMode = 'driving') => {
+    const profile = getOsrmProfile(travelMode);
     const coordinatesString = waypoints
         .map(wp => `${wp.lng},${wp.lat}`)
         .join(';');
 
     try {
         const response = await fetch(
-            `${OSRM_BASE_URL}/trip/v1/driving/${coordinatesString}?roundtrip=true&source=first&geometries=geojson&overview=full`
+            `${OSRM_BASE_URL}/trip/v1/${profile}/${coordinatesString}?roundtrip=true&source=first&geometries=geojson&overview=full`
         );
         const data = await response.json();
 
@@ -148,7 +167,7 @@ const optimizeRoundTrip = async (waypoints) => {
 };
 
 // Nearest neighbor algorithm
-const optimizeNearestNeighbor = async (waypoints) => {
+const optimizeNearestNeighbor = async (waypoints, travelMode = 'driving') => {
     // Start from first point and always go to nearest unvisited
     const visited = [0];
     const unvisited = waypoints.slice(1).map((_, i) => i + 1);
@@ -174,7 +193,7 @@ const optimizeNearestNeighbor = async (waypoints) => {
     const optimizedWaypoints = visited.map(i => waypoints[i]);
 
     // Now get the actual route for this order
-    const route = await fetchRouteWithStats(optimizedWaypoints);
+    const route = await fetchRouteWithStats(optimizedWaypoints, { travelMode });
 
     if (route?.success) {
         return {
