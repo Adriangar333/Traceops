@@ -440,29 +440,31 @@ function AdminDashboard() {
                 driversList={agents}
             />
 
-            {/* Floating Tracking Button */}
-            <button
-                onClick={() => setShowTracking(true)}
-                style={{
-                    position: 'fixed',
-                    bottom: 20,
-                    right: 20,
-                    background: '#9DBD39',
-                    border: 'none',
-                    borderRadius: 50,
-                    padding: '14px 20px',
-                    color: 'white',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 10px rgba(157, 189, 57, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    zIndex: 100
-                }}
-            >
-                <span style={{ fontSize: '1.2rem' }}>📡</span> Rastreo en Vivo
-            </button>
+            {/* Floating Tracking Button - Hide when tracking panel is open */}
+            {!showTracking && (
+                <button
+                    onClick={() => setShowTracking(true)}
+                    style={{
+                        position: 'fixed',
+                        bottom: 20,
+                        right: 20,
+                        background: '#9DBD39',
+                        border: 'none',
+                        borderRadius: 50,
+                        padding: '14px 20px',
+                        color: 'white',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 10px rgba(157, 189, 57, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        zIndex: 100
+                    }}
+                >
+                    <span style={{ fontSize: '1.2rem' }}>📡</span> Rastreo en Vivo
+                </button>
+            )}
         </div>
     );
 }

@@ -669,7 +669,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                     left: 16,
                     width: 300,
                     maxHeight: 'calc(100% - 32px)',
-                    background: 'rgba(15, 23, 42, 0.85)',
+                    background: 'rgba(15, 23, 42, 0.95)',
                     backdropFilter: 'blur(20px)',
                     WebkitBackdropFilter: 'blur(20px)',
                     borderRadius: 16,
@@ -677,7 +677,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
                     overflowY: 'auto',
                     padding: 16,
-                    zIndex: 100
+                    zIndex: 500
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <h3 style={{ color: '#e2e8f0', margin: 0, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
