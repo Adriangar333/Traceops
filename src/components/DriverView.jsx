@@ -768,7 +768,7 @@ const DriverView = ({ params }) => {
             <Toaster position="top-center" richColors />
 
             {/* SOS / Panic Button - Hidden in list mode and during tracking */}
-            {viewMode !== 'list' && !isTracking && (
+            {viewMode !== 'list' && isTracking && (
                 <>
                     <button
                         onClick={() => setShowPanicMenu(!showPanicMenu)}
