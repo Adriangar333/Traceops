@@ -4,6 +4,7 @@ import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlac
 import { sendToGemini } from '../utils/geminiService';
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
 import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService';
+import ZoneStatsPanel from './ZoneStatsPanel';
 
 const Sidebar = ({
     waypoints, setWaypoints,
@@ -497,6 +498,11 @@ const Sidebar = ({
                                     <div style={{ fontSize: 10, color: '#64748b' }}>estimado</div>
                                 </div>
                             </div>
+                        )}
+
+                        {/* Zone Classification Stats */}
+                        {routeStats && waypoints.length > 0 && (
+                            <ZoneStatsPanel waypoints={waypoints} />
                         )}
                     </div>
 
