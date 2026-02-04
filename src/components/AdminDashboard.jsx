@@ -24,6 +24,13 @@ function AdminDashboard() {
     const [showTracking, setShowTracking] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [previewRoute, setPreviewRoute] = useState(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const [fixedStart, setFixedStart] = useState(() => {
         const saved = localStorage.getItem('fixedStart');
@@ -341,20 +348,29 @@ function AdminDashboard() {
 
             {/* --- Stats HUD (Top Center - pushed right of sidebar) --- */}
             <div style={{
-                position: 'absolute', top: 25, left: 420, zIndex: 90,
-                display: 'flex', gap: 12, pointerEvents: 'none'
+                position: 'absolute',
+                top: isMobile ? 12 : 25,
+                left: isMobile ? '50%' : 420,
+                transform: isMobile ? 'translateX(-50%)' : 'none',
+                zIndex: 90,
+                display: 'flex',
+                gap: 12,
+                pointerEvents: 'none',
+                width: isMobile ? '95%' : 'auto',
+                justifyContent: 'center',
+                flexWrap: isMobile ? 'nowrap' : 'nowrap'
             }}>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
-                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>RUTAS HOY</span>
-                    <span style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 80 : 110, flex: isMobile ? 1 : 'unset' }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>RUTAS</span>
+                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
-                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>CONDUCTORES</span>
-                    <span style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 80 : 110, flex: isMobile ? 1 : 'unset' }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>{isMobile ? 'COND.' : 'CONDUCTORES'}</span>
+                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 80 : 110, flex: isMobile ? 1 : 'unset' }}>
                     <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>ALERTAS</span>
-                    <span style={{ fontSize: 24, fontWeight: 800, color: '#6366f1' }}>0</span>
+                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#6366f1' }}>0</span>
                 </div>
             </div>
 
