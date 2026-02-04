@@ -219,7 +219,7 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
             }
 
             // Use Google Directions instead of OSRM (Google is "Gold Standard") - Default to original order (non-optimized)
-            const result = await getGoogleRoute(waypoints, { optimize: false });
+            const result = await getGoogleRoute(waypoints, { optimize: false, travelMode: 'driving' });
 
             if (result?.success && result.coordinates) {
                 currentRouteCoords.current = result.coordinates;

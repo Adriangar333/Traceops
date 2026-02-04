@@ -128,7 +128,7 @@ function AdminDashboard() {
         }
 
         // Get route stats (using Google Directions) - Use optimize: false to respect current order
-        const stats = await getGoogleRoute(allPoints, { optimize: false });
+        const stats = await getGoogleRoute(allPoints, { optimize: false, travelMode: 'driving' });
 
         const newRoute = {
             id: Date.now(),
@@ -223,7 +223,7 @@ function AdminDashboard() {
 
             // 2. If not found in preview, calculate fresh using Google Directions
             if (!stats) {
-                stats = await getGoogleRoute(allPoints, { optimize: false });
+                stats = await getGoogleRoute(allPoints, { optimize: false, travelMode: 'driving' });
             }
 
             // Fallback to OSRM if Google fails to provide geometry
