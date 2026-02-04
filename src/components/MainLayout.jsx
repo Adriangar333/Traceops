@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone } from 'lucide-react';
+import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone, Menu, X } from 'lucide-react';
 
 const MainLayout = ({ children, user, onLogout }) => {
     const [location, setLocation] = useLocation();
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth <= 768;
+            setIsMobile(mobile);
+            if (!mobile) setSidebarOpen(false); // Close sidebar when going to desktop
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const navItems = [
         { icon: <LayoutDashboard size={20} />, label: 'Inicio', path: '/' },
@@ -14,110 +26,268 @@ const MainLayout = ({ children, user, onLogout }) => {
         { icon: <Settings size={20} />, label: 'Configuración', path: '/settings' },
     ];
 
-    return (
-        <div style={{ display: 'flex', height: '100vh', background: '#0f172a', color: '#f8fafc', overflow: 'hidden' }}>
-            {/* Sidebar Navigation */}
+    const handleNavClick = (path) => {
+        setLocation(path);
+        if (isMobile) setSidebarOpen(false); // Close on mobile after navigation
+    };
+
+    // Mobile Bottom Navigation Bar
+    const MobileBottomNav = () => (
+        <nav style={{
+            position: 'fixed',
+            bottom: 0, left: 0, right: 0,
+            height: 60,
+            background: 'rgba(15, 23, 42, 0.98)',
+            backdropFilter: 'blur(10px)',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            zIndex: 100,
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.3)'
+        }}>
+            {navItems.slice(0, 4).map(item => {
+                const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
+                return (
+                    <button
+                        key={item.path}
+                        onClick={() => handleNavClick(item.path)}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                            background: 'transparent', border: 'none',
+                            color: isActive ? '#10b981' : '#64748b',
+                            cursor: 'pointer', padding: 8,
+                            fontSize: 10, fontWeight: isActive ? 600 : 400,
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        {item.icon}
+                        <span>{item.label.split(' ')[0]}</span>
+                    </button>
+                );
+            })}
+            <button
+                onClick={() => setSidebarOpen(true)}
+                style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    background: 'transparent', border: 'none',
+                    color: '#64748b', cursor: 'pointer', padding: 8,
+                    fontSize: 10
+                }}
+            >
+                <Menu size={20} />
+                <span>Más</span>
+            </button>
+        </nav>
+    );
+
+    // Mobile Full Sidebar (Overlay)
+    const MobileSidebar = () => (
+        <>
+            {/* Backdrop */}
+            <div
+                onClick={() => setSidebarOpen(false)}
+                style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                    zIndex: 150, opacity: sidebarOpen ? 1 : 0,
+                    pointerEvents: sidebarOpen ? 'auto' : 'none',
+                    transition: 'opacity 0.3s'
+                }}
+            />
+            {/* Sidebar Panel */}
             <nav style={{
-                width: 260,
-                background: 'rgba(15, 23, 42, 0.98)',
-                borderRight: '1px solid rgba(255,255,255,0.05)',
+                position: 'fixed', top: 0, left: 0, bottom: 0,
+                width: 280, background: 'rgba(15, 23, 42, 0.98)',
+                transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+                transition: 'transform 0.3s ease',
+                zIndex: 200, padding: 24,
                 display: 'flex', flexDirection: 'column',
-                padding: 24,
-                zIndex: 50,
-                boxShadow: '4px 0 24px rgba(0,0,0,0.2)'
+                boxShadow: '4px 0 24px rgba(0,0,0,0.3)'
             }}>
+                {/* Close Button */}
+                <button
+                    onClick={() => setSidebarOpen(false)}
+                    style={{
+                        position: 'absolute', top: 16, right: 16,
+                        background: 'rgba(255,255,255,0.1)', border: 'none',
+                        borderRadius: 8, padding: 8, cursor: 'pointer', color: '#94a3b8'
+                    }}
+                >
+                    <X size={20} />
+                </button>
+
                 {/* Brand */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, padding: '0 8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
                     <div style={{
                         width: 36, height: 36,
                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        borderRadius: 10,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                        borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
                         <Map size={20} color="white" />
                     </div>
                     <div>
-                        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: '#f8fafc' }}>Traceops</h1>
+                        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>Traceops</h1>
                         <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Logistics Intelligence</p>
                     </div>
                 </div>
 
-                {/* Navigation Items */}
+                {/* Nav Items */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
                     {navItems.map(item => {
                         const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
                         return (
                             <button
                                 key={item.path}
-                                onClick={() => setLocation(item.path)}
+                                onClick={() => handleNavClick(item.path)}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: 12,
-                                    padding: '12px 16px',
-                                    background: isActive ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)' : 'transparent',
-                                    border: 'none',
+                                    padding: '12px 16px', border: 'none',
+                                    background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
                                     borderLeft: isActive ? '3px solid #10b981' : '3px solid transparent',
                                     borderRadius: '0 12px 12px 0',
                                     color: isActive ? '#10b981' : '#94a3b8',
-                                    cursor: 'pointer',
-                                    fontSize: 14,
-                                    fontWeight: isActive ? 600 : 500,
-                                    textAlign: 'left',
-                                    transition: 'all 0.2s ease',
-                                    outline: 'none'
+                                    cursor: 'pointer', fontSize: 14, fontWeight: isActive ? 600 : 500,
+                                    textAlign: 'left', transition: 'all 0.2s'
                                 }}
-                                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = '#e2e8f0'; }}
-                                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = '#94a3b8'; }}
                             >
                                 {item.icon}
                                 {item.label}
                             </button>
-                        )
+                        );
                     })}
                 </div>
 
-                {/* User Profile / Logout footer */}
+                {/* User Footer */}
                 <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8 }}>
                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>
                                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                             </span>
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {user?.name || 'Usuario'}
-                            </div>
-                            <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {user?.role === 'admin' ? '👑 Administrador' : user?.role === 'supervisor' ? '👁️ Supervisor' : '🚛 Conductor'}
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.name || 'Usuario'}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>
+                                {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : 'Conductor'}
                             </div>
                         </div>
-                        <button
-                            onClick={onLogout}
-                            style={{
-                                background: 'rgba(239, 68, 68, 0.1)',
-                                border: 'none',
-                                borderRadius: 8,
-                                padding: 8,
-                                cursor: 'pointer',
-                                color: '#ef4444',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                            title="Cerrar sesión"
-                        >
+                        <button onClick={onLogout} style={{
+                            background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: 8,
+                            padding: 8, cursor: 'pointer', color: '#ef4444'
+                        }}>
                             <LogOut size={16} />
                         </button>
                     </div>
                 </div>
             </nav>
+        </>
+    );
+
+    // Desktop Sidebar
+    const DesktopSidebar = () => (
+        <nav style={{
+            width: 260,
+            background: 'rgba(15, 23, 42, 0.98)',
+            borderRight: '1px solid rgba(255,255,255,0.05)',
+            display: 'flex', flexDirection: 'column',
+            padding: 24, zIndex: 50,
+            boxShadow: '4px 0 24px rgba(0,0,0,0.2)'
+        }}>
+            {/* Brand */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, padding: '0 8px' }}>
+                <div style={{
+                    width: 36, height: 36,
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                }}>
+                    <Map size={20} color="white" />
+                </div>
+                <div>
+                    <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: '#f8fafc' }}>Traceops</h1>
+                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>Logistics Intelligence</p>
+                </div>
+            </div>
+
+            {/* Nav Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                {navItems.map(item => {
+                    const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
+                    return (
+                        <button
+                            key={item.path}
+                            onClick={() => handleNavClick(item.path)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '12px 16px',
+                                background: isActive ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)' : 'transparent',
+                                border: 'none',
+                                borderLeft: isActive ? '3px solid #10b981' : '3px solid transparent',
+                                borderRadius: '0 12px 12px 0',
+                                color: isActive ? '#10b981' : '#94a3b8',
+                                cursor: 'pointer', fontSize: 14, fontWeight: isActive ? 600 : 500,
+                                textAlign: 'left', transition: 'all 0.2s', outline: 'none'
+                            }}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* User Footer */}
+            <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>
+                            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {user?.name || 'Usuario'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {user?.role === 'admin' ? '👑 Administrador' : user?.role === 'supervisor' ? '👁️ Supervisor' : '🚛 Conductor'}
+                        </div>
+                    </div>
+                    <button
+                        onClick={onLogout}
+                        style={{
+                            background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: 8,
+                            padding: 8, cursor: 'pointer', color: '#ef4444',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                        title="Cerrar sesión"
+                    >
+                        <LogOut size={16} />
+                    </button>
+                </div>
+            </div>
+        </nav>
+    );
+
+    return (
+        <div style={{ display: 'flex', height: '100vh', background: '#0f172a', color: '#f8fafc', overflow: 'hidden' }}>
+            {/* Desktop: Sidebar | Mobile: Bottom Nav + Overlay Sidebar */}
+            {isMobile ? (
+                <>
+                    <MobileBottomNav />
+                    <MobileSidebar />
+                </>
+            ) : (
+                <DesktopSidebar />
+            )}
 
             {/* Main Content Area */}
-            <main style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#0f172a' }}>
+            <main style={{
+                flex: 1,
+                position: 'relative',
+                overflow: 'hidden',
+                background: '#0f172a',
+                paddingBottom: isMobile ? 60 : 0 // Add padding for mobile bottom nav
+            }}>
                 {children}
             </main>
         </div>
@@ -125,4 +295,3 @@ const MainLayout = ({ children, user, onLogout }) => {
 };
 
 export default MainLayout;
-
