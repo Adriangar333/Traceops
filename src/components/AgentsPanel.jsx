@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, Trash2, Plus, X, Users } from 'lucide-react';
+import { User, Mail, Phone, Trash2, Plus, X, Users, Car } from 'lucide-react';
 
 const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
-    const [newAgent, setNewAgent] = useState({ name: '', email: '', phone: '', cuadrilla: '' });
+    const [newAgent, setNewAgent] = useState({ name: '', email: '', phone: '', cuadrilla: '', vehicleType: 'car' });
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -11,7 +11,7 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
             return;
         }
         onAddAgent(newAgent);
-        setNewAgent({ name: '', email: '', phone: '', cuadrilla: '' });
+        setNewAgent({ name: '', email: '', phone: '', cuadrilla: '', vehicleType: 'car' });
     };
 
     // Desktop: sidebar on right. Mobile: CSS overrides to fullscreen
@@ -130,6 +130,20 @@ const AgentsPanel = ({ agents, onAddAgent, onDeleteAgent, onClose }) => {
                             <option value="Liviana">🏍️ Cuadrilla Liviana (Motos)</option>
                             <option value="Mediana">🚙 Cuadrilla Mediana (Camionetas)</option>
                             <option value="Pesada">🚚 Cuadrilla Pesada (Camiones/Canastilla)</option>
+                        </select>
+                        <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                        <Car style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', width: '16px' }} />
+                        <select
+                            value={newAgent.vehicleType}
+                            onChange={(e) => setNewAgent(p => ({ ...p, vehicleType: e.target.value }))}
+                            style={{ ...inputStyle, paddingLeft: '40px', appearance: 'none', cursor: 'pointer' }}
+                        >
+                            <option value="car">🚗 Vehículo (Carro)</option>
+                            <option value="motorcycle">🏍️ Moto</option>
+                            <option value="truck">🚚 Camión</option>
+                            <option value="walking">🚶 A Pie</option>
                         </select>
                         <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
                     </div>

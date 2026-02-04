@@ -33,6 +33,7 @@ const Sidebar = ({
     const [showRouteOptions, setShowRouteOptions] = useState(false);
     const [selectedRouteOption, setSelectedRouteOption] = useState(null);
     const [expandedInfo, setExpandedInfo] = useState(null);
+    const [travelMode, setTravelMode] = useState('driving'); // 'driving', 'walking', or 'bicycle'
 
     // Panel states
     const [activePanel, setActivePanel] = useState(null); // 'config', 'routes', 'import', 'ai'
@@ -186,7 +187,8 @@ const Sidebar = ({
         const routeConfig = {
             fixedStart: !!fixedStart,
             fixedEnd: !!fixedEnd,
-            returnToStart: returnToStart
+            returnToStart: returnToStart,
+            travelMode: travelMode
         };
 
         // Try Google Directions first (has traffic data)
@@ -854,9 +856,29 @@ const Sidebar = ({
                                                     <Trash2 size={14} />
                                                 </button>
                                                 {waypoints.length >= 2 && (
-                                                    <button onClick={(e) => { e.stopPropagation(); handleOptimize(); }} disabled={isOptimizing} style={{ ...styles.btn, ...styles.primaryBtn, padding: '6px 10px' }}>
-                                                        <Zap size={14} /> {isOptimizing ? '...' : 'Optimizar'}
-                                                    </button>
+                                                    <>
+                                                        <select
+                                                            value={travelMode}
+                                                            onChange={(e) => setTravelMode(e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            style={{
+                                                                background: 'rgba(255,255,255,0.05)',
+                                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                                borderRadius: 6,
+                                                                padding: '4px 8px',
+                                                                color: '#e2e8f0',
+                                                                fontSize: 12,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            <option value="driving" style={{ background: '#1e293b' }}>🚗 Vehículo</option>
+                                                            <option value="walking" style={{ background: '#1e293b' }}>🚶 A Pie</option>
+                                                            <option value="bicycle" style={{ background: '#1e293b' }}>🚴 Bicicleta</option>
+                                                        </select>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleOptimize(); }} disabled={isOptimizing} style={{ ...styles.btn, ...styles.primaryBtn, padding: '6px 10px' }}>
+                                                            <Zap size={14} /> {isOptimizing ? '...' : 'Optimizar'}
+                                                        </button>
+                                                    </>
                                                 )}
                                             </>
                                         )}

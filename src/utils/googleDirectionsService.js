@@ -233,16 +233,31 @@ export const getGoogleRoute = async (waypoints, options = {}) => {
                 stopover: true
             }));
 
+            // Determine travel mode from options
+            const travelModeMap = {
+                'walking': window.google.maps.TravelMode.WALKING,
+                'bicycle': window.google.maps.TravelMode.BICYCLING,
+                'transit': window.google.maps.TravelMode.TRANSIT,
+                'driving': window.google.maps.TravelMode.DRIVING,
+                'car': window.google.maps.TravelMode.DRIVING,
+                'motorcycle': window.google.maps.TravelMode.DRIVING, // Google treats same as driving
+                'truck': window.google.maps.TravelMode.DRIVING
+            };
+            const selectedTravelMode = travelModeMap[options.travelMode] || window.google.maps.TravelMode.DRIVING;
+            const isDriving = selectedTravelMode === window.google.maps.TravelMode.DRIVING;
+
             const request = {
                 origin: new window.google.maps.LatLng(origin.lat, origin.lng),
                 destination: new window.google.maps.LatLng(destination.lat, destination.lng),
                 waypoints: intermediateWaypoints,
                 optimizeWaypoints: useGoogleOptimize,
-                travelMode: window.google.maps.TravelMode.DRIVING,
-                drivingOptions: {
-                    departureTime: new Date(), // Use current time for traffic
-                    trafficModel: window.google.maps.TrafficModel.BEST_GUESS
-                },
+                travelMode: selectedTravelMode,
+                ...(isDriving && {
+                    drivingOptions: {
+                        departureTime: new Date(), // Use current time for traffic
+                        trafficModel: window.google.maps.TrafficModel.BEST_GUESS
+                    }
+                }),
                 provideRouteAlternatives: options.alternatives || false
             };
 
@@ -324,9 +339,9 @@ export const getGoogleRoute = async (waypoints, options = {}) => {
 export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) => {
     if (waypoints.length < 2) return { success: false, options: [] };
 
-    const { fixedStart = false, fixedEnd = false, returnToStart = false } = routeOptions;
+    const { fixedStart = false, fixedEnd = false, returnToStart = false, travelMode = 'driving' } = routeOptions;
 
-    console.log('Generating route options with:', { fixedStart: !!fixedStart, fixedEnd: !!fixedEnd, returnToStart });
+    console.log('Generating route options with:', { fixedStart: !!fixedStart, fixedEnd: !!fixedEnd, returnToStart, travelMode });
 
     const options = [];
 
@@ -334,7 +349,8 @@ export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) =
     const optimized = await getGoogleRoute(waypoints, {
         strategy: 'greedy',
         fixedStart: !!fixedStart,
-        fixedEnd: !!fixedEnd
+        fixedEnd: !!fixedEnd,
+        travelMode
     });
     if (optimized.success) {
         options.push({
@@ -350,7 +366,8 @@ export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) =
     const twoOpt = await getGoogleRoute(waypoints, {
         strategy: 'two-opt',
         fixedStart: !!fixedStart,
-        fixedEnd: !!fixedEnd
+        fixedEnd: !!fixedEnd,
+        travelMode
     });
     if (twoOpt.success) {
         options.push({
@@ -367,7 +384,8 @@ export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) =
         const googleOpt = await getGoogleRoute(waypoints, {
             strategy: 'google',
             fixedStart: true, // Google TSP always fixes start
-            fixedEnd: !!fixedEnd
+            fixedEnd: !!fixedEnd,
+            travelMode
         });
         if (googleOpt.success) {
             options.push({
@@ -381,7 +399,7 @@ export const generateGoogleRouteOptions = async (waypoints, routeOptions = {}) =
     }
 
     // Option 4: Original order (as entered by user)
-    const original = await getGoogleRoute(waypoints, { optimize: false });
+    const original = await getGoogleRoute(waypoints, { optimize: false, travelMode });
     if (original.success) {
         options.push({
             name: '📝 Orden Original',
