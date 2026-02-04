@@ -173,7 +173,7 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
             }));
 
             // Update marker on map
-            updateDriverMarker(data);
+            // updateDriverMarker(data); // Removed: renderMarkers depends on activeDrivers change
         });
 
         // Listen for arrival notifications
@@ -329,100 +329,249 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
         }
     };
 
-    const updateDriverMarker = (driver) => {
-        if (!map.current) return;
+    // Cluster drivers based on screen distance
+    const getClusters = () => {
+        if (!map.current) return [];
+        const drivers = Object.values(activeDrivers);
+        const clusters = [];
+        const processed = new Set();
+        const CLUSTER_RADIUS = 50; // pixels
 
-        const markerId = driver.driverId;
+        drivers.forEach(d1 => {
+            if (processed.has(d1.driverId)) return;
 
-        if (markers.current[markerId]) {
-            // Update existing marker
-            markers.current[markerId].setLngLat([driver.lng, driver.lat]);
+            const p1 = map.current.project([d1.lng, d1.lat]);
+            const cluster = [d1];
+            processed.add(d1.driverId);
 
-            // Apply Panic Animation if active (update existing)
-            if (panicDrivers[driver.driverId]) {
-                const el = markers.current[markerId].getElement();
-                const inner = el.querySelector('.driver-marker-inner');
-                // Backward compatibility or inner update
-                if (inner) inner.classList.add('panic-active');
-                else el.classList.add('panic-active');
-            }
-        } else {
-            // Create new marker
-            const el = document.createElement('div');
-            el.className = 'driver-marker-container';
+            drivers.forEach(d2 => {
+                if (d1.driverId === d2.driverId || processed.has(d2.driverId)) return;
+                const p2 = map.current.project([d2.lng, d2.lat]);
+                const dist = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
 
-            // Inner wrapper for animation isolation (Fixes positioning bug)
-            const inner = document.createElement('div');
-            inner.className = 'driver-marker-inner';
-            inner.style.display = 'flex';
-            inner.style.alignItems = 'center';
-            inner.style.justifyContent = 'center';
-
-            const info = resolveDriverInfo(driver.driverId);
-            const initials = info.name === driver.driverId
-                ? (typeof driver.driverId === 'string' ? driver.driverId.substring(0, 2) : 'D')
-                : info.name.split(' ').map(n => n[0]).join('').substring(0, 2);
-
-            // Apply Panic Animation to INNER element
-            if (panicDrivers[driver.driverId]) {
-                inner.classList.add('panic-active');
-            }
-
-            const cuadrillaType = (info.cuadrilla || '').toLowerCase();
-            let iconHtml = VEHICLE_ICONS.default(initials);
-
-            if (cuadrillaType.includes('liviana') || cuadrillaType.includes('moto')) {
-                iconHtml = VEHICLE_ICONS.liviana(initials);
-            } else if (cuadrillaType.includes('mediana') || cuadrillaType.includes('camioneta')) {
-                iconHtml = VEHICLE_ICONS.mediana(initials);
-            } else if (cuadrillaType.includes('pesada') || cuadrillaType.includes('camion') || cuadrillaType.includes('grua')) {
-                iconHtml = VEHICLE_ICONS.pesada(initials);
-            }
-
-            inner.innerHTML = iconHtml;
-            el.appendChild(inner);
-
-            const marker = new maplibregl.Marker({ element: el })
-                .setLngLat([driver.lng, driver.lat])
-                .addTo(map.current);
-
-            el.addEventListener('click', async () => {
-                setSelectedDriver(driver.driverId);
-                map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 15 });
-
-                // Show Active Route on Click
-                try {
-                    toast.info('Cargando ruta asignada...');
-                    const routes = await getDriverRoutes(driver.driverId);
-
-                    if (routes && routes.length > 0) {
-                        // Prioritize 'in_progress' or 'assigned' routes
-                        const activeRoute = routes.find(r => r.status === 'in_progress' || r.status === 'assigned') || routes[0];
-
-                        if (activeRoute && activeRoute.waypoints) { // Assuming backend returns Full Route Object
-                            // Construct GeoJSON LineString
-                            const coordinates = JSON.parse(activeRoute.waypoints).map(wp => [wp.lng, wp.lat]);
-
-                            drawHistoryRoute({
-                                type: 'LineString',
-                                coordinates: coordinates
-                            });
-                            toast.success(`Ruta: ${activeRoute.name}`);
-                        } else {
-                            toast.warning('Conductor sin ruta activa detallada');
-                        }
-                    } else {
-                        toast.warning('No tiene rutas asignadas hoy');
-                    }
-                } catch (err) {
-                    console.error('Error fetching route:', err);
-                    toast.error('Error al cargar la ruta');
+                if (dist < CLUSTER_RADIUS) {
+                    cluster.push(d2);
+                    processed.add(d2.driverId);
                 }
             });
 
-            markers.current[markerId] = marker;
-        }
+            clusters.push(cluster);
+        });
+
+        return clusters;
     };
+
+    // Render Markers (Clusters & Single Drivers)
+    const renderMarkers = () => {
+        if (!map.current) return;
+
+        const clusters = getClusters();
+        const currentMarkers = markers.current; // Existing markers Map
+        const newMarkers = {}; // New markers Map
+
+        // Colors for brigades
+        const COLORS = {
+            liviana: '#10b981', // Emerald
+            mediana: '#f59e0b', // Amber
+            pesada: '#ef4444',  // Red
+            default: '#3b82f6'  // Blue
+        };
+
+        clusters.forEach(cluster => {
+            if (cluster.length > 1) {
+                // RENDER CLUSTER
+                const clusterId = `cluster-${cluster.map(d => d.driverId).sort().join('-')}`;
+
+                // Calculate centroid
+                const lng = cluster.reduce((sum, d) => sum + d.lng, 0) / cluster.length;
+                const lat = cluster.reduce((sum, d) => sum + d.lat, 0) / cluster.length;
+                const hasPanic = cluster.some(d => panicDrivers[d.driverId]);
+
+                // Calculate Pie Chart Segments
+                const counts = { liviana: 0, mediana: 0, pesada: 0, default: 0 };
+                cluster.forEach(d => {
+                    const info = resolveDriverInfo(d.driverId);
+                    const type = (info.cuadrilla || '').toLowerCase();
+                    if (type.includes('liviana') || type.includes('moto')) counts.liviana++;
+                    else if (type.includes('mediana') || type.includes('camioneta')) counts.mediana++;
+                    else if (type.includes('pesada') || type.includes('camion')) counts.pesada++;
+                    else counts.default++;
+                });
+
+                // Generate Conic Gradient
+                let gradientSegments = [];
+                let currentDeg = 0;
+                const total = cluster.length;
+
+                Object.entries(counts).forEach(([type, count]) => {
+                    if (count > 0) {
+                        const deg = (count / total) * 360;
+                        gradientSegments.push(`${COLORS[type]} ${currentDeg}deg ${currentDeg + deg}deg`);
+                        currentDeg += deg;
+                    }
+                });
+
+                const backgroundStyle = gradientSegments.length > 1
+                    ? `conic-gradient(${gradientSegments.join(', ')})`
+                    : (gradientSegments[0] ? gradientSegments[0].split(' ')[0] : COLORS.default); // Fallback to solid color if only one type
+
+                // Create Cluster Element
+                if (currentMarkers[clusterId]) {
+                    // Reuse existing cluster marker
+                    currentMarkers[clusterId].setLngLat([lng, lat]);
+                    const el = currentMarkers[clusterId].getElement();
+                    el.style.background = backgroundStyle; // Update background for dynamic changes
+
+                    if (hasPanic) el.classList.add('panic-active');
+                    else el.classList.remove('panic-active');
+
+                    // Update count if changed
+                    const span = el.querySelector('span');
+                    if (span) span.innerText = total;
+
+                    newMarkers[clusterId] = currentMarkers[clusterId];
+                    delete currentMarkers[clusterId];
+                } else {
+                    const el = document.createElement('div');
+                    el.className = 'driver-cluster-marker' + (hasPanic ? ' panic-active' : '');
+                    el.style.width = '44px';
+                    el.style.height = '44px';
+                    el.style.background = backgroundStyle;
+                    el.style.borderRadius = '50%';
+                    el.style.color = 'white';
+                    el.style.display = 'flex';
+                    el.style.alignItems = 'center';
+                    el.style.justifyContent = 'center';
+                    el.style.fontWeight = 'bold';
+                    el.style.fontSize = '14px';
+                    el.style.border = '2px solid white';
+                    el.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                    el.style.cursor = 'pointer';
+                    el.style.zIndex = '50';
+
+                    // Inner circle for text to make it readable against the pie chart
+                    el.innerHTML = `<div style="
+                        width: 24px; 
+                        height: 24px; 
+                        background: rgba(15, 23, 42, 0.8); 
+                        border-radius: 50%; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center;
+                        backdrop-filter: blur(2px);
+                    "><span>${total}</span></div>`;
+
+                    const marker = new maplibregl.Marker({ element: el })
+                        .setLngLat([lng, lat])
+                        .addTo(map.current);
+
+                    // Cluster Click Handler
+                    el.addEventListener('click', () => {
+                        const currentZoom = map.current.getZoom();
+                        if (currentZoom < 18) {
+                            // Zoom In
+                            map.current.flyTo({ center: [lng, lat], zoom: currentZoom + 3 });
+                        } else {
+                            // Spiderfy / Spread UI
+                            const names = cluster.map(d => {
+                                const info = resolveDriverInfo(d.driverId);
+                                return `${info.name} (${info.cuadrilla || 'Gen'})`;
+                            }).join(', ');
+                            toast.info(`Conductores: ${names}`, { duration: 5000 });
+                        }
+                    });
+
+                    newMarkers[clusterId] = marker;
+                }
+            } else {
+                // RENDER SINGLE DRIVER (Unchanged logic, just ensure existing markers are preserved)
+                const driver = cluster[0];
+                const markerId = driver.driverId;
+
+                if (currentMarkers[markerId]) {
+                    // Reuse
+                    currentMarkers[markerId].setLngLat([driver.lng, driver.lat]);
+
+                    // Update Panic Class
+                    const el = currentMarkers[markerId].getElement();
+                    const inner = el.querySelector('.driver-marker-inner') || el;
+                    if (panicDrivers[driver.driverId]) inner.classList.add('panic-active');
+                    else inner.classList.remove('panic-active');
+
+                    newMarkers[markerId] = currentMarkers[markerId];
+                    delete currentMarkers[markerId];
+                } else {
+                    // Create New
+                    const el = document.createElement('div');
+                    el.className = 'driver-marker-container';
+
+                    const inner = document.createElement('div');
+                    inner.className = 'driver-marker-inner';
+                    inner.style.display = 'flex';
+                    inner.style.alignItems = 'center';
+                    inner.style.justifyContent = 'center';
+
+                    const info = resolveDriverInfo(driver.driverId);
+                    const initials = info.name === driver.driverId
+                        ? (typeof driver.driverId === 'string' ? driver.driverId.substring(0, 2) : 'D')
+                        : info.name.split(' ').map(n => n[0]).join('').substring(0, 2);
+
+                    if (panicDrivers[driver.driverId]) inner.classList.add('panic-active');
+
+                    const cuadrillaType = (info.cuadrilla || '').toLowerCase();
+                    let iconHtml = VEHICLE_ICONS.default(initials);
+                    if (cuadrillaType.includes('liviana')) iconHtml = VEHICLE_ICONS.liviana(initials);
+                    else if (cuadrillaType.includes('mediana')) iconHtml = VEHICLE_ICONS.mediana(initials);
+                    else if (cuadrillaType.includes('pesada')) iconHtml = VEHICLE_ICONS.pesada(initials);
+
+                    inner.innerHTML = iconHtml;
+                    el.appendChild(inner);
+
+                    const marker = new maplibregl.Marker({ element: el })
+                        .setLngLat([driver.lng, driver.lat])
+                        .addTo(map.current);
+
+                    el.addEventListener('click', async () => {
+                        setSelectedDriver(driver.driverId);
+                        map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 16 });
+                        try {
+                            toast.info('Cargando ruta...');
+                            const routes = await getDriverRoutes(driver.driverId);
+                            const activeRoute = routes?.find(r => r.status === 'in_progress' || r.status === 'assigned') || routes?.[0];
+                            if (activeRoute?.waypoints) {
+                                drawHistoryRoute({ type: 'LineString', coordinates: JSON.parse(activeRoute.waypoints).map(wp => [wp.lng, wp.lat]) });
+                                toast.success(`Ruta: ${activeRoute.name}`);
+                            } else toast.warning('Sin ruta activa');
+                        } catch (e) { toast.error('Error cargando ruta'); }
+                    });
+
+                    newMarkers[markerId] = marker;
+                }
+            }
+        });
+
+        // Remove stale markers 
+        Object.values(currentMarkers).forEach(m => m.remove());
+        markers.current = newMarkers;
+    };
+
+    // Re-render markers on updates
+    useEffect(() => {
+        if (!map.current) return;
+        renderMarkers();
+
+        // Also listen to move/zoom (throttled would be better but direct is OK for small N)
+        const handleMove = () => renderMarkers();
+        map.current.on('move', handleMove);
+        map.current.on('zoom', handleMove);
+
+        return () => {
+            if (map.current) {
+                map.current.off('move', handleMove);
+                map.current.off('zoom', handleMove);
+            }
+        };
+    }, [activeDrivers, panicDrivers]); // Re-run when data changes
 
     const formatLastUpdate = (date) => {
         if (!date) return 'Nunca';
