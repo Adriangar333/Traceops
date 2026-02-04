@@ -339,9 +339,9 @@ function AdminDashboard() {
         <div style={{ width: '100%', height: '100vh', overflow: 'hidden', position: 'relative', fontFamily: 'Inter, system-ui', background: '#f8fafc' }}>
             <Toaster position="top-right" richColors />
 
-            {/* --- Stats HUD (Top Right - below selectors) --- */}
+            {/* --- Stats HUD (Top Center - pushed right of sidebar) --- */}
             <div style={{
-                position: 'absolute', top: 80, right: 20, zIndex: 90,
+                position: 'absolute', top: 25, left: 420, zIndex: 90,
                 display: 'flex', gap: 12, pointerEvents: 'none'
             }}>
                 <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 110 }}>
