@@ -469,8 +469,27 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
 
             {/* Mode indicators */}
             {addPointMode && (
-                <div style={{ position: 'absolute', top: 110, left: '50%', transform: 'translateX(-50%)', background: 'rgba(59,130,246,0.9)', color: 'white', padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, zIndex: 1100, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <MapPin size={16} /> Modo Agregar Puntos
+                <div style={{
+                    position: 'absolute',
+                    top: 110,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(59, 130, 246, 0.5)',
+                    color: '#60a5fa',
+                    padding: '8px 16px',
+                    borderRadius: 20,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    zIndex: 1100,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 20px rgba(59, 130, 246, 0.25)'
+                }}>
+                    <MapPin size={16} />
+                    <span>Modo Agregar Puntos</span>
                 </div>
             )}
 

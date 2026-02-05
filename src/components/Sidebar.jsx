@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info } from 'lucide-react';
+import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, Map, Truck, ChevronRight, LayoutList, Calendar, AlertCircle, PlayCircle, StopCircle, CheckCircle, Camera } from 'lucide-react';
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
 import { sendToGemini } from '../utils/geminiService';
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
 import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService';
 import ZoneStatsPanel from './ZoneStatsPanel';
+import PODViewerModal from './PODViewerModal';
 
 const Sidebar = ({
     waypoints, setWaypoints,
@@ -39,6 +40,7 @@ const Sidebar = ({
 
     // Panel states
     const [activePanel, setActivePanel] = useState(null); // 'config', 'routes', 'import', 'ai'
+    const [activePOD, setActivePOD] = useState(null); // State for POD Modal
     const [mobileCollapsed, setMobileCollapsed] = useState(true); // For mobile view
     const [activeTab, setActiveTab] = useState('plan'); // 'plan', 'optimize', 'assign'
 

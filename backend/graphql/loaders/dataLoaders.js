@@ -91,7 +91,8 @@ const createLoaders = (pool) => {
                             lng: wp.lng,
                             address: wp.address,
                             orderIndex: wp.order_index,
-                            status: wp.status
+                            status: wp.status,
+                            routeId: wp.route_id // Required for POD resolver
                         });
                     }
                 });

@@ -41,6 +41,7 @@ const typeDefs = `#graphql
         address: String
         orderIndex: Int
         status: String
+        pod: POD
     }
 
     # === POD (Proof of Delivery) ===

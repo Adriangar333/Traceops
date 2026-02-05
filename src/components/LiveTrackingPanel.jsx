@@ -5,8 +5,8 @@ import { toast } from 'sonner';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getDriverHistory, optimizeRoutePath, getDriverRoutes } from '../utils/backendService';
+import PODViewerModal from './PODViewerModal';
 
-// Vehicle Icons (SVG Strings)
 // Vehicle Icons (SVG Strings)
 const VEHICLE_ICONS = {
     // Moto (Cuadrilla Liviana)
@@ -84,9 +84,13 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     const historyLayerRef = useRef(null);
     const socketRef = useRef(null);
     const driversListRef = useRef(driversList);
+
     const [panicDrivers, setPanicDrivers] = useState({});
 
-    // Keep ref synced with prop to avoid stale closures in socket listeners
+    // POD Viewing State
+    const [selectedRouteDetails, setSelectedRouteDetails] = useState(null);
+    const [activePOD, setActivePOD] = useState(null);
+    const [isLoadingRoute, setIsLoadingRoute] = useState(false);
     useEffect(() => {
         driversListRef.current = driversList;
     }, [driversList]);
@@ -535,32 +539,71 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
                     el.addEventListener('click', async () => {
                         setSelectedDriver(driver.driverId);
                         map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 16 });
+
+                        setIsLoadingRoute(true);
                         try {
+                            // 1. Fetch active route ID via REST (or could be GraphQL if we updated query)
                             const routes = await getDriverRoutes(driver.driverId);
                             const activeRoute = routes?.find(r => r.status === 'in_progress' || r.status === 'assigned') || routes?.[0];
 
-                            if (activeRoute?.waypoints) {
-                                let coordinates = [];
-                                try {
-                                    // Safely handle specific waypoints format (string or object)
-                                    const waypointsData = typeof activeRoute.waypoints === 'string'
-                                        ? JSON.parse(activeRoute.waypoints)
-                                        : activeRoute.waypoints;
-
-                                    if (Array.isArray(waypointsData)) {
-                                        coordinates = waypointsData.map(wp => [wp.lng, wp.lat]);
-                                        drawHistoryRoute({ type: 'LineString', coordinates });
-                                        toast.success(`Ruta: ${activeRoute.name}`);
+                            if (activeRoute) {
+                                // 2. Fetch full details (waypoints + PODs) via GraphQL
+                                const query = `
+                                    query GetRouteDetails($id: ID!) {
+                                        route(id: $id) {
+                                            id
+                                            name
+                                            status
+                                            waypoints {
+                                                id
+                                                address
+                                                lat
+                                                lng
+                                                status
+                                                orderIndex
+                                                pod {
+                                                    photoUrl
+                                                    signatureUrl
+                                                    notes
+                                                    deliveredAt
+                                                }
+                                            }
+                                        }
                                     }
-                                } catch (parseError) {
-                                    console.error('Error parsing waypoints:', parseError);
+                                `;
+
+                                const response = await fetch(`${BACKEND_URL}/graphql`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        query,
+                                        variables: { id: activeRoute.id }
+                                    })
+                                });
+
+                                const result = await response.json();
+                                if (result.data?.route) {
+                                    setSelectedRouteDetails(result.data.route);
+
+                                    // Draw route on map
+                                    const waypointsData = result.data.route.waypoints
+                                        .sort((a, b) => a.orderIndex - b.orderIndex);
+
+                                    if (waypointsData.length > 0) {
+                                        const coordinates = waypointsData.map(wp => [wp.lng, wp.lat]);
+                                        drawHistoryRoute({ type: 'LineString', coordinates });
+                                        toast.success(`Ruta cargada: ${activeRoute.name}`);
+                                    }
                                 }
                             } else {
+                                setSelectedRouteDetails(null);
                                 toast.info('Sin ruta activa');
                             }
                         } catch (e) {
-                            console.error('Error loading route:', e);
-                            toast.error('Error cargando ruta');
+                            console.error('Error loading route details:', e);
+                            toast.error('Error cargando detalles de ruta');
+                        } finally {
+                            setIsLoadingRoute(false);
                         }
                     });
 
@@ -605,405 +648,480 @@ const LiveTrackingPanel = ({ isOpen, onClose, driversList = [] }) => {
     const driverList = Object.values(activeDrivers);
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.8)',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'column'
-        }}>
-            {/* Header - Premium Traceops Branding */}
+        <>
             <div style={{
-                padding: '12px 20px',
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                borderBottom: '1px solid #334155',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.8)',
+                zIndex: 2000,
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                zIndex: 10
+                flexDirection: 'column'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{
-                        width: 42,
-                        height: 42,
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        borderRadius: 12,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)'
-                    }}>
-                        <Radio size={22} color="white" />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, color: '#ffffff', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
-                            Traceops Live
-                        </h2>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Rastreo en tiempo real</p>
-                    </div>
-                    <span style={{
-                        background: driverList.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#475569',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: 20,
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        marginLeft: 8,
-                        boxShadow: driverList.length > 0 ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
-                    }}>
-                        {driverList.length} activo{driverList.length !== 1 ? 's' : ''}
-                    </span>
-                </div>
-                <button
-                    onClick={onClose}
-                    style={{
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        color: '#e2e8f0',
-                        padding: '8px 16px',
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                        transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                >
-                    Cerrar
-                </button>
-            </div>
-
-            {/* Content */}
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-                {/* Floating Driver Panel - Glassmorphism */}
+                {/* Header - Premium Traceops Branding */}
                 <div style={{
-                    position: 'absolute',
-                    top: 16,
-                    left: 16,
-                    width: 300,
-                    maxHeight: 'calc(100% - 32px)',
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    borderRadius: 16,
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                    overflowY: 'auto',
-                    padding: 16,
-                    zIndex: 500
+                    padding: '12px 20px',
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                    borderBottom: '1px solid #334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                    zIndex: 10
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <h3 style={{ color: '#e2e8f0', margin: 0, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
-                            <Users size={16} color="#10b981" />
-                            Conductores
-                        </h3>
-                        <span style={{
-                            background: 'rgba(16, 185, 129, 0.2)',
-                            color: '#10b981',
-                            padding: '2px 8px',
-                            borderRadius: 10,
-                            fontSize: '0.7rem',
-                            fontWeight: 600
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{
+                            width: 42,
+                            height: 42,
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            borderRadius: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)'
                         }}>
-                            {driverList.length} en línea
+                            <Radio size={22} color="white" />
+                        </div>
+                        <div>
+                            <h2 style={{ margin: 0, color: '#ffffff', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                                Traceops Live
+                            </h2>
+                            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Rastreo en tiempo real</p>
+                        </div>
+                        <span style={{
+                            background: driverList.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#475569',
+                            color: 'white',
+                            padding: '4px 12px',
+                            borderRadius: 20,
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            marginLeft: 8,
+                            boxShadow: driverList.length > 0 ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
+                        }}>
+                            {driverList.length} activo{driverList.length !== 1 ? 's' : ''}
                         </span>
                     </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#e2e8f0',
+                            padding: '8px 16px',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                    >
+                        Cerrar
+                    </button>
+                </div>
 
-                    {driverList.length === 0 ? (
-                        <div style={{
-                            padding: 24,
-                            textAlign: 'center',
-                            color: '#64748b'
-                        }}>
-                            <div style={{
-                                width: 48,
-                                height: 48,
-                                background: 'rgba(100, 116, 139, 0.2)',
-                                borderRadius: 12,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                margin: '0 auto 12px'
-                            }}>
-                                <RefreshCw size={24} style={{ opacity: 0.5 }} />
-                            </div>
-                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
-                                Sin conductores activos
-                            </p>
-                            <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
-                                Aparecerán al iniciar ruta
-                            </p>
+                {/* Content */}
+                <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+                    {/* Floating Driver Panel - Glassmorphism */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 16,
+                        left: 16,
+                        width: 300,
+                        maxHeight: 'calc(100% - 32px)',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                        borderRadius: 16,
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+                        overflowY: 'auto',
+                        padding: 16,
+                        zIndex: 500
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <span style={{ color: 'white', fontWeight: 600 }}>
+                                {selectedRouteDetails ? 'Detalles de Ruta' : 'Conductores Disp.'}
+                            </span>
                         </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {driverList.map(driver => (
-                                <div
-                                    key={driver.driverId}
+
+                        {selectedRouteDetails ? (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <button
                                     onClick={() => {
-                                        setSelectedDriver(driver.driverId);
-                                        if (map.current) {
-                                            map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 15 });
+                                        setSelectedRouteDetails(null);
+                                        if (map.current?.getLayer('history-route')) {
+                                            map.current.removeLayer('history-route');
+                                            map.current.removeSource('history-route');
                                         }
+                                        map.current?.flyTo({ zoom: 12 });
                                     }}
                                     style={{
-                                        padding: 12,
-                                        background: selectedDriver === driver.driverId
-                                            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%)'
-                                            : 'rgba(255, 255, 255, 0.05)',
-                                        borderRadius: 12,
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#94a3b8',
                                         cursor: 'pointer',
-                                        border: selectedDriver === driver.driverId
-                                            ? '1px solid rgba(16, 185, 129, 0.5)'
-                                            : '1px solid rgba(255, 255, 255, 0.08)',
-                                        transition: 'all 0.2s ease'
-                                    }}
-                                    onMouseEnter={e => {
-                                        if (selectedDriver !== driver.driverId) {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                                        }
-                                    }}
-                                    onMouseLeave={e => {
-                                        if (selectedDriver !== driver.driverId) {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-                                        }
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: 12,
+                                        fontSize: '0.9rem',
+                                        padding: 0
                                     }}
                                 >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <div style={{
-                                            width: 10,
-                                            height: 10,
-                                            borderRadius: '50%',
-                                            background: '#10b981',
-                                            boxShadow: '0 0 10px rgba(16, 185, 129, 0.6)',
-                                            animation: 'pulse 2s infinite'
-                                        }} />
-                                        <div style={{ flex: 1 }}>
-                                            <span style={{ color: '#f1f5f9', fontWeight: 600, display: 'block', fontSize: '0.9rem' }}>
-                                                {resolveDriverInfo(driver.driverId).name}
-                                            </span>
-                                            {resolveDriverInfo(driver.driverId).cuadrilla && (
-                                                <span style={{
-                                                    fontSize: '0.7rem',
-                                                    color: '#f59e0b',
-                                                    background: 'rgba(245, 158, 11, 0.15)',
-                                                    padding: '2px 6px',
-                                                    borderRadius: 4,
-                                                    display: 'inline-block',
-                                                    marginTop: 4
-                                                }}>
-                                                    {resolveDriverInfo(driver.driverId).cuadrilla}
+                                    ← Volver a lista
+                                </button>
+
+                                <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#f1f5f9' }}>
+                                        {selectedRouteDetails.name}
+                                    </h3>
+
+                                    {selectedRouteDetails.waypoints && selectedRouteDetails.waypoints
+                                        .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
+                                        .map((wp, idx) => (
+                                            <div key={wp.id} style={{
+                                                position: 'relative',
+                                                padding: '0 0 16px 20px',
+                                                borderLeft: idx === selectedRouteDetails.waypoints.length - 1 ? 'none' : '2px solid rgba(255,255,255,0.1)',
+                                                marginLeft: 6
+                                            }}>
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    left: -7,
+                                                    top: 0,
+                                                    width: 12,
+                                                    height: 12,
+                                                    borderRadius: '50%',
+                                                    background: wp.status === 'completed' ? '#10b981' : (wp.status === 'skipped' ? '#ef4444' : '#64748b'),
+                                                    border: '2px solid #0f172a'
+                                                }} />
+
+                                                <div style={{ marginTop: -4 }}>
+                                                    <div style={{ fontSize: '0.85rem', color: '#e2e8f0', marginBottom: 2 }}>
+                                                        {wp.address || 'Sin dirección'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{
+                                                            fontSize: '0.75rem',
+                                                            color: wp.status === 'completed' ? '#10b981' : '#94a3b8',
+                                                            textTransform: 'capitalize'
+                                                        }}>
+                                                            {wp.status === 'pending' ? 'Pendiente' : wp.status}
+                                                        </span>
+
+                                                        {/* Button to View POD */}
+                                                        {(wp.status === 'completed' || wp.pod?.photoUrl) && wp.pod && (
+                                                            <button
+                                                                onClick={() => setActivePOD(wp.pod)}
+                                                                style={{
+                                                                    background: 'rgba(59, 130, 246, 0.2)',
+                                                                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                                                                    color: '#60a5fa',
+                                                                    borderRadius: 6,
+                                                                    padding: '4px 8px',
+                                                                    fontSize: '0.75rem',
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}
+                                                            >
+                                                                📷 Ver Foto
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {driverList.length === 0 && (
+                                    <div style={{ color: '#64748b', textAlign: 'center', padding: 20 }}>
+                                        No hay conductores activos
+                                    </div>
+                                )}
+
+                                {driverList.map(driver => (
+                                    <div
+                                        key={driver.driverId}
+                                        onClick={() => {
+                                            // Trigger route load via marker logic or direct logic
+                                            const marker = markers.current[driver.driverId];
+                                            if (marker) {
+                                                marker.getElement().click();
+                                            } else {
+                                                setSelectedDriver(driver.driverId);
+                                                map.current.flyTo({ center: [driver.lng, driver.lat], zoom: 15 });
+                                            }
+                                        }}
+                                        style={{
+                                            padding: 12,
+                                            background: selectedDriver === driver.driverId
+                                                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%)'
+                                                : 'rgba(255, 255, 255, 0.05)',
+                                            borderRadius: 12,
+                                            cursor: 'pointer',
+                                            border: selectedDriver === driver.driverId
+                                                ? '1px solid rgba(16, 185, 129, 0.5)'
+                                                : '1px solid rgba(255, 255, 255, 0.08)',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                        onMouseEnter={e => {
+                                            if (selectedDriver !== driver.driverId) {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                                            }
+                                        }}
+                                        onMouseLeave={e => {
+                                            if (selectedDriver !== driver.driverId) {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                                            }
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: '50%',
+                                                background: '#10b981',
+                                                boxShadow: '0 0 10px rgba(16, 185, 129, 0.6)',
+                                                animation: 'pulse 2s infinite'
+                                            }} />
+                                            <div style={{ flex: 1 }}>
+                                                <span style={{ color: '#f1f5f9', fontWeight: 600, display: 'block', fontSize: '0.9rem' }}>
+                                                    {resolveDriverInfo(driver.driverId).name}
+                                                </span>
+                                                {resolveDriverInfo(driver.driverId).cuadrilla && (
+                                                    <span style={{
+                                                        fontSize: '0.7rem',
+                                                        color: '#f59e0b',
+                                                        background: 'rgba(245, 158, 11, 0.15)',
+                                                        padding: '2px 6px',
+                                                        borderRadius: 4,
+                                                        display: 'inline-block',
+                                                        marginTop: 4
+                                                    }}>
+                                                        {resolveDriverInfo(driver.driverId).cuadrilla}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, color: '#64748b', fontSize: '0.75rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Clock size={12} />
+                                                <span>{formatLastUpdate(driver.lastUpdate)}</span>
+                                            </div>
+                                            {driver.speed && (
+                                                <span style={{ color: '#10b981', fontWeight: 500 }}>
+                                                    {Math.round(driver.speed * 3.6)} km/h
                                                 </span>
                                             )}
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, color: '#64748b', fontSize: '0.75rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                            <Clock size={12} />
-                                            <span>{formatLastUpdate(driver.lastUpdate)}</span>
-                                        </div>
-                                        {driver.speed && (
-                                            <span style={{ color: '#10b981', fontWeight: 500 }}>
-                                                {Math.round(driver.speed * 3.6)} km/h
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Map */}
-                <div style={{ flex: 1, position: 'relative' }}>
-                    <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
-
-                    {/* Map Style Picker */}
-                    <div style={{
-                        position: 'absolute',
-                        top: 16,
-                        right: 60,
-                        zIndex: 50
-                    }}>
-                        <button
-                            onClick={() => setShowStylePicker(!showStylePicker)}
-                            style={{
-                                background: 'rgba(15, 23, 42, 0.9)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                borderRadius: 10,
-                                padding: '10px 14px',
-                                color: '#e2e8f0',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: '0.85rem',
-                                fontWeight: 500,
-                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-                            }}
-                        >
-                            🌐 Estilo de Mapa
-                        </button>
-                        {showStylePicker && (
-                            <div style={{
-                                position: 'absolute',
-                                top: '100%',
-                                right: 0,
-                                marginTop: 8,
-                                background: 'rgba(15, 23, 42, 0.95)',
-                                backdropFilter: 'blur(12px)',
-                                WebkitBackdropFilter: 'blur(12px)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                borderRadius: 12,
-                                padding: 8,
-                                minWidth: 160,
-                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
-                            }}>
-                                {Object.entries(MAP_STYLES).map(([key, style]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => { setMapStyle(key); setShowStylePicker(false); }}
-                                        style={{
-                                            display: 'block',
-                                            width: '100%',
-                                            padding: '10px 14px',
-                                            background: mapStyle === key
-                                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                                                : 'transparent',
-                                            border: 'none',
-                                            borderRadius: 8,
-                                            color: mapStyle === key ? 'white' : '#94a3b8',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            fontSize: '0.85rem',
-                                            fontWeight: mapStyle === key ? 600 : 400,
-                                            marginBottom: 4,
-                                            transition: 'all 0.15s'
-                                        }}
-                                        onMouseEnter={e => { if (mapStyle !== key) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                        onMouseLeave={e => { if (mapStyle !== key) e.currentTarget.style.background = 'transparent'; }}
-                                    >
-                                        {style.name}
-                                    </button>
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    {/* History Stats Overlay */}
-                    {showHistory && historyData && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 16,
-                            left: 16,
-                            background: 'rgba(30,41,59,0.95)',
-                            padding: 16,
-                            borderRadius: 12,
-                            border: '1px solid #334155',
-                            color: 'white'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                <Route size={18} color="#f59e0b" />
-                                <span style={{ fontWeight: 600 }}>Historial de Ruta</span>
-                                <button
-                                    onClick={() => {
-                                        setShowHistory(false);
-                                        if (map.current?.getLayer('history-route')) {
-                                            map.current.removeLayer('history-route');
-                                            map.current.removeSource('history-route');
-                                        }
-                                    }}
-                                    style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-                                >✕</button>
-                            </div>
-                            <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-                                <p style={{ margin: '4px 0' }}>📏 Distancia: <strong style={{ color: '#10b981' }}>{historyData.distanceKm.toFixed(2)} km</strong></p>
-                                <p style={{ margin: '4px 0' }}>📍 Puntos: {historyData.pointCount}</p>
-                                {historyData.startTime && (
-                                    <p style={{ margin: '4px 0' }}>🕐 {new Date(historyData.startTime).toLocaleTimeString()} - {new Date(historyData.endTime).toLocaleTimeString()}</p>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    {/* Map */}
+                    <div style={{ flex: 1, position: 'relative' }}>
+                        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
-                    {/* Arrivals Notifications */}
-                    {arrivals.length > 0 && (
+                        {/* Map Style Picker */}
                         <div style={{
                             position: 'absolute',
                             top: 16,
                             right: 60,
-                            maxWidth: 300,
-                            maxHeight: 200,
-                            overflowY: 'auto',
-                            background: 'rgba(30,41,59,0.95)',
-                            borderRadius: 12,
-                            border: '1px solid #10b981',
-                            padding: 12
+                            zIndex: 50
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#10b981', marginBottom: 8 }}>
-                                <Bell size={16} />
-                                <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Llegadas Recientes</span>
-                            </div>
-                            {arrivals.map((a, i) => (
-                                <div key={i} style={{ padding: '6px 0', borderBottom: '1px solid #334155', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                                    🚩 <strong>{a.driverId.slice(-8)}</strong> llegó a Punto #{a.waypointIndex + 1}
-                                    <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{a.address?.slice(0, 40) || 'Sin dirección'}</div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Date Picker for History */}
-                    {selectedDriver && (
-                        <div style={{
-                            position: 'absolute',
-                            bottom: 16,
-                            left: 16,
-                            background: 'rgba(30,41,59,0.95)',
-                            padding: 12,
-                            borderRadius: 8,
-                            display: 'flex',
-                            gap: 8,
-                            alignItems: 'center'
-                        }}>
-                            <Calendar size={18} color="#94a3b8" />
-                            <input
-                                type="date"
-                                value={historyDate}
-                                onChange={(e) => setHistoryDate(e.target.value)}
-                                style={{
-                                    background: '#0f172a',
-                                    border: '1px solid #334155',
-                                    borderRadius: 6,
-                                    padding: '6px 10px',
-                                    color: 'white'
-                                }}
-                            />
                             <button
-                                onClick={loadHistory}
+                                onClick={() => setShowStylePicker(!showStylePicker)}
                                 style={{
-                                    background: '#f59e0b',
-                                    border: 'none',
-                                    borderRadius: 6,
-                                    padding: '6px 12px',
-                                    color: '#0f172a',
-                                    fontWeight: 600,
-                                    cursor: 'pointer'
+                                    background: 'rgba(15, 23, 42, 0.9)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    borderRadius: 10,
+                                    padding: '10px 14px',
+                                    color: '#e2e8f0',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
                                 }}
                             >
-                                Ver Historial
+                                🌐 Estilo de Mapa
                             </button>
+                            {showStylePicker && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    right: 0,
+                                    marginTop: 8,
+                                    background: 'rgba(15, 23, 42, 0.95)',
+                                    backdropFilter: 'blur(12px)',
+                                    WebkitBackdropFilter: 'blur(12px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: 12,
+                                    padding: 8,
+                                    minWidth: 160,
+                                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
+                                }}>
+                                    {Object.entries(MAP_STYLES).map(([key, style]) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => { setMapStyle(key); setShowStylePicker(false); }}
+                                            style={{
+                                                display: 'block',
+                                                width: '100%',
+                                                padding: '10px 14px',
+                                                background: mapStyle === key
+                                                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                                    : 'transparent',
+                                                border: 'none',
+                                                borderRadius: 8,
+                                                color: mapStyle === key ? 'white' : '#94a3b8',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                fontSize: '0.85rem',
+                                                fontWeight: mapStyle === key ? 600 : 400,
+                                                marginBottom: 4,
+                                                transition: 'all 0.15s'
+                                            }}
+                                            onMouseEnter={e => { if (mapStyle !== key) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                            onMouseLeave={e => { if (mapStyle !== key) e.currentTarget.style.background = 'transparent'; }}
+                                        >
+                                            {style.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    )}
+
+                        {/* History Stats Overlay */}
+                        {showHistory && historyData && (
+                            <div style={{
+                                position: 'absolute',
+                                top: 16,
+                                left: 16,
+                                background: 'rgba(30,41,59,0.95)',
+                                padding: 16,
+                                borderRadius: 12,
+                                border: '1px solid #334155',
+                                color: 'white'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                    <Route size={18} color="#f59e0b" />
+                                    <span style={{ fontWeight: 600 }}>Historial de Ruta</span>
+                                    <button
+                                        onClick={() => {
+                                            setShowHistory(false);
+                                            if (map.current?.getLayer('history-route')) {
+                                                map.current.removeLayer('history-route');
+                                                map.current.removeSource('history-route');
+                                            }
+                                        }}
+                                        style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                                    >✕</button>
+                                </div>
+                                <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
+                                    <p style={{ margin: '4px 0' }}>📏 Distancia: <strong style={{ color: '#10b981' }}>{historyData.distanceKm.toFixed(2)} km</strong></p>
+                                    <p style={{ margin: '4px 0' }}>📍 Puntos: {historyData.pointCount}</p>
+                                    {historyData.startTime && (
+                                        <p style={{ margin: '4px 0' }}>🕐 {new Date(historyData.startTime).toLocaleTimeString()} - {new Date(historyData.endTime).toLocaleTimeString()}</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Arrivals Notifications */}
+                        {arrivals.length > 0 && (
+                            <div style={{
+                                position: 'absolute',
+                                top: 16,
+                                right: 60,
+                                maxWidth: 300,
+                                maxHeight: 200,
+                                overflowY: 'auto',
+                                background: 'rgba(30,41,59,0.95)',
+                                borderRadius: 12,
+                                border: '1px solid #10b981',
+                                padding: 12
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#10b981', marginBottom: 8 }}>
+                                    <Bell size={16} />
+                                    <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Llegadas Recientes</span>
+                                </div>
+                                {arrivals.map((a, i) => (
+                                    <div key={i} style={{ padding: '6px 0', borderBottom: '1px solid #334155', fontSize: '0.8rem', color: '#e2e8f0' }}>
+                                        🚩 <strong>{a.driverId.slice(-8)}</strong> llegó a Punto #{a.waypointIndex + 1}
+                                        <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{a.address?.slice(0, 40) || 'Sin dirección'}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Date Picker for History */}
+                        {selectedDriver && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 16,
+                                left: 16,
+                                background: 'rgba(30,41,59,0.95)',
+                                padding: 12,
+                                borderRadius: 8,
+                                display: 'flex',
+                                gap: 8,
+                                alignItems: 'center'
+                            }}>
+                                <Calendar size={18} color="#94a3b8" />
+                                <input
+                                    type="date"
+                                    value={historyDate}
+                                    onChange={(e) => setHistoryDate(e.target.value)}
+                                    style={{
+                                        background: '#0f172a',
+                                        border: '1px solid #334155',
+                                        borderRadius: 6,
+                                        padding: '6px 10px',
+                                        color: 'white'
+                                    }}
+                                />
+                                <button
+                                    onClick={loadHistory}
+                                    style={{
+                                        background: '#f59e0b',
+                                        border: 'none',
+                                        borderRadius: 6,
+                                        padding: '6px 12px',
+                                        color: '#0f172a',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Ver Historial
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {/* POD Viewer Modal */}
+            {activePOD && (
+                <PODViewerModal
+                    pod={activePOD}
+                    onClose={() => setActivePOD(null)}
+                />
+            )}
+        </>
     );
 };
 

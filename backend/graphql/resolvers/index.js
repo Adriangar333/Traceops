@@ -176,6 +176,35 @@ const resolvers = {
         }
     },
 
+    Waypoint: {
+        pod: async (parent, _, { db }) => {
+            if (!parent.routeId || parent.orderIndex === undefined) return null;
+
+            try {
+                const res = await db.query(
+                    "SELECT * FROM delivery_proofs WHERE route_id = $1 AND waypoint_index = $2",
+                    [parent.routeId, parent.orderIndex]
+                );
+
+                if (res.rows.length === 0) return null;
+
+                const row = res.rows[0];
+                return {
+                    id: row.id,
+                    waypointId: parent.id,
+                    photoUrl: row.photo ? `data:image/jpeg;base64,${row.photo}` : null,
+                    signatureUrl: row.signature ? `data:image/png;base64,${row.signature}` : null,
+                    notes: row.notes,
+                    deliveredAt: row.created_at?.toISOString(),
+                    location: { lat: row.latitude, lng: row.longitude }
+                };
+            } catch (error) {
+                console.error('[GraphQL] Error resolving POD:', error);
+                return null;
+            }
+        }
+    },
+
     // === Mutation Resolvers ===
     Mutation: {
         /**
