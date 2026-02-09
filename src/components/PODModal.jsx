@@ -83,7 +83,8 @@ const PODModal = ({
 
             if (photoData) {
                 setPhoto(photoData);
-                setStep('signature');
+                // Stay on 'photo' step to show preview with watermark
+                // User clicks "Continuar" to proceed to signature
             }
         } catch (err) {
             console.error(err);
