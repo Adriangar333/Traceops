@@ -152,6 +152,10 @@ module.exports = (pool) => {
                     }
 
                     try {
+                        // Create a savepoint for this row so if it fails, we can rollback just this row
+                        // and continue with the next ones (preventing "current transaction is aborted")
+                        await client.query('SAVEPOINT row_insert');
+
                         await client.query(`
                             INSERT INTO scrc_orders (
                                 nic, order_number, order_type, product_code, priority, 
@@ -196,9 +200,20 @@ module.exports = (pool) => {
                             row['FECHA ASIGNACION'] || row['FECHA'] || new Date(),
                             row['OBSERVACIONES'] || row['observaciones'] || null
                         ]);
+
+                        await client.query('RELEASE SAVEPOINT row_insert');
                         count++;
                     } catch (rowErr) {
-                        errors.push({ row: count + skipped, error: rowErr.message });
+                        await client.query('ROLLBACK TO SAVEPOINT row_insert');
+                        console.error(`❌ Error inserting row ${count + skipped + 1}: ${rowErr.message}`);
+                        // Log the problematic values to help debug
+                        console.error('Row data:', { nic, orden: finalOrdenNum, direccion: direccion?.substring(0, 20) });
+
+                        errors.push({
+                            row: count + skipped + 1,
+                            error: rowErr.message,
+                            orden: finalOrdenNum
+                        });
                         skipped++;
                     }
                 }
