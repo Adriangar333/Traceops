@@ -727,19 +727,46 @@ const DriverView = ({ params }) => {
         }
 
         if (driversList.length > 0) {
+            const [searchTerm, setSearchTerm] = useState("");
+            const filteredDrivers = driversList.filter(d =>
+                d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (d.cuadrilla && d.cuadrilla.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+
             return (
                 <div style={{ background: '#f8fafc', minHeight: '100dvh', padding: 20, color: '#0f172a', fontFamily: 'Inter, system-ui' }}>
                     <Toaster position="top-center" richColors />
-                    <div style={{ textAlign: 'center', marginBottom: 30, paddingTop: 20 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 20, paddingTop: 20 }}>
                         <div style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(16,185,129,0.3)' }}>
                             <Navigation size={32} color="white" />
                         </div>
-                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>Traceops</h2>
-                        <p style={{ color: '#64748b', marginTop: 6, fontSize: '0.9rem' }}>Sistema de Logística Inteligente</p>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>Bienvenido Técnico</h2>
+                        <p style={{ color: '#64748b', marginTop: 4, fontSize: '0.9rem' }}>Selecciona tu perfil para ingresar</p>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div style={{ position: 'relative', marginBottom: 20 }}>
+                        <Search size={20} color="#94a3b8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px 12px 12px 44px',
+                                borderRadius: 12,
+                                border: '1px solid #e2e8f0',
+                                fontSize: '1rem',
+                                outline: 'none',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                transition: 'all 0.2s'
+                            }}
+                        />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {driversList.map(d => (
+                        {filteredDrivers.map(d => (
                             <div
                                 key={d.id}
                                 onClick={() => handleDriverLogin(d.id)}
@@ -777,6 +804,11 @@ const DriverView = ({ params }) => {
                                 <div style={{ color: '#94a3b8' }}>➜</div>
                             </div>
                         ))}
+                        {filteredDrivers.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                                No se encontraron técnicos
+                            </div>
+                        )}
                     </div>
                 </div>
             );
