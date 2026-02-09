@@ -145,9 +145,9 @@ function App() {
                 </div>
               </Route>
 
-            </Route>
+              <Route path="/scrc" component={SCRCPanel} />
 
-            <Route path="/jornadas">
+              <Route path="/jornadas">
               <ScheduleManager />
             </Route>
 
