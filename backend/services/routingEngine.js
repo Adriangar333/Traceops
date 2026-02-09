@@ -27,12 +27,60 @@ const BRIGADE_CAPACITIES = {
 };
 
 // Priority order for OS types (1 = highest priority)
+// From: Criterios tecnicos SCR.xlsx - Matriz Técnica
 const OS_PRIORITY = {
-    'TO502': 1, // CORTE - Highest priority
-    'TO503': 2, // REVISION
-    'TO501': 3, // SUSPENSION
-    'TO504': 4, // SUSPENSION MI/MS
-    'TO506': 5  // REVISION MI/MS
+    'TO502': 1, // RECONEXIÓN SERVICIO MD - Highest priority (cliente pagó)
+    'TO503': 2, // REVISIÓN DE SUSPENSIÓN MD
+    'TO501': 3, // SUSPENSIÓN DEL SERVICIO MD
+    'TO504': 4, // SUSPENSIÓN DEL SERVICIO MI/MS (Media Tensión)
+    'TO506': 5  // REVISIÓN DE SUSPENSIÓN MI/MS
+};
+
+// Estimated times per work type (minutes)
+// From: CRITERIOS_TECNICOS_SCR_RESUMEN.md - Tiempos de Operación
+const ESTIMATED_TIMES = {
+    'reconexion': 10,
+    'bornera_cooperativo': 10,
+    'bornera_agresivo': 20,
+    'tendido_cooperativo': 15,
+    'tendido_agresivo': 30,
+    'radical_cooperativo': 20,
+    'radical_agresivo': 35,
+    'multifamiliar': 20,
+    'cupon_pago': 20,
+    'cobros': 15
+};
+
+// Patrones de vías URBANAS (en dirección)
+// Criterio real usado por asignadores: tipo de vía determina urbano/rural
+const PATRONES_URBANOS = [
+    'CL ', 'CL.', 'CALLE',
+    'CR ', 'CR.', 'CRA ', 'CRA.', 'CARRERA',
+    'TV ', 'TV.', 'TRANSVERSAL',
+    'DG ', 'DG.', 'DIAGONAL',
+    'AV ', 'AV.', 'AVENIDA',
+    'MZ ', 'MZ.', 'MANZANA',
+    'URB ', 'URBANIZACION', 'URBANIZACIÓN',
+    'CONJUNTO', 'EDIFICIO', 'TORRE', 'APTO', 'APARTAMENTO',
+    'BARRIO', 'BRR ', 'BRR.'
+];
+
+// Patrones de vías RURALES (en dirección)
+const PATRONES_RURALES = [
+    'CARRETERA', 'VIA ', 'VÍA ',
+    'KM ', 'KM.', 'KILOMETRO', 'KILÓMETRO',
+    'VEREDA', 'VDA ', 'VDA.',
+    'CORREGIMIENTO', 'CORREG ',
+    'FINCA', 'PARCELA', 'HACIENDA',
+    'LOTE RURAL', 'SECTOR RURAL',
+    'CAMINO', 'TROCHA'
+];
+
+// Working hours (jornada laboral)
+const JORNADA = {
+    inicio: '07:00',
+    fin: '17:00',
+    duracion_horas: 10
 };
 
 // Alcance (Scope) to Brigade mapping from Matriz Técnica
@@ -81,10 +129,26 @@ const ALCANCE_BRIGADE_MATRIX = {
         urban: ['SCR PESADA DISPONIBILIDAD'],
         rural: ['SCR PESADA DISPONIBILIDAD']
     },
-    'R': { // R - Remoto (TO503 only)
+    'R': { // R - Remoto (medidores inteligentes, TO503 only)
         urban: ['SCR PESADA DISPONIBILIDAD'],
         rural: ['SCR PESADA DISPONIBILIDAD']
     }
+};
+
+// Alcance code descriptions for UI display
+const ALCANCE_DESCRIPTIONS = {
+    'B': 'Bornera - Suspensión/reconexión en bornera del medidor',
+    'T': 'Tendido - Suspensión/reconexión en el tendido eléctrico',
+    'N': 'Minicanasta - Requiere vehículo con mini canasta elevadora',
+    'C': 'Canasta - Requiere vehículo con canasta elevadora completa',
+    'M': 'Multifamiliar - Edificios o conjuntos residenciales',
+    'W': 'MT AT - Media Tensión / Alta Tensión',
+    'E': 'Elite - Mercados especiales (clientes prioritarios)',
+    'X': 'Tendido Retiro Acometida - Suspensión con retiro físico',
+    'Y': 'Destruir Acometida - Destrucción completa de la acometida',
+    'D': 'Disponible - Requiere brigada con disponibilidad especial',
+    'F': 'Brigada FOR - Fuerza operativa rápida',
+    'R': 'Remoto - Gestión remota (medidores inteligentes)'
 };
 
 // ==========================================
@@ -104,16 +168,73 @@ class RoutingEngine {
     }
 
     /**
+     * Determine if an address is in a rural zone
+     * Criterio real: tipo de vía en la dirección (CL, CR, TV = urbano | CARRETERA, VEREDA, KM = rural)
+     * Este es el criterio que usaban los asignadores manualmente
+     */
+    static esZonaRural(direccion, zona) {
+        const dir = (direccion || '').toUpperCase().trim();
+        const zonaStr = (zona || '').toUpperCase();
+
+        // Si la zona explícitamente dice RURAL, es rural
+        if (zonaStr.includes('RURAL')) {
+            return true;
+        }
+
+        // Si no hay dirección, asumir rural (más seguro)
+        if (!dir) {
+            return true;
+        }
+
+        // Primero verificar patrones RURALES (tienen prioridad)
+        const esPatronRural = PATRONES_RURALES.some(patron => dir.includes(patron));
+        if (esPatronRural) {
+            return true;
+        }
+
+        // Luego verificar patrones URBANOS
+        const esPatronUrbano = PATRONES_URBANOS.some(patron => dir.includes(patron));
+        if (esPatronUrbano) {
+            return false;
+        }
+
+        // Por defecto, si no coincide con nada, asumir rural (más seguro)
+        return true;
+    }
+
+    /**
+     * Get estimated time for a work type
+     */
+    getEstimatedTime(alcanceCode, osType, clienteCooperativo = true) {
+        if (osType === 'TO502') return ESTIMATED_TIMES.reconexion;
+
+        const suffix = clienteCooperativo ? '_cooperativo' : '_agresivo';
+
+        switch (alcanceCode) {
+            case 'B': return ESTIMATED_TIMES[`bornera${suffix}`] || 15;
+            case 'T':
+            case 'X':
+            case 'Y': return ESTIMATED_TIMES[`tendido${suffix}`] || 22;
+            case 'M': return ESTIMATED_TIMES.multifamiliar;
+            default: return ESTIMATED_TIMES[`radical${suffix}`] || 25;
+        }
+    }
+
+    /**
      * Determine which brigade types can handle an order
+     * Based on: CRITERIOS_TECNICOS_SCR_RESUMEN.md - Matriz de Asignación
      */
     getEligibleBrigades(order) {
         // Extract alcance code from strategic_line (e.g., "B - Bornera" -> "B")
-        const strategicLine = order.strategic_line || '';
+        const strategicLine = order.strategic_line || order.linea_estrategica || '';
         const alcanceCode = strategicLine.charAt(0).toUpperCase();
 
-        // Determine if rural or urban
-        const isRural = (order.zone_code || '').toLowerCase().includes('rural') ||
-            (order.neighborhood || '').toLowerCase().includes('rural');
+        // Determine if rural or urban based on ADDRESS (tipo de vía)
+        // Este es el criterio real usado por los asignadores
+        const isRural = RoutingEngine.esZonaRural(
+            order.address || order.direccion,
+            order.zone_code || order.zona
+        );
 
         const zoneType = isRural ? 'rural' : 'urban';
 
@@ -127,8 +248,14 @@ class RoutingEngine {
         let eligibleBrigades = [...matrix[zoneType]];
 
         // Special rule: N - Minicanasta with DEUDA > 1,000,000 requires CANASTA
-        if (alcanceCode === 'N' && order.amount_due > 1000000) {
+        const deuda = order.amount_due || order.deuda || 0;
+        if (alcanceCode === 'N' && deuda > 1000000) {
             eligibleBrigades = ['CANASTA'];
+        }
+
+        // Special rule: E - Elite for special markets gets SCR PESADA ELITE
+        if (alcanceCode === 'E' && order.mercado_especial) {
+            eligibleBrigades = ['SCR PESADA ELITE'];
         }
 
         return eligibleBrigades;
@@ -319,4 +446,14 @@ class RoutingEngine {
     }
 }
 
-module.exports = { RoutingEngine, BRIGADE_CAPACITIES, ALCANCE_BRIGADE_MATRIX, OS_PRIORITY };
+module.exports = {
+    RoutingEngine,
+    BRIGADE_CAPACITIES,
+    ALCANCE_BRIGADE_MATRIX,
+    OS_PRIORITY,
+    ESTIMATED_TIMES,
+    PATRONES_URBANOS,
+    PATRONES_RURALES,
+    JORNADA,
+    ALCANCE_DESCRIPTIONS
+};

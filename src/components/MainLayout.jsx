@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Map, Users, Package, Settings, LogOut, Truck, Boxes, Phone, Menu, X, ClipboardList, Clock } from 'lucide-react';
 
 const MainLayout = ({ children, user, onLogout }) => {
     const [location, setLocation] = useLocation();
@@ -20,6 +20,8 @@ const MainLayout = ({ children, user, onLogout }) => {
     const navItems = [
         { icon: <LayoutDashboard size={20} />, label: 'Inicio', path: '/' },
         { icon: <Map size={20} />, label: 'Torre de Control', path: '/operations' },
+        { icon: <ClipboardList size={20} />, label: 'SCRC', path: '/scrc' },
+        { icon: <Clock size={20} />, label: 'Jornadas', path: '/jornadas' },
         { icon: <Truck size={20} />, label: 'Adm. Vehicular', path: '/fleet' },
         { icon: <Boxes size={20} />, label: 'Adm. Logística', path: '/inventory' },
         { icon: <Phone size={20} />, label: 'Llamadas', path: '/calls' },

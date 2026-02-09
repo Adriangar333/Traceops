@@ -87,6 +87,10 @@ app.use('/api/scrc', scrcRoutes);
 const zoneRoutes = require('./routes/zones');
 app.use('/api/zones', zoneRoutes);
 
+// Work Schedule Routes (Technician hours management)
+const scheduleRoutes = require('./routes/scheduleRoutes')(pool);
+app.use('/api/schedules', scheduleRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================

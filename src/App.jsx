@@ -9,6 +9,8 @@ import MainLayout from './components/MainLayout';
 import DashboardHome from './components/DashboardHome';
 import InventoryPage from './components/InventoryPage';
 import LoginPage from './components/LoginPage';
+import SCRCPanel from './components/SCRCPanel';
+import ScheduleManager from './components/ScheduleManager';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -115,6 +117,14 @@ function App() {
                   <h1 style={{ color: '#f8fafc', fontSize: 28, fontWeight: 700 }}>📞 Centro de Llamadas</h1>
                   <p style={{ color: '#94a3b8', marginTop: 10 }}>Historial y gestión de llamadas (Próximamente)</p>
                 </div>
+              </Route>
+
+              <Route path="/scrc">
+                <SCRCPanel />
+              </Route>
+
+              <Route path="/jornadas">
+                <ScheduleManager />
               </Route>
 
               {/* Fallback 404 within Layout */}
