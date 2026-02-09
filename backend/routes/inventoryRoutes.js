@@ -179,10 +179,11 @@ module.exports = (pool) => {
         } catch (err) {
             await client.query('ROLLBACK');
             console.error('Error creating movement:', err);
+            console.error('Movement data:', { product_id, from_warehouse_id, to_warehouse_id, quantity, type, reference, notes, userId });
             if (err.message === 'Insufficient stock') {
                 return res.status(400).json({ error: 'Stock insuficiente en bodega origen' });
             }
-            res.status(500).json({ error: 'Database error' });
+            res.status(500).json({ error: 'Error en base de datos', details: err.message });
         } finally {
             client.release();
         }

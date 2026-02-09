@@ -22,13 +22,13 @@ module.exports = (pool) => {
 
     // POST /api/fleet/vehicles
     router.post('/vehicles', authRequired, requireRole('admin'), async (req, res) => {
-        const { plate, brand, model, type, status, km_current, soat_expiry, tecno_expiry } = req.body;
+        const { plate, brand, model, type, status, km_current, soat_expiry, tecno_expiry, ownership_type, year } = req.body;
         try {
             const result = await pool.query(
-                `INSERT INTO vehicles (plate, brand, model, type, status, km_current, soat_expiry, tecno_expiry)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                `INSERT INTO vehicles (plate, brand, model, type, status, km_current, soat_expiry, tecno_expiry, ownership_type, year)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                  RETURNING *`,
-                [plate, brand, model, type, status || 'active', km_current || 0, soat_expiry, tecno_expiry]
+                [plate, brand, model, type, status || 'active', km_current || 0, soat_expiry || null, tecno_expiry || null, ownership_type || 'propio', year || null]
             );
             res.status(201).json(result.rows[0]);
         } catch (err) {
@@ -43,13 +43,13 @@ module.exports = (pool) => {
     // PUT /api/fleet/vehicles/:id
     router.put('/vehicles/:id', authRequired, requireRole('admin'), async (req, res) => {
         const { id } = req.params;
-        const { brand, model, type, status, km_current, soat_expiry, tecno_expiry } = req.body;
+        const { brand, model, type, status, km_current, soat_expiry, tecno_expiry, ownership_type, year } = req.body;
         try {
             const result = await pool.query(
                 `UPDATE vehicles 
-                 SET brand = $1, model = $2, type = $3, status = $4, km_current = $5, soat_expiry = $6, tecno_expiry = $7
-                 WHERE id = $8 RETURNING *`,
-                [brand, model, type, status, km_current, soat_expiry, tecno_expiry, id]
+                 SET brand = $1, model = $2, type = $3, status = $4, km_current = $5, soat_expiry = $6, tecno_expiry = $7, ownership_type = $8, year = $9
+                 WHERE id = $10 RETURNING *`,
+                [brand, model, type, status, km_current, soat_expiry, tecno_expiry, ownership_type, year, id]
             );
 
             if (result.rows.length === 0) {
@@ -75,20 +75,25 @@ module.exports = (pool) => {
     });
 
     // ==========================================
-    // DRIVERS (READ ONLY from Auth Store)
+    // DRIVERS (From Auth Store - drivers = technicians)
     // ==========================================
 
-    // GET /api/fleet/drivers
+    // GET /api/fleet/drivers - Returns users with role 'driver'
     router.get('/drivers', authRequired, (req, res) => {
-        // Filter users with role 'driver'
+        // Filter users with role 'driver' from auth store
         const drivers = users.filter(u => u.role === 'driver').map(u => ({
             id: u.id,
             name: u.name,
             email: u.email,
-            role: u.role
+            role: u.role,
+            phone: u.phone || null,
+            status: 'active'
         }));
         res.json(drivers);
     });
+
+    // Note: To add new drivers, create users with role 'driver' in the auth system
+    // Drivers are the same as technicians in this system
 
     // ==========================================
     // ASSIGNMENTS

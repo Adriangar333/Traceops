@@ -100,23 +100,55 @@ const InventoryManagement = () => {
     };
 
     const handleCreateMovement = async () => {
+        // Validate required fields
+        if (!newMovement.product_id) {
+            toast.error('Selecciona un producto');
+            return;
+        }
+        if (newMovement.type === 'in' && !newMovement.to_warehouse_id) {
+            toast.error('Selecciona el almacén de destino');
+            return;
+        }
+        if (newMovement.type === 'out' && !newMovement.from_warehouse_id) {
+            toast.error('Selecciona el almacén de origen');
+            return;
+        }
+        if (newMovement.type === 'transfer' && (!newMovement.from_warehouse_id || !newMovement.to_warehouse_id)) {
+            toast.error('Selecciona origen y destino');
+            return;
+        }
+        if (!newMovement.quantity || newMovement.quantity <= 0) {
+            toast.error('La cantidad debe ser mayor a 0');
+            return;
+        }
+
         try {
+            // Parse IDs to integers for PostgreSQL
+            const payload = {
+                ...newMovement,
+                product_id: parseInt(newMovement.product_id),
+                from_warehouse_id: newMovement.from_warehouse_id ? parseInt(newMovement.from_warehouse_id) : null,
+                to_warehouse_id: newMovement.to_warehouse_id ? parseInt(newMovement.to_warehouse_id) : null,
+                quantity: parseInt(newMovement.quantity)
+            };
+
             const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/inventory/movements`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                 },
-                body: JSON.stringify(newMovement)
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to move');
+                throw new Error(err.error || err.details || 'Error al registrar movimiento');
             }
 
             toast.success('Movimiento registrado');
             setShowMovementModal(false);
+            setNewMovement({ type: 'in', product_id: '', quantity: 1, from_warehouse_id: '', to_warehouse_id: '', reference: '', notes: '' });
             fetchData();
         } catch (error) {
             toast.error(error.message);

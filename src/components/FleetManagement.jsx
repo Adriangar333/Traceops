@@ -48,7 +48,14 @@ const FleetManagement = () => {
     // UI States
     const [showVehicleModal, setShowVehicleModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
-    const [newVehicle, setNewVehicle] = useState({ plate: '', brand: '', model: '', type: 'moto', km_current: 0 });
+    const [showDriverModal, setShowDriverModal] = useState(false);
+    const [newVehicle, setNewVehicle] = useState({
+        plate: '', brand: '', model: '', type: 'moto', km_current: 0,
+        ownership_type: 'propio', year: '', soat_expiry: '', tecno_expiry: ''
+    });
+    const [newDriver, setNewDriver] = useState({
+        name: '', phone: '', email: '', cuadrilla: '', license_number: '', license_expiry: '', brigade_role: 'driver'
+    });
     const [newAssignment, setNewAssignment] = useState({ vehicle_id: '', driver_id: '', initial_km: 0, notes: '' });
     const [newMaintenance, setNewMaintenance] = useState({ vehicle_id: '', type: 'preventive', description: '', cost: 0, notes: '' });
     const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
@@ -151,6 +158,36 @@ const FleetManagement = () => {
         }
     };
 
+    // Create Driver
+    const handleCreateDriver = async () => {
+        if (!newDriver.name) {
+            toast.error('El nombre es requerido');
+            return;
+        }
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/fleet/drivers`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                },
+                body: JSON.stringify(newDriver)
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Error al crear conductor');
+            }
+
+            toast.success('Conductor creado correctamente');
+            setShowDriverModal(false);
+            setNewDriver({ name: '', phone: '', email: '', cuadrilla: '', license_number: '', license_expiry: '', brigade_role: 'driver' });
+            fetchData();
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
     // Components
     const TabButton = ({ id, label, icon: Icon }) => (
         <button
@@ -248,37 +285,53 @@ const FleetManagement = () => {
 
                 {/* DRIVERS TAB */}
                 {activeTab === 'drivers' && (
-                    <div style={{ background: '#1e293b', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead style={{ background: '#0f172a', color: '#94a3b8', fontSize: 13, textTransform: 'uppercase' }}>
-                                <tr>
-                                    <th style={{ padding: 16, textAlign: 'left' }}>Nombre</th>
-                                    <th style={{ padding: 16, textAlign: 'left' }}>Email</th>
-                                    <th style={{ padding: 16, textAlign: 'left' }}>Rol</th>
-                                    <th style={{ padding: 16, textAlign: 'left' }}>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody style={{ color: '#e2e8f0', fontSize: 14 }}>
-                                {drivers.map(driver => (
-                                    <tr key={driver.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <td style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700 }}>
-                                                {driver.name.charAt(0)}
-                                            </div>
-                                            {driver.name}
-                                        </td>
-                                        <td style={{ padding: 16 }}>{driver.email}</td>
-                                        <td style={{ padding: 16 }}>
-                                            <span style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', padding: '4px 8px', borderRadius: 6, fontSize: 12 }}>
-                                                {driver.role}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: 16 }}><StatusBadge status="active" /></td>
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                            <h3 style={{ fontSize: 18, color: '#e2e8f0', margin: 0 }}>
+                                Conductores / Técnicos ({drivers.length})
+                            </h3>
+                            <div style={{ color: '#64748b', fontSize: 13 }}>
+                                Los conductores se gestionan desde el sistema de usuarios
+                            </div>
+                        </div>
+                        <div style={{ background: '#1e293b', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead style={{ background: '#0f172a', color: '#94a3b8', fontSize: 13, textTransform: 'uppercase' }}>
+                                    <tr>
+                                        <th style={{ padding: 16, textAlign: 'left' }}>Nombre</th>
+                                        <th style={{ padding: 16, textAlign: 'left' }}>Email</th>
+                                        <th style={{ padding: 16, textAlign: 'left' }}>Rol</th>
+                                        <th style={{ padding: 16, textAlign: 'left' }}>Estado</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody style={{ color: '#e2e8f0', fontSize: 14 }}>
+                                    {drivers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="4" style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
+                                                No hay conductores registrados. Crea usuarios con rol "driver" en el sistema de autenticación.
+                                            </td>
+                                        </tr>
+                                    ) : drivers.map(driver => (
+                                        <tr key={driver.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <td style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 14 }}>
+                                                    {driver.name?.charAt(0)?.toUpperCase() || '?'}
+                                                </div>
+                                                <div style={{ fontWeight: 600 }}>{driver.name}</div>
+                                            </td>
+                                            <td style={{ padding: 16 }}>{driver.email || '-'}</td>
+                                            <td style={{ padding: 16 }}>
+                                                <span style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', padding: '4px 10px', borderRadius: 6, fontSize: 12 }}>
+                                                    {driver.role === 'driver' ? 'Conductor/Técnico' : driver.role}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: 16 }}><StatusBadge status={driver.status || 'active'} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
 
                 {/* ASSIGNMENTS TAB */}
@@ -395,46 +448,117 @@ const FleetManagement = () => {
                     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50
                 }}>
-                    <div style={{ background: '#1e293b', padding: 24, borderRadius: 16, width: 400, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ background: '#1e293b', padding: 24, borderRadius: 16, width: 480, border: '1px solid rgba(255,255,255,0.1)', maxHeight: '85vh', overflowY: 'auto' }}>
                         <h3 style={{ margin: '0 0 20px', color: '#f8fafc' }}>Nuevo Vehículo</h3>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <input
-                                placeholder="Placa"
-                                value={newVehicle.plate}
-                                onChange={e => setNewVehicle({ ...newVehicle, plate: e.target.value.toUpperCase() })}
-                                style={{ background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white' }}
-                            />
+                            {/* Placa y Tipo */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Placa *</label>
+                                    <input
+                                        placeholder="ABC-123"
+                                        value={newVehicle.plate}
+                                        onChange={e => setNewVehicle({ ...newVehicle, plate: e.target.value.toUpperCase() })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box', fontWeight: 600 }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Tipo de Vehículo</label>
+                                    <select
+                                        value={newVehicle.type}
+                                        onChange={e => setNewVehicle({ ...newVehicle, type: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    >
+                                        <option value="moto">🏍️ Moto</option>
+                                        <option value="carro">🚗 Carro</option>
+                                        <option value="camion">🚚 Camión</option>
+                                        <option value="camioneta">🛻 Camioneta</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Marca y Modelo */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Marca</label>
+                                    <input
+                                        placeholder="Ej: Toyota"
+                                        value={newVehicle.brand}
+                                        onChange={e => setNewVehicle({ ...newVehicle, brand: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Modelo</label>
+                                    <input
+                                        placeholder="Ej: Hilux"
+                                        value={newVehicle.model}
+                                        onChange={e => setNewVehicle({ ...newVehicle, model: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Año y Tipo de Propiedad */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Año</label>
+                                    <input
+                                        type="number"
+                                        placeholder="Ej: 2022"
+                                        value={newVehicle.year}
+                                        onChange={e => setNewVehicle({ ...newVehicle, year: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Tipo de Propiedad</label>
+                                    <select
+                                        value={newVehicle.ownership_type}
+                                        onChange={e => setNewVehicle({ ...newVehicle, ownership_type: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    >
+                                        <option value="propio">🏠 Propio</option>
+                                        <option value="renting">📋 Renting</option>
+                                        <option value="leasing">🔄 Leasing</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Kilometraje */}
+                            <div>
+                                <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Kilometraje Inicial</label>
                                 <input
-                                    placeholder="Marca"
-                                    value={newVehicle.brand}
-                                    onChange={e => setNewVehicle({ ...newVehicle, brand: e.target.value })}
-                                    style={{ background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white' }}
-                                />
-                                <input
-                                    placeholder="Modelo"
-                                    value={newVehicle.model}
-                                    onChange={e => setNewVehicle({ ...newVehicle, model: e.target.value })}
-                                    style={{ background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white' }}
+                                    type="number"
+                                    placeholder="0"
+                                    value={newVehicle.km_current}
+                                    onChange={e => setNewVehicle({ ...newVehicle, km_current: parseInt(e.target.value) || 0 })}
+                                    style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
                                 />
                             </div>
-                            <select
-                                value={newVehicle.type}
-                                onChange={e => setNewVehicle({ ...newVehicle, type: e.target.value })}
-                                style={{ background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white' }}
-                            >
-                                <option value="moto">Moto</option>
-                                <option value="carro">Carro</option>
-                                <option value="camion">Camión</option>
-                            </select>
-                            <input
-                                type="number"
-                                placeholder="Kilometraje Actual"
-                                value={newVehicle.km_current}
-                                onChange={e => setNewVehicle({ ...newVehicle, km_current: parseInt(e.target.value) })}
-                                style={{ background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white' }}
-                            />
+
+                            {/* SOAT y Tecnomecánica */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Vencimiento SOAT</label>
+                                    <input
+                                        type="date"
+                                        value={newVehicle.soat_expiry}
+                                        onChange={e => setNewVehicle({ ...newVehicle, soat_expiry: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Vencimiento Tecnomecánica</label>
+                                    <input
+                                        type="date"
+                                        value={newVehicle.tecno_expiry}
+                                        onChange={e => setNewVehicle({ ...newVehicle, tecno_expiry: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            </div>
 
                             <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                                 <button
@@ -445,9 +569,9 @@ const FleetManagement = () => {
                                 </button>
                                 <button
                                     onClick={handleCreateVehicle}
-                                    style={{ flex: 1, padding: 12, background: '#4f46e5', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer' }}
+                                    style={{ flex: 1, padding: 12, background: '#4f46e5', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
                                 >
-                                    Crear
+                                    Crear Vehículo
                                 </button>
                             </div>
                         </div>
@@ -598,6 +722,113 @@ const FleetManagement = () => {
                                     style={{ flex: 1, padding: 12, background: '#4f46e5', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer' }}
                                 >
                                     Registrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: New Driver */}
+            {showDriverModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50
+                }}>
+                    <div style={{ background: '#1e293b', padding: 24, borderRadius: 16, width: 450, border: '1px solid rgba(255,255,255,0.1)', maxHeight: '85vh', overflowY: 'auto' }}>
+                        <h3 style={{ margin: '0 0 20px', color: '#f8fafc' }}>Nuevo Conductor</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div>
+                                <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Nombre *</label>
+                                <input
+                                    placeholder="Nombre completo"
+                                    value={newDriver.name}
+                                    onChange={e => setNewDriver({ ...newDriver, name: e.target.value })}
+                                    style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Teléfono</label>
+                                    <input
+                                        placeholder="3001234567"
+                                        value={newDriver.phone}
+                                        onChange={e => setNewDriver({ ...newDriver, phone: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Email</label>
+                                    <input
+                                        type="email"
+                                        placeholder="email@ejemplo.com"
+                                        value={newDriver.email}
+                                        onChange={e => setNewDriver({ ...newDriver, email: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Cuadrilla</label>
+                                    <input
+                                        placeholder="Ej: C-001"
+                                        value={newDriver.cuadrilla}
+                                        onChange={e => setNewDriver({ ...newDriver, cuadrilla: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Rol en Brigada</label>
+                                    <select
+                                        value={newDriver.brigade_role}
+                                        onChange={e => setNewDriver({ ...newDriver, brigade_role: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    >
+                                        <option value="driver">Conductor</option>
+                                        <option value="technician">Técnico</option>
+                                        <option value="helper">Ayudante</option>
+                                        <option value="supervisor">Supervisor</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Nº Licencia</label>
+                                    <input
+                                        placeholder="Número de licencia"
+                                        value={newDriver.license_number}
+                                        onChange={e => setNewDriver({ ...newDriver, license_number: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ color: '#94a3b8', fontSize: 13, display: 'block', marginBottom: 6 }}>Vence Licencia</label>
+                                    <input
+                                        type="date"
+                                        value={newDriver.license_expiry}
+                                        onChange={e => setNewDriver({ ...newDriver, license_expiry: e.target.value })}
+                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: 12, borderRadius: 8, color: 'white', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                                <button
+                                    onClick={() => setShowDriverModal(false)}
+                                    style={{ flex: 1, padding: 12, background: 'transparent', border: '1px solid #475569', color: '#94a3b8', borderRadius: 8, cursor: 'pointer' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleCreateDriver}
+                                    style={{ flex: 1, padding: 12, background: '#4f46e5', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    Crear Conductor
                                 </button>
                             </div>
                         </div>
