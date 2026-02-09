@@ -3,13 +3,15 @@
  * Motor de Ruteo para Suspensión, Corte, Reconexión y Cobro
  * 
  * Based on: Criterios Tecnicos SCR.xlsx
- * - Matriz Técnica: OS types -> Brigade types
- * - Distribución Operativa: Technician lists with capacities
- * - Sectores SCR: Geographic zones
+ * Uses DYNAMIC configuration from system_config table
+ * Managed via SettingsPanel UI
  */
 
+// Import dynamic configuration service
+const { configService, DEFAULTS } = require('./configService');
+
 // ==========================================
-// CONFIGURATION - FROM CRITERIOS TECNICOS
+// FALLBACK CONFIGURATION (used if configService not initialized)
 // ==========================================
 
 // Brigade types with daily capacity (from Distribución Operativa - Criterios Tecnicos SCR.xlsx)
@@ -161,18 +163,19 @@ class RoutingEngine {
     }
 
     /**
-     * Get priority based on OS type
+     * Get priority based on OS type (async for dynamic config)
      */
-    getPriority(osType) {
-        return OS_PRIORITY[osType] || 5;
+    async getPriority(osType) {
+        const priorities = await configService.getOsPriority();
+        return priorities[osType] || 5;
     }
 
     /**
      * Determine if an address is in a rural zone
      * Criterio real: tipo de vía en la dirección (CL, CR, TV = urbano | CARRETERA, VEREDA, KM = rural)
-     * Este es el criterio que usaban los asignadores manualmente
+     * Uses DYNAMIC patterns from system_config table
      */
-    static esZonaRural(direccion, zona) {
+    static async esZonaRural(direccion, zona, zonePatterns = null) {
         const dir = (direccion || '').toUpperCase().trim();
         const zonaStr = (zona || '').toUpperCase();
 
@@ -186,14 +189,17 @@ class RoutingEngine {
             return true;
         }
 
+        // Get zone patterns from config (or use provided ones)
+        const patterns = zonePatterns || await configService.getZonePatterns();
+
         // Primero verificar patrones RURALES (tienen prioridad)
-        const esPatronRural = PATRONES_RURALES.some(patron => dir.includes(patron));
+        const esPatronRural = patterns.rural.some(patron => dir.includes(patron));
         if (esPatronRural) {
             return true;
         }
 
         // Luego verificar patrones URBANOS
-        const esPatronUrbano = PATRONES_URBANOS.some(patron => dir.includes(patron));
+        const esPatronUrbano = patterns.urban.some(patron => dir.includes(patron));
         if (esPatronUrbano) {
             return false;
         }
@@ -222,34 +228,44 @@ class RoutingEngine {
 
     /**
      * Determine which brigade types can handle an order
-     * Based on: CRITERIOS_TECNICOS_SCR_RESUMEN.md - Matriz de Asignación
+     * Uses DYNAMIC config from system_config table
      */
-    getEligibleBrigades(order) {
+    async getEligibleBrigades(order) {
         // Extract alcance code from strategic_line (e.g., "B - Bornera" -> "B")
         const strategicLine = order.strategic_line || order.linea_estrategica || '';
         const alcanceCode = strategicLine.charAt(0).toUpperCase();
 
+        // Get dynamic config
+        const [alcanceMatrix, zonePatterns, debtThreshold] = await Promise.all([
+            configService.getAlcanceMatrix(),
+            configService.getZonePatterns(),
+            configService.getDebtThreshold()
+        ]);
+
         // Determine if rural or urban based on ADDRESS (tipo de vía)
-        // Este es el criterio real usado por los asignadores
-        const isRural = RoutingEngine.esZonaRural(
+        const isRural = await RoutingEngine.esZonaRural(
             order.address || order.direccion,
-            order.zone_code || order.zona
+            order.zone_code || order.zona,
+            zonePatterns
         );
 
         const zoneType = isRural ? 'rural' : 'urban';
 
-        // Get eligible brigades from matrix
-        const matrix = ALCANCE_BRIGADE_MATRIX[alcanceCode];
-        if (!matrix) {
+        // Get eligible brigades from DYNAMIC matrix
+        const matrixEntry = alcanceMatrix[alcanceCode];
+        if (!matrixEntry) {
             // Default to PESADA DISPONIBILIDAD for unknown alcance
             return ['SCR PESADA DISPONIBILIDAD'];
         }
 
-        let eligibleBrigades = [...matrix[zoneType]];
+        // Matrix can be string or array - normalize to array
+        let eligibleBrigades = Array.isArray(matrixEntry[zoneType])
+            ? [...matrixEntry[zoneType]]
+            : [matrixEntry[zoneType]];
 
-        // Special rule: N - Minicanasta with DEUDA > 1,000,000 requires CANASTA
+        // Special rule: N - Minicanasta with DEUDA > threshold requires CANASTA
         const deuda = order.amount_due || order.deuda || 0;
-        if (alcanceCode === 'N' && deuda > 1000000) {
+        if (alcanceCode === 'N' && deuda > debtThreshold) {
             eligibleBrigades = ['CANASTA'];
         }
 
@@ -283,6 +299,9 @@ class RoutingEngine {
      * Get available brigades with remaining capacity
      */
     async getAvailableBrigades() {
+        // Get DYNAMIC brigade capacities from config
+        const brigadeCapacities = await configService.getBrigadeCapacities();
+
         const result = await this.pool.query(`
             SELECT 
                 b.*,
@@ -298,7 +317,7 @@ class RoutingEngine {
         `);
 
         return result.rows.map(brigade => {
-            const capacity = BRIGADE_CAPACITIES[brigade.type] || 20;
+            const capacity = brigadeCapacities[brigade.type] || 20;
             return {
                 ...brigade,
                 capacity,
@@ -437,17 +456,17 @@ class RoutingEngine {
             ORDER BY order_count DESC
             LIMIT 20
         `);
-
         return {
             by_brigade_type: stats.rows,
             top_zones: zones.rows,
-            capacities: BRIGADE_CAPACITIES
+            capacities: await configService.getBrigadeCapacities()
         };
     }
 }
 
 module.exports = {
     RoutingEngine,
+    // Fallback constants (for backwards compatibility)
     BRIGADE_CAPACITIES,
     ALCANCE_BRIGADE_MATRIX,
     OS_PRIORITY,
@@ -455,5 +474,8 @@ module.exports = {
     PATRONES_URBANOS,
     PATRONES_RURALES,
     JORNADA,
-    ALCANCE_DESCRIPTIONS
+    ALCANCE_DESCRIPTIONS,
+    // Dynamic config service access
+    configService
 };
+

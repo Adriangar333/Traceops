@@ -14,8 +14,11 @@ const { createClient } = require('redis');
 const { authRequired, requireRole, optionalAuth, driverAuth } = require('./middleware/auth');
 const { apiLimiter, publicLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/authRoutes');
+// Dynamic Configuration Service
+const { configService } = require('./services/configService');
 // GraphQL
 const { createApolloServer, setupGraphQLMiddleware } = require('./graphql');
+
 
 // Push Notifications
 const { sendPushByDriverId, NotificationTemplates, initializeFirebase } = require('./utils/pushNotifications');
@@ -538,12 +541,17 @@ const initDB = async () => {
 
         // Load active waypoints into memory cache after DB init
         await loadActiveWaypoints();
+
+        // Initialize dynamic configuration service
+        configService.init(pool);
+        await configService.reload();
     } catch (err) {
         console.error('❌ Database connection error:', err);
     }
 };
 
 initDB();
+
 
 // API Routes for Drivers
 

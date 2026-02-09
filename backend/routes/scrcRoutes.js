@@ -85,22 +85,41 @@ module.exports = (pool) => {
             // Log first row to debug column names
             console.log('📝 First row columns:', Object.keys(rawData[0]));
 
+            // Helper function to normalize strings for comparison (remove accents, special chars, uppercase)
+            const normalizeKey = (key) => {
+                if (!key) return '';
+                return key.toString()
+                    .toUpperCase()
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+                    .replace(/[^A-Z0-9]/g, ""); // Keep only alphanumeric
+            };
+
             // Helper function to get value from row by normalized column name
-            // Handles variations in casing, spaces, and common synonyms
             const getColValue = (row, ...possibleNames) => {
                 const rowKeys = Object.keys(row);
+                const normalizedRowKeys = rowKeys.reduce((acc, k) => {
+                    acc[normalizeKey(k)] = k; // Map normalized -> original
+                    return acc;
+                }, {});
+
                 for (const name of possibleNames) {
-                    // Try exact match first
-                    if (row[name] !== undefined) return row[name];
+                    const target = normalizeKey(name);
 
-                    // Try case-insensitive match with trimming
-                    const normalizedName = name.trim().toUpperCase();
-                    const matchingKey = rowKeys.find(k => k.trim().toUpperCase() === normalizedName);
-                    if (matchingKey && row[matchingKey] !== undefined) return row[matchingKey];
+                    // 1. Exact match (normalized)
+                    if (normalizedRowKeys[target]) {
+                        const val = row[normalizedRowKeys[target]];
+                        if (val !== undefined && val !== null && val !== '') return val;
+                    }
 
-                    // Try partial match (column contains the name)
-                    const partialKey = rowKeys.find(k => k.trim().toUpperCase().includes(normalizedName));
-                    if (partialKey && row[partialKey] !== undefined) return row[partialKey];
+                    // 2. Partial match (key contains target)
+                    // Only if target is substantial (length > 2) to avoid false positives
+                    if (target.length > 2) {
+                        const partialMatch = Object.keys(normalizedRowKeys).find(k => k.includes(target));
+                        if (partialMatch) {
+                            const val = row[normalizedRowKeys[partialMatch]];
+                            if (val !== undefined && val !== null && val !== '') return val;
+                        }
+                    }
                 }
                 return null;
             };
@@ -113,21 +132,66 @@ module.exports = (pool) => {
                 let skipped = 0;
                 const errors = [];
 
-                // Extensive debug logging for first 3 rows
-                console.log('🔍 DEBUG: Checking first 3 rows...');
-                for (let i = 0; i < Math.min(3, rawData.length); i++) {
-                    const sample = rawData[i];
-                    console.log(`📝 Row ${i + 1} keys:`, Object.keys(sample).slice(0, 10));
-                    console.log(`📝 Row ${i + 1} NIC value:`, getColValue(sample, 'NIC', 'nic'));
-                    console.log(`📝 Row ${i + 1} ORDEN value:`, getColValue(sample, 'ORDEN', 'orden', 'NUM ORDEN'));
-                    console.log(`📝 Row ${i + 1} DIRECCION value:`, getColValue(sample, 'DIRECCION', 'direccion', 'DIRECCIÓN'));
+                // Detect header row if not first row
+                let dataToProcess = rawData;
+
+                // If keys look like "__EMPTY", headers might be inside the data
+                const firstRow = rawData[0];
+                const hasEmptyKeys = firstRow && Object.keys(firstRow).some(k => k.includes('__EMPTY'));
+
+                if (hasEmptyKeys) {
+                    console.log('⚠️ Headers might be missing or inside data content, searching for header row...');
+                    // Try to find a row that contains "NIC" or "ORDEN" as values
+                    const headerRowIndex = rawData.findIndex(row =>
+                        Object.values(row).some(v =>
+                            v && (v.toString().toUpperCase().includes('NIC') ||
+                                v.toString().toUpperCase().includes('ORDEN'))
+                        )
+                    );
+
+                    if (headerRowIndex !== -1) {
+                        console.log(`✅ Found potential header row at index ${headerRowIndex}`);
+                        // Use this row as headers logic is complex with json, 
+                        // simpler: scan next rows and use this row's values as keys map?
+                        // Or re-read sheet? Re-reading is safer but we need file buffer.
+                        // Let's assume we proceed with current data but skip until headerRowIndex + 1
+                        // forcing mapping based on position? No, JSON structure is rigid.
+                        // Best effort: if we found headers in a row, the NEXT rows are the data.
+                        // But keys are still "__EMPTY_X".
+                        // We need to map "__EMPTY_X" to the value in headerRow.
+
+                        const headerRow = rawData[headerRowIndex];
+                        const colMap = {}; // __EMPTY_1 -> "NIC"
+                        Object.keys(headerRow).forEach(k => {
+                            colMap[k] = headerRow[k];
+                        });
+
+                        // Transform subsequent rows to use these new keys
+                        dataToProcess = rawData.slice(headerRowIndex + 1).map(row => {
+                            const newRow = {};
+                            Object.keys(row).forEach(k => {
+                                const newKey = colMap[k] || k;
+                                newRow[newKey] = row[k];
+                            });
+                            return newRow;
+                        });
+                        console.log(`🔄 Remapped ${dataToProcess.length} rows using found headers.`);
+                    }
                 }
 
-                for (const row of rawData) {
+                console.log('🔍 DEBUG: Checking first 3 rows of processed data...');
+                for (let i = 0; i < Math.min(3, dataToProcess.length); i++) {
+                    const sample = dataToProcess[i];
+                    console.log(`📝 Row ${i + 1} keys:`, Object.keys(sample).slice(0, 10));
+                    console.log(`📝 Row ${i + 1} NIC:`, getColValue(sample, 'NIC'));
+                    console.log(`📝 Row ${i + 1} ORDEN:`, getColValue(sample, 'ORDEN', 'NUM ORDEN'));
+                }
+
+                for (const row of dataToProcess) {
                     // Map columns flexibly using helper function
-                    const nic = getColValue(row, 'NIC', 'nic', 'Nic');
-                    const ordenNum = getColValue(row, 'ORDEN', 'orden', 'Orden', 'NUM ORDEN', 'NUMERO ORDEN');
-                    const direccion = getColValue(row, 'DIRECCION', 'direccion', 'DIRECCIÓN', 'Direccion');
+                    const nic = getColValue(row, 'NIC', 'CLIENTE');
+                    const ordenNum = getColValue(row, 'ORDEN', 'NUM ORDEN', 'NUMERO ORDEN');
+                    const direccion = getColValue(row, 'DIRECCION', 'DIRECCION DEL PREDIO');
 
                     // Relaxed validation: Accept if has NIC, ORDEN, or at least DIRECCION
                     if (!nic && !ordenNum && !direccion) {

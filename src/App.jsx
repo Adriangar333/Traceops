@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import AdminDashboard from './components/AdminDashboard';
@@ -35,6 +36,33 @@ function App() {
     }
     setLoading(false);
   }, []);
+
+  // Handle Deeplinks (App Url Open)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appUrlOpen', data => {
+        console.log('🔗 Deep link received:', data.url);
+        try {
+          // Parse url. Scheme: com.logistics.dashboard://driver or https://...
+          const urlObj = new URL(data.url);
+          let path = urlObj.pathname;
+
+          // Fix double slash if present (common in custom schemes)
+          // Some setups result in //driver/123
+          if (path.startsWith('//')) {
+            path = path.substring(1);
+          }
+
+          if (path) {
+            console.log('📍 Navigating to:', path);
+            setLocation(path + urlObj.search + urlObj.hash);
+          }
+        } catch (e) {
+          console.error('Failed to handle deep link:', e);
+        }
+      });
+    }
+  }, [setLocation]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
