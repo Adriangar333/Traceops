@@ -344,35 +344,36 @@ function AdminDashboard() {
     };
 
     return (
-        <div style={{ width: '100%', height: '100vh', overflow: 'hidden', position: 'relative', fontFamily: 'Inter, system-ui', background: '#f8fafc' }}>
+        <div style={{ width: '100%', height: '100vh', overflow: 'hidden', overflowX: 'hidden', position: 'relative', fontFamily: 'Inter, system-ui', background: '#f8fafc' }}>
             <Toaster position="top-right" richColors />
 
-            {/* --- Stats HUD (Top Center - pushed right of sidebar) --- */}
+            {/* --- Stats HUD (Top - responsive, sin recorte en móvil) --- */}
             <div style={{
                 position: 'absolute',
-                top: isMobile ? 12 : 25,
-                left: isMobile ? '50%' : 420,
-                transform: isMobile ? 'translateX(-50%)' : 'none',
+                top: isMobile ? 'max(12px, env(safe-area-inset-top, 12px))' : 25,
+                left: isMobile ? 12 : 420,
+                right: isMobile ? 12 : 'auto',
                 zIndex: 90,
                 display: 'flex',
-                gap: isMobile ? 6 : 12,
+                gap: isMobile ? 8 : 12,
                 pointerEvents: 'none',
-                width: isMobile ? '92%' : 'auto',
-                maxWidth: isMobile ? 340 : 'none',
+                width: isMobile ? 'calc(100% - 24px)' : 'auto',
+                maxWidth: isMobile ? 'none' : 'none',
                 justifyContent: 'center',
-                flexWrap: 'nowrap'
+                flexWrap: 'nowrap',
+                boxSizing: 'border-box'
             }}>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '6px 8px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 'unset' : 110, flex: 1 }}>
-                    <span style={{ fontSize: isMobile ? 9 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>RUTAS</span>
-                    <span style={{ fontSize: isMobile ? 16 : 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
+                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 0 : 110 }}>
+                    <span style={{ fontSize: isMobile ? 10 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>RUTAS</span>
+                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '6px 8px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 'unset' : 110, flex: 1 }}>
-                    <span style={{ fontSize: isMobile ? 9 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>{isMobile ? 'COND.' : 'CONDUCTORES'}</span>
-                    <span style={{ fontSize: isMobile ? 16 : 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
+                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 0 : 110 }}>
+                    <span style={{ fontSize: isMobile ? 10 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>{isMobile ? 'COND.' : 'CONDUCTORES'}</span>
+                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '6px 8px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 'unset' : 110, flex: 1 }}>
-                    <span style={{ fontSize: isMobile ? 9 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>ALERTAS</span>
-                    <span style={{ fontSize: isMobile ? 16 : 24, fontWeight: 800, color: '#6366f1' }}>0</span>
+                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 0 : 110 }}>
+                    <span style={{ fontSize: isMobile ? 10 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>ALERTAS</span>
+                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#6366f1' }}>0</span>
                 </div>
             </div>
 
@@ -467,7 +468,7 @@ function AdminDashboard() {
                     onClick={() => setShowTracking(true)}
                     style={{
                         position: 'fixed',
-                        bottom: 20,
+                        bottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom, 0px))' : 20,
                         right: 20,
                         background: '#9DBD39',
                         border: 'none',

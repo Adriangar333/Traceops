@@ -17,6 +17,12 @@ const MAP_STYLES = {
 const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, onClearPreview, onClearRoute, fixedStartConfigured, fixedEndConfigured, returnToStart, travelMode = 'driving' }) => {
     const mapContainer = useRef(null);
     const map = useRef(null);
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
     const markersRef = useRef([]);
     const previewMarkersRef = useRef([]);
     const userMarkerRef = useRef(null);
@@ -461,7 +467,8 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
         }, 500);
     };
 
-    const btnStyle = { width: '40px', height: '40px', background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' };
+    const btnSize = isMobile ? 44 : 40;
+    const btnStyle = { width: btnSize, height: btnSize, minWidth: btnSize, minHeight: btnSize, background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' };
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -505,8 +512,8 @@ const MapComponent = ({ waypoints, setWaypoints, onAddWaypoint, previewRoute, on
                 </div>
             )}
 
-            {/* Controls */}
-            <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}>
+            {/* Controls - más espacio en móvil para dedos */}
+            <div style={{ position: 'absolute', top: isMobile ? 12 : 16, right: isMobile ? 10 : 16, display: 'flex', flexDirection: 'column', gap: isMobile ? 6 : 8, zIndex: 10 }}>
                 <button onClick={() => map.current?.zoomIn()} style={btnStyle} title="Acercar"><Plus size={20} /></button>
                 <button onClick={() => map.current?.zoomOut()} style={btnStyle} title="Alejar"><Minus size={20} /></button>
                 <button onClick={() => setShowTraffic(!showTraffic)} style={{ ...btnStyle, background: showTraffic ? '#ea580c' : 'rgba(15,23,42,0.9)' }} title="Tráfico"><Car size={20} /></button>

@@ -454,28 +454,30 @@ const Sidebar = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                padding: '12px 16px',
+                                padding: '14px 16px',
+                                minHeight: 56,
                                 cursor: 'pointer',
-                                pointerEvents: 'auto'
+                                pointerEvents: 'auto',
+                                WebkitTapHighlightColor: 'transparent'
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <div style={{
-                                    width: 36, height: 36,
+                                    width: 40, height: 40,
                                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     borderRadius: 10,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
-                                    <Navigation size={18} color="white" />
+                                    <Navigation size={20} color="white" />
                                 </div>
                                 <div>
-                                    <span style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>Planificador</span>
-                                    <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>
+                                    <span style={{ fontSize: 15, fontWeight: 600, color: '#f1f5f9' }}>Planificador</span>
+                                    <span style={{ fontSize: 13, color: '#94a3b8', marginLeft: 8, fontWeight: 500 }}>
                                         {waypoints.length} paradas
                                     </span>
                                 </div>
                             </div>
-                            <ChevronUp size={22} color="#10b981" />
+                            <ChevronUp size={24} color="#10b981" />
                         </div>
                     ) : (
                         <>
