@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Users, Upload, Download, Save, X, Edit2, Search, RefreshCw, Calendar, Check } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DAY_NAMES_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -29,7 +29,7 @@ export default function ScheduleManager({ onClose }) {
     const fetchDrivers = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/schedules/drivers`);
+            const res = await fetch(`${API_BASE}/schedules/drivers`);
             const data = await res.json();
             setDrivers(data.drivers || []);
         } catch (err) {
@@ -72,7 +72,7 @@ export default function ScheduleManager({ onClose }) {
         if (!editingDriver) return;
         setSaving(true);
         try {
-            const res = await fetch(`${API_BASE}/api/schedules/${editingDriver.id}`, {
+            const res = await fetch(`${API_BASE}/schedules/${editingDriver.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ schedules: editSchedule.filter(s => s.is_active) })
@@ -108,7 +108,7 @@ export default function ScheduleManager({ onClose }) {
         formData.append('file', file);
 
         try {
-            const res = await fetch(`${API_BASE}/api/schedules/bulk`, {
+            const res = await fetch(`${API_BASE}/schedules/bulk`, {
                 method: 'POST',
                 body: formData
             });
@@ -130,7 +130,7 @@ export default function ScheduleManager({ onClose }) {
 
     // Download template
     const downloadTemplate = () => {
-        window.open(`${API_BASE}/api/schedules/template`, '_blank');
+        window.open(`${API_BASE}/schedules/template`, '_blank');
     };
 
     // Format time display

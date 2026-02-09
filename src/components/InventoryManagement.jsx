@@ -53,7 +53,7 @@ const InventoryManagement = () => {
         setLoading(true);
         try {
             const headers = { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` };
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+            const baseUrl = import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api';
 
             const [pRes, wRes, mRes] = await Promise.all([
                 fetch(`${baseUrl}/inventory/products`, { headers }),
@@ -80,7 +80,7 @@ const InventoryManagement = () => {
     // Handlers
     const handleCreateProduct = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/inventory/products`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/inventory/products`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -101,7 +101,7 @@ const InventoryManagement = () => {
 
     const handleCreateMovement = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/inventory/movements`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/inventory/movements`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

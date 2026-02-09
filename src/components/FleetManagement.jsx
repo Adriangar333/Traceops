@@ -58,7 +58,7 @@ const FleetManagement = () => {
         setLoading(true);
         try {
             const headers = { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` };
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+            const baseUrl = import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api';
 
             const [vRes, dRes, aRes, mRes] = await Promise.all([
                 fetch(`${baseUrl}/fleet/vehicles`, { headers }),
@@ -87,7 +87,7 @@ const FleetManagement = () => {
     // Handlers
     const handleCreateVehicle = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/fleet/vehicles`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/fleet/vehicles`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ const FleetManagement = () => {
 
     const handleAssign = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/fleet/assignments`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/fleet/assignments`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -132,7 +132,7 @@ const FleetManagement = () => {
 
     const handleCreateMaintenance = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/fleet/maintenance`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host/api'}/fleet/maintenance`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
