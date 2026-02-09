@@ -355,23 +355,24 @@ function AdminDashboard() {
                 transform: isMobile ? 'translateX(-50%)' : 'none',
                 zIndex: 90,
                 display: 'flex',
-                gap: 12,
+                gap: isMobile ? 6 : 12,
                 pointerEvents: 'none',
-                width: isMobile ? '95%' : 'auto',
+                width: isMobile ? '92%' : 'auto',
+                maxWidth: isMobile ? 340 : 'none',
                 justifyContent: 'center',
-                flexWrap: isMobile ? 'nowrap' : 'nowrap'
+                flexWrap: 'nowrap'
             }}>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 80 : 110, flex: isMobile ? 1 : 'unset' }}>
-                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>RUTAS</span>
-                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '6px 8px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 'unset' : 110, flex: 1 }}>
+                    <span style={{ fontSize: isMobile ? 9 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>RUTAS</span>
+                    <span style={{ fontSize: isMobile ? 16 : 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 80 : 110, flex: isMobile ? 1 : 'unset' }}>
-                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>{isMobile ? 'COND.' : 'CONDUCTORES'}</span>
-                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '6px 8px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 'unset' : 110, flex: 1 }}>
+                    <span style={{ fontSize: isMobile ? 9 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>{isMobile ? 'COND.' : 'CONDUCTORES'}</span>
+                    <span style={{ fontSize: isMobile ? 16 : 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 80 : 110, flex: isMobile ? 1 : 'unset' }}>
-                    <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>ALERTAS</span>
-                    <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#6366f1' }}>0</span>
+                <div style={{ pointerEvents: 'auto', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '6px 8px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 'unset' : 110, flex: 1 }}>
+                    <span style={{ fontSize: isMobile ? 9 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>ALERTAS</span>
+                    <span style={{ fontSize: isMobile ? 16 : 24, fontWeight: 800, color: '#6366f1' }}>0</span>
                 </div>
             </div>
 

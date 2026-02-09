@@ -36,7 +36,8 @@ const MainLayout = ({ children, user, onLogout }) => {
         <nav style={{
             position: 'fixed',
             bottom: 0, left: 0, right: 0,
-            height: 60,
+            minHeight: 70,
+            paddingBottom: 'env(safe-area-inset-bottom, 10px)',
             background: 'rgba(15, 23, 42, 0.98)',
             backdropFilter: 'blur(10px)',
             borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -286,7 +287,7 @@ const MainLayout = ({ children, user, onLogout }) => {
                 position: 'relative',
                 overflow: 'hidden',
                 background: '#0f172a',
-                paddingBottom: isMobile ? 60 : 0 // Add padding for mobile bottom nav
+                paddingBottom: isMobile ? 'calc(70px + env(safe-area-inset-bottom, 10px))' : 0 // Add padding for mobile bottom nav
             }}>
                 {children}
             </main>

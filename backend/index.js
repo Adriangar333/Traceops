@@ -17,6 +17,9 @@ const authRoutes = require('./routes/authRoutes');
 // GraphQL
 const { createApolloServer, setupGraphQLMiddleware } = require('./graphql');
 
+// Push Notifications
+const { sendPushByDriverId, NotificationTemplates, initializeFirebase } = require('./utils/pushNotifications');
+
 const app = express();
 
 // ======================================
@@ -314,7 +317,20 @@ const initDB = async () => {
             ALTER TABLE drivers 
             ADD COLUMN IF NOT EXISTS brigade_role TEXT;
         `);
-        console.log('✅ Table drivers ready (with vehicle_type & roles)');
+        // FCM Push Notification columns
+        await client.query(`
+            ALTER TABLE drivers 
+            ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+        `);
+        await client.query(`
+            ALTER TABLE drivers 
+            ADD COLUMN IF NOT EXISTS platform VARCHAR(20);
+        `);
+        await client.query(`
+            ALTER TABLE drivers 
+            ADD COLUMN IF NOT EXISTS fcm_updated_at TIMESTAMP;
+        `);
+        console.log('✅ Table drivers ready (with vehicle_type, roles & FCM)');
 
         // Create delivery_proofs table for POD
         await client.query(`
@@ -597,10 +613,123 @@ app.post('/routes', async (req, res) => {
             [id.toString(), driverId]
         );
 
+        // 3. Send push notification to technician
+        const notification = NotificationTemplates.ROUTE_ASSIGNED(name);
+        sendPushByDriverId(pool, driverId, notification.title, notification.body, { routeId: id.toString() })
+            .then(result => console.log('📱 Push result:', result))
+            .catch(err => console.error('Push error:', err));
+
         res.status(201).json({ success: true, message: 'Route created and assigned' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to create route' });
+    }
+});
+
+// Update route (with optional notification reason)
+app.patch('/routes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, waypoints, status, notifyReason } = req.body;
+
+    try {
+        // Get current route to find driver
+        const currentRoute = await pool.query('SELECT driver_id, name FROM routes WHERE id = $1', [id]);
+        if (currentRoute.rows.length === 0) {
+            return res.status(404).json({ error: 'Route not found' });
+        }
+        const driverId = currentRoute.rows[0].driver_id;
+        const routeName = name || currentRoute.rows[0].name;
+
+        // Update route
+        await pool.query(
+            `UPDATE routes SET 
+                name = COALESCE($1, name),
+                waypoints = COALESCE($2, waypoints),
+                status = COALESCE($3, status)
+             WHERE id = $4`,
+            [name, waypoints ? JSON.stringify(waypoints) : null, status, id]
+        );
+
+        // Send push notification to technician
+        if (driverId) {
+            const notification = NotificationTemplates.ROUTE_UPDATED(routeName, notifyReason);
+            sendPushByDriverId(pool, driverId, notification.title, notification.body, { routeId: id, action: 'updated' })
+                .catch(err => console.error('Push error:', err));
+        }
+
+        res.json({ success: true, message: 'Route updated' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update route' });
+    }
+});
+
+// Confirm route (payment received)
+app.post('/routes/:id/confirm', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const currentRoute = await pool.query('SELECT driver_id, name FROM routes WHERE id = $1', [id]);
+        if (currentRoute.rows.length === 0) {
+            return res.status(404).json({ error: 'Route not found' });
+        }
+
+        const driverId = currentRoute.rows[0].driver_id;
+        const routeName = currentRoute.rows[0].name;
+
+        await pool.query("UPDATE routes SET status = 'confirmed' WHERE id = $1", [id]);
+
+        // Notify technician
+        if (driverId) {
+            const notification = NotificationTemplates.ROUTE_CONFIRMED(routeName);
+            sendPushByDriverId(pool, driverId, notification.title, notification.body, { routeId: id, action: 'confirmed' })
+                .catch(err => console.error('Push error:', err));
+        }
+
+        res.json({ success: true, message: 'Route confirmed' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to confirm route' });
+    }
+});
+
+// Cancel/Delete route
+app.delete('/routes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { cancelReason } = req.body || {};
+
+    try {
+        const currentRoute = await pool.query('SELECT driver_id, name FROM routes WHERE id = $1', [id]);
+        if (currentRoute.rows.length === 0) {
+            return res.status(404).json({ error: 'Route not found' });
+        }
+
+        const driverId = currentRoute.rows[0].driver_id;
+        const routeName = currentRoute.rows[0].name;
+
+        // Option 1: Soft delete (mark as cancelled)
+        await pool.query("UPDATE routes SET status = 'cancelled' WHERE id = $1", [id]);
+
+        // Option 2: Hard delete (uncomment if you prefer)
+        // await pool.query('DELETE FROM routes WHERE id = $1', [id]);
+
+        // Remove from driver's assigned routes
+        if (driverId) {
+            await pool.query(
+                'UPDATE drivers SET assigned_routes = array_remove(assigned_routes, $1) WHERE id = $2',
+                [id, driverId]
+            );
+
+            // Notify technician
+            const notification = NotificationTemplates.ROUTE_CANCELLED(routeName, cancelReason);
+            sendPushByDriverId(pool, driverId, notification.title, notification.body, { routeId: id, action: 'cancelled' })
+                .catch(err => console.error('Push error:', err));
+        }
+
+        res.json({ success: true, message: 'Route cancelled' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to cancel route' });
     }
 });
 
@@ -642,6 +771,29 @@ app.delete('/drivers/:id', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to delete driver' });
+    }
+});
+
+// FCM Token Registration for Push Notifications
+app.post('/api/drivers/fcm-token', async (req, res) => {
+    const { driverId, fcmToken, platform } = req.body;
+
+    if (!driverId || !fcmToken) {
+        return res.status(400).json({ error: 'driverId and fcmToken are required' });
+    }
+
+    try {
+        await pool.query(
+            `UPDATE drivers 
+             SET fcm_token = $1, platform = $2, fcm_updated_at = NOW() 
+             WHERE id = $3`,
+            [fcmToken, platform || 'android', driverId]
+        );
+        console.log(`📱 FCM token registered for driver ${driverId}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('FCM token save error:', err);
+        res.status(500).json({ error: 'Failed to save FCM token' });
     }
 });
 

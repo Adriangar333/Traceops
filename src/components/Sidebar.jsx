@@ -323,11 +323,11 @@ const Sidebar = ({
         // Modular Container - responsive
         sidebar: isMobile ? {
             position: 'fixed',
-            bottom: 70, // Above bottom nav
+            bottom: 85, // Above bottom nav (increased for safe-area)
             left: 10,
             right: 10,
             zIndex: 100,
-            maxHeight: mobileCollapsed ? 70 : 'calc(100vh - 140px)',
+            maxHeight: mobileCollapsed ? 70 : 'calc(100vh - 160px)',
             display: 'flex',
             flexDirection: 'column',
             gap: 10,

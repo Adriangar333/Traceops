@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "220472725580",
+        "project_id": "traceops-f71ba",
+        "storage_bucket": "traceops-f71ba.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:220472725580:android:9f07d27582cd669d30e4e9",
+                "android_client_info": {
+                    "package_name": "com.logistics.dashboard"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyCr2noAmkm5FSg2DHioy-hk2P_iFWAqgZs"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

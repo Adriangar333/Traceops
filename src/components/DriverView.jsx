@@ -5,6 +5,7 @@ import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
 import { getDriverRoutes, getDrivers } from '../utils/backendService';
 import { initAutoSync, getPendingCount, syncPending, onSyncEvent, isOnline } from '../utils/offlineSyncService';
+import { PushService } from '../utils/pushService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -277,11 +278,44 @@ const DriverView = ({ params }) => {
         };
     }, []);
 
-    const handleDriverLogin = (selectedId) => {
+    const handleDriverLogin = async (selectedId) => {
         if (!selectedId) return;
-        localStorage.setItem('traceops_driver_id', selectedId);
-        // Reload with driverId param to trigger flow
-        window.location.replace(`/driver?driverId=${selectedId}`);
+
+        try {
+            // 1. Save driver ID to localStorage
+            localStorage.setItem('traceops_driver_id', selectedId.toString());
+            console.log('🔐 Driver logged in:', selectedId);
+
+            // 2. Initialize push notifications (native only)
+            if (window.Capacitor?.isNative) {
+                console.log('📱 Initializing push notifications...');
+                const fcmToken = await PushService.initialize(selectedId);
+                if (fcmToken) {
+                    toast.success('🔔 Notificaciones activadas');
+                }
+            }
+
+            // 3. Load driver's routes
+            const routes = await getDriverRoutes(selectedId);
+            if (routes && routes.length > 0) {
+                setAvailableRoutes(routes);
+                const driver = driversList.find(d => d.id.toString() === selectedId.toString());
+                if (driver) setDriverName(driver.name);
+                setDriversList([]); // Exit login mode
+            } else {
+                // No routes - still set driver name and exit login
+                const driver = driversList.find(d => d.id.toString() === selectedId.toString());
+                if (driver) setDriverName(driver.name);
+                setDriversList([]); // Exit login mode
+                toast.info('No tienes rutas asignadas actualmente');
+            }
+
+        } catch (error) {
+            console.error('Login error:', error);
+            toast.error('Error al iniciar sesión');
+            // Fallback: reload
+            window.location.replace(`/driver?driverId=${selectedId}`);
+        }
     };
 
     // Initialize Map
