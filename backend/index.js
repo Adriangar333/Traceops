@@ -35,7 +35,7 @@ app.use(helmet({
     contentSecurityPolicy: false // Disable for API server
 }));
 
-// CORS - Restricted to allowed origins
+// CORS - Allowed origins (frontend production + local)
 const allowedOrigins = [
     'https://dashboard-frontend.zvkdyr.easypanel.host',
     'http://localhost:5173',
@@ -43,17 +43,31 @@ const allowedOrigins = [
     'http://127.0.0.1:5173'
 ];
 
+// CORS middleware: ensure header is always set for allowed origins (fixes preflight/upload)
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+    next();
+});
+
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (mobile apps, Postman)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
+        if (allowedOrigins.includes(origin)) return callback(null, true);
         console.warn(`🚫 CORS blocked origin: ${origin}`);
-        return callback(null, true); // Temporarily allow all during transition
+        return callback(null, true);
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '50mb' }));
