@@ -1,10 +1,150 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const XLSX = require('xlsx');
+
+// Multer storage for Excel uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 // SCRC Routes for ISES Field Service Management
 // Accepts pool as dependency injection from index.js
 
 module.exports = (pool) => {
+
+    // ============================================
+    // UPLOAD EXCEL FILE (Direct file upload)
+    // ============================================
+    router.post('/upload-excel', upload.single('file'), async (req, res) => {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        try {
+            // Parse Excel file
+            const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+
+            // Use 'asignacion' sheet or first sheet
+            const sheetName = workbook.SheetNames.includes('asignacion')
+                ? 'asignacion'
+                : workbook.SheetNames[0];
+
+            const sheet = workbook.Sheets[sheetName];
+            const rawData = XLSX.utils.sheet_to_json(sheet);
+
+            console.log(`📊 Processing ${rawData.length} rows from sheet "${sheetName}"`);
+
+            if (rawData.length === 0) {
+                return res.status(400).json({ error: 'No data found in Excel file' });
+            }
+
+            // Log first row to debug column names
+            console.log('📝 First row columns:', Object.keys(rawData[0]));
+
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+
+                let count = 0;
+                let skipped = 0;
+                const errors = [];
+
+                for (const row of rawData) {
+                    // Map columns flexibly (handle different column names)
+                    const nic = row['NIC'] || row['nic'] || row['Nic'];
+                    const ordenNum = row['ORDEN'] || row['orden'] || row['Orden'] || row['NUM ORDEN'];
+
+                    if (!nic && !ordenNum) {
+                        skipped++;
+                        continue;
+                    }
+
+                    // Determine order type from TIPO DE OS
+                    const tipoOS = row['TIPO DE OS'] || row['TIPO_DE_OS'] || row['tipo_os'] || '';
+                    let orderType = 'suspension';
+                    let priority = 2;
+
+                    if (tipoOS.includes('502') || tipoOS.toLowerCase().includes('corte')) {
+                        orderType = 'corte';
+                        priority = 1;
+                    } else if (tipoOS.includes('503') || tipoOS.toLowerCase().includes('recon')) {
+                        orderType = 'reconexion';
+                        priority = 3;
+                    }
+
+                    try {
+                        await client.query(`
+                            INSERT INTO scrc_orders (
+                                nic, order_number, order_type, product_code, priority, 
+                                technician_name, client_name, 
+                                address, municipality, neighborhood, department,
+                                zone_code, brigade_type, strategic_line,
+                                amount_due, tariff, meter_number, meter_brand,
+                                status, assignment_date, notes
+                            )
+                            VALUES (
+                                $1, $2, $3, $4, $5, 
+                                $6, $7, 
+                                $8, $9, $10, $11,
+                                $12, $13, $14,
+                                $15, $16, $17, $18,
+                                'pending', $19, $20
+                            )
+                            ON CONFLICT (order_number) DO UPDATE SET
+                                status = 'pending',
+                                amount_due = EXCLUDED.amount_due,
+                                technician_name = EXCLUDED.technician_name,
+                                updated_at = NOW()
+                        `, [
+                            nic,
+                            ordenNum || `ORD-${Date.now()}-${count}`,
+                            orderType,
+                            tipoOS,
+                            priority,
+                            row['TECNICO'] || row['tecnico'] || row['NOMBRE TECNICO'] || null,
+                            row['NOMBRE DEL CLIENTE'] || row['CLIENTE'] || row['cliente'] || null,
+                            row['DIRECCION'] || row['direccion'] || row['DIRECCIÓN'] || null,
+                            row['MUNICIPIO'] || row['municipio'] || null,
+                            row['BARRIO'] || row['barrio'] || null,
+                            row['DEPARTAMENTO'] || row['departamento'] || 'ATLANTICO',
+                            row['BRIGADA'] || row['brigada'] || row['ZONA'] || null,
+                            row['TIPO DE BRIGADA'] || row['tipo_brigada'] || null,
+                            row['LINEA ESTRATEGICA'] || row['linea_estrategica'] || row['ALCANCE'] || null,
+                            parseFloat(String(row['DEUDA'] || row['deuda'] || '0').replace(/[,$]/g, '')) || 0,
+                            row['TARIFA'] || row['tarifa'] || null,
+                            row['MEDIDOR'] || row['medidor'] || row['NUM MEDIDOR'] || null,
+                            row['MARCA MEDIDOR'] || row['marca_medidor'] || null,
+                            row['FECHA ASIGNACION'] || row['FECHA'] || new Date(),
+                            row['OBSERVACIONES'] || row['observaciones'] || null
+                        ]);
+                        count++;
+                    } catch (rowErr) {
+                        errors.push({ row: count + skipped, error: rowErr.message });
+                        skipped++;
+                    }
+                }
+
+                await client.query('COMMIT');
+                console.log(`📥 Excel upload: ${count} orders inserted, ${skipped} skipped`);
+
+                res.json({
+                    success: true,
+                    count,
+                    skipped,
+                    sheetName,
+                    totalRows: rawData.length,
+                    errors: errors.slice(0, 5) // Return first 5 errors only
+                });
+            } catch (err) {
+                await client.query('ROLLBACK');
+                throw err;
+            } finally {
+                client.release();
+            }
+        } catch (err) {
+            console.error('Excel upload error:', err);
+            res.status(500).json({ error: 'Failed to process Excel file', details: err.message });
+        }
+    });
 
     // ============================================
     // 1. INGEST DATA (Webhook from n8n or direct upload)

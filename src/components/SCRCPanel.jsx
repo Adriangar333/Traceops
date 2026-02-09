@@ -106,9 +106,35 @@ export default function SCRCPanel({ onClose }) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // For now, we'll need to parse Excel on frontend or send to a parser endpoint
-        toast.info('📥 Funcionalidad de carga Excel en desarrollo');
-        // TODO: Implement Excel parsing with xlsx library
+        const formData = new FormData();
+        formData.append('file', file);
+
+        toast.loading('📤 Subiendo archivo Excel...', { id: 'excel-upload' });
+
+        try {
+            const res = await fetch(`${API_BASE}/api/scrc/upload-excel`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Error al procesar archivo');
+            }
+
+            toast.success(`✅ ${data.count} órdenes cargadas (${data.skipped} omitidas)`, { id: 'excel-upload' });
+
+            // Refresh orders
+            fetchOrders();
+            fetchStats();
+        } catch (err) {
+            console.error('Excel upload error:', err);
+            toast.error(`❌ ${err.message}`, { id: 'excel-upload' });
+        }
+
+        // Clear file input
+        e.target.value = '';
     };
 
     useEffect(() => {
