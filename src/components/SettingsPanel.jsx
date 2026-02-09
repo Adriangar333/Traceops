@@ -102,9 +102,19 @@ const styles = {
     container: {
         padding: '30px 40px',
         backgroundColor: '#0f172a',
-        minHeight: '100vh',
+        height: '100%',
         color: '#f8fafc',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
     },
+    content: {
+        flex: 1,
+        overflowY: 'auto',
+        paddingRight: 10,
+        paddingBottom: 40,
+    },
+
     header: {
         display: 'flex',
         alignItems: 'center',
@@ -1145,8 +1155,10 @@ export default function SettingsPanel() {
                 ))}
             </div>
 
-            {/* Active Tab Content */}
-            {renderActiveTab()}
+            {/* Active Tab Content - Scrollable */}
+            <div style={styles.content}>
+                {renderActiveTab()}
+            </div>
         </div>
     );
 }
