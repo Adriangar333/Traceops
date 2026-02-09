@@ -25,20 +25,56 @@ module.exports = (pool) => {
 
             console.log('📊 Available sheets:', workbook.SheetNames);
 
-            // Search for sheet name with flexible matching (case insensitive + common variations)
+            // Function to check if a sheet has required columns
+            const hasRequiredColumns = (sheetData) => {
+                if (!sheetData || sheetData.length === 0) return false;
+                const cols = Object.keys(sheetData[0]).map(c => c.toUpperCase());
+                return cols.some(c => c.includes('NIC') || c.includes('ORDEN') || c === 'NUM ORDEN');
+            };
+
+            // Step 1: Try to find sheet by name (ASIGNACION variations)
             const targetSheetNames = ['ASIGNACION', 'asignacion', 'Asignacion', 'ASIGNACIÓN', 'Asignación', 'ASSIGNMENT'];
             let sheetName = workbook.SheetNames.find(name =>
                 targetSheetNames.some(target => name.toLowerCase().includes(target.toLowerCase()))
             );
 
-            // If not found, fallback to first sheet
-            if (!sheetName) {
-                console.log('⚠️ No ASIGNACION sheet found, using first sheet');
-                sheetName = workbook.SheetNames[0];
+            let rawData = null;
+
+            // Step 2: If found by name, check if it has required columns
+            if (sheetName) {
+                console.log(`📋 Found sheet by name: "${sheetName}"`);
+                const sheet = workbook.Sheets[sheetName];
+                rawData = XLSX.utils.sheet_to_json(sheet);
+
+                if (!hasRequiredColumns(rawData)) {
+                    console.log(`⚠️ Sheet "${sheetName}" doesn't have NIC/ORDEN columns, searching others...`);
+                    sheetName = null; // Reset to trigger search
+                }
             }
 
-            const sheet = workbook.Sheets[sheetName];
-            const rawData = XLSX.utils.sheet_to_json(sheet);
+            // Step 3: If not found by name OR missing columns, search all sheets
+            if (!sheetName) {
+                console.log('🔍 Searching all sheets for NIC/ORDEN columns...');
+                for (const name of workbook.SheetNames) {
+                    const sheet = workbook.Sheets[name];
+                    const data = XLSX.utils.sheet_to_json(sheet);
+
+                    if (hasRequiredColumns(data)) {
+                        console.log(`✅ Found required columns in sheet: "${name}"`);
+                        sheetName = name;
+                        rawData = data;
+                        break;
+                    }
+                }
+            }
+
+            // Step 4: Final fallback - use first sheet
+            if (!sheetName) {
+                console.log('⚠️ No sheet with NIC/ORDEN found, using first sheet');
+                sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                rawData = XLSX.utils.sheet_to_json(sheet);
+            }
 
             console.log(`📊 Processing ${rawData.length} rows from sheet "${sheetName}"`);
 
