@@ -45,6 +45,20 @@ const DriverView = ({ params }) => {
     // Check if we are native
     const isNative = window.Capacitor && window.Capacitor.isNative;
 
+    // --- DEEP LINK REDIRECT ---
+    // If user opens a link like https://domain/driver/123 on mobile, try to open the App
+    useEffect(() => {
+        const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        if (routeId && !isNative && isMobile) {
+            console.log('🔗 Attempting to open native app via custom scheme...');
+            // Give the browser a moment to render, then try to switch
+            const timer = setTimeout(() => {
+                window.location.href = `traceops://driver/routes/${routeId}`;
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [routeId, isNative]);
+
     const handlePanicOption = (type) => {
         const typeConfig = {
             'sos': { label: 'ALERTA SOS', msg: '🚨 ALERTA SOS ENVIADA 🚨' },

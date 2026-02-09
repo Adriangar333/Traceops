@@ -50,6 +50,10 @@ export const validateGeofence = (driverLocation, destination, maxDistance = 100)
  * @param {Object} metadata - Metadata to overlay
  * @returns {Promise<string>} Base64 encoded watermarked image
  */
+/**
+ * Add advanced watermark with "Data BB" style overlay
+ * Includes mini-map visualization, technician details, and operation info
+ */
 const addWatermarkToPhoto = async (base64Image, metadata = {}) => {
     return new Promise((resolve) => {
         try {
@@ -57,8 +61,8 @@ const addWatermarkToPhoto = async (base64Image, metadata = {}) => {
 
             img.onload = () => {
                 try {
-                    // MEMORY OPTIMIZATION: Limit max size to 800px to prevent mobile crashes
-                    const MAX_SIZE = 800;
+                    // MEMORY OPTIMIZATION: Limit max size to 1024px for better quality but safe
+                    const MAX_SIZE = 1024;
                     let width = img.width;
                     let height = img.height;
 
@@ -77,83 +81,160 @@ const addWatermarkToPhoto = async (base64Image, metadata = {}) => {
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
 
-                    // Draw scaled image
+                    // 1. Draw scaled image
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Semi-transparent overlay at bottom (scaled proportionally)
-                    const overlayHeight = Math.min(100, height * 0.15);
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                    ctx.fillRect(0, height - overlayHeight, width, overlayHeight);
+                    // --- WATERMARK CONFIGURATION ---
+                    const overlayHeight = Math.max(160, Math.round(height * 0.22)); // Taller overlay
+                    const padding = Math.round(width * 0.03);
+                    const footerY = height - overlayHeight;
 
-                    // Text settings (scaled font size)
-                    const fontSize = Math.max(10, Math.round(width / 60));
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+                    // 2. Draw modern gradient background (Glassmorphism look)
+                    const gradient = ctx.createLinearGradient(0, footerY, 0, height);
+                    gradient.addColorStop(0, 'rgba(15, 23, 42, 0.85)'); // Slate-900 transparent
+                    gradient.addColorStop(1, 'rgba(15, 23, 42, 0.98)'); // Slate-900 solid
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, footerY, width, overlayHeight);
+
+                    // Add top border line for accent
+                    ctx.fillStyle = '#3B82F6'; // Blue-500
+                    ctx.fillRect(0, footerY, width, 4);
+
+                    // --- 3. DRAW MINI-MAP VISUALIZATION (Left Side) ---
+                    const mapSize = overlayHeight - (padding * 2);
+                    const mapX = padding;
+                    const mapY = footerY + padding;
+
+                    // Draw Map Background
+                    ctx.fillStyle = '#1e293b'; // Slate-800
+                    ctx.fillRect(mapX, mapY, mapSize, mapSize);
+
+                    // Draw Grid Lines (Simulating map)
+                    ctx.strokeStyle = '#334155'; // Slate-700
+                    ctx.lineWidth = 1;
+                    const gridSize = mapSize / 4;
+                    for (let i = 1; i < 4; i++) {
+                        // Vertical
+                        ctx.beginPath();
+                        ctx.moveTo(mapX + (gridSize * i), mapY);
+                        ctx.lineTo(mapX + (gridSize * i), mapY + mapSize);
+                        ctx.stroke();
+                        // Horizontal
+                        ctx.beginPath();
+                        ctx.moveTo(mapX, mapY + (gridSize * i));
+                        ctx.lineTo(mapX + mapSize, mapY + (gridSize * i));
+                        ctx.stroke();
+                    }
+
+                    // Draw "GPS" Label on Map
+                    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                    ctx.font = `bold ${Math.round(mapSize * 0.15)}px monospace`;
+                    ctx.textAlign = 'right';
+                    ctx.fillText('GPS', mapX + mapSize - 4, mapY + mapSize - 4);
+
+                    // Draw Pin Point (Red Dot with Pulse effect)
+                    const centerX = mapX + (mapSize / 2);
+                    const centerY = mapY + (mapSize / 2);
+
+                    // Pulse ring
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; // Red-500
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, mapSize * 0.15, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Center Dot
+                    ctx.fillStyle = '#ef4444'; // Red-500
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, mapSize * 0.08, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // --- 4. DRAW TEXT DATA ---
+                    const textX = mapX + mapSize + padding;
+                    const textWidth = width - textX - padding;
+
+                    ctx.textAlign = 'left';
                     ctx.textBaseline = 'top';
 
-                    const padding = 6;
-                    let y = height - overlayHeight + padding;
-                    const lineHeight = fontSize + 4;
+                    // Prepare fonts
+                    const titleFont = `bold ${Math.round(width * 0.035)}px sans-serif`;
+                    const dataFont = `bold ${Math.round(width * 0.025)}px monospace`; // Monospace for data looks techy
+                    const labelFont = `normal ${Math.round(width * 0.02)}px sans-serif`;
 
-                    // Format date/time
+                    let currentY = mapY;
+                    const lineHeight = Math.round(width * 0.045);
+
+                    // -- ROW 1: OPERATION TYPE (Big Header) --
+                    ctx.fillStyle = '#fbbf24'; // Amber-400 (Highlight)
+                    ctx.font = titleFont;
+                    const opType = (metadata.operationType || 'OPERACIÓN').toUpperCase();
+                    ctx.fillText(opType, textX, currentY);
+                    currentY += lineHeight * 1.2;
+
+                    // -- ROW 2: TECHNICIAN --
+                    ctx.fillStyle = '#94a3b8'; // Slate-400 (Label)
+                    ctx.font = labelFont;
+                    ctx.fillText('TÉCNICO:', textX, currentY);
+
+                    ctx.fillStyle = '#ffffff'; // White (Value)
+                    ctx.font = dataFont;
+                    const techName = (metadata.driverName || 'N/A').toUpperCase().substring(0, 25);
+                    const labelWidth = ctx.measureText('TÉCNICO: ').width;
+                    ctx.fillText(techName, textX + labelWidth + 10, currentY - 2); // Align nicely
+                    currentY += lineHeight;
+
+                    // -- ROW 3: DATE & TIME --
                     const now = new Date();
-                    const dateStr = now.toLocaleDateString('es-CO', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                    });
-                    const timeStr = now.toLocaleTimeString('es-CO', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+                    const dateStr = now.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+                    const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
-                    // Line 1: Date & Time
-                    ctx.fillText(`${dateStr} ${timeStr}`, padding, y);
-                    y += lineHeight;
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = labelFont;
+                    ctx.fillText('FECHA:', textX, currentY);
 
-                    // Line 2: Technician name + Operation
-                    const infoLine = [metadata.driverName, metadata.operationType].filter(Boolean).join(' - ');
-                    if (infoLine) {
-                        ctx.fillText(infoLine, padding, y);
-                        y += lineHeight;
-                    }
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = dataFont;
+                    const dateLabelWidth = ctx.measureText('FECHA: ').width;
+                    ctx.fillText(`${dateStr} - ${timeStr}`, textX + dateLabelWidth + 10, currentY - 2);
+                    currentY += lineHeight;
 
-                    // Line 3: Address (truncated)
-                    if (metadata.address) {
-                        const maxWidth = width - (padding * 2);
-                        let address = metadata.address;
-                        if (ctx.measureText(address).width > maxWidth) {
-                            while (ctx.measureText(address + '...').width > maxWidth && address.length > 0) {
-                                address = address.slice(0, -1);
-                            }
-                            address += '...';
-                        }
-                        ctx.fillText(address, padding, y);
-                        y += lineHeight;
-                    }
+                    // -- ROW 4: ADDRESS (Wrapped) --
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = labelFont;
+                    ctx.fillText('UBICACIÓN:', textX, currentY);
 
-                    // Line 4: Coordinates (simplified)
+                    ctx.fillStyle = '#e2e8f0'; // Slight off-white
+                    ctx.font = `normal ${Math.round(width * 0.022)}px sans-serif`;
+
+                    let address = (metadata.address || '').substring(0, 60);
+                    const addrY = currentY + (lineHeight * 0.8);
+                    ctx.fillText(address, textX, addrY);
+                    currentY += lineHeight * 1.8;
+
+                    // -- ROW 5: COORDINATES (Small at bottom) --
                     if (metadata.location) {
-                        ctx.fillText(`${metadata.location.lat.toFixed(5)}, ${metadata.location.lng.toFixed(5)}`, padding, y);
+                        ctx.fillStyle = '#64748b'; // Slate-500
+                        ctx.font = `italic ${Math.round(width * 0.02)}px monospace`;
+                        const coords = `LAT: ${metadata.location.lat.toFixed(6)}  LNG: ${metadata.location.lng.toFixed(6)}`;
+                        ctx.fillText(coords, textX, currentY);
                     }
 
-                    // Convert to base64 with LOWER quality for mobile (0.65)
-                    const watermarkedBase64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
+                    // Convert to base64
+                    const watermarkedBase64 = canvas.toDataURL('image/jpeg', 0.80).split(',')[1];
 
-                    // Cleanup to free memory
+                    // Cleanup
                     canvas.width = 0;
                     canvas.height = 0;
 
                     resolve(watermarkedBase64);
                 } catch (canvasError) {
-                    console.error('Canvas watermark error (memory?):', canvasError);
-                    resolve(base64Image); // Return original on any error
+                    console.error('Canvas watermark error:', canvasError);
+                    resolve(base64Image); // Return original on error
                 }
             };
 
             img.onerror = () => {
-                console.error('Failed to load image for watermarking');
-                resolve(base64Image); // Return original if watermarking fails
+                resolve(base64Image);
             };
 
             img.src = `data:image/jpeg;base64,${base64Image}`;
