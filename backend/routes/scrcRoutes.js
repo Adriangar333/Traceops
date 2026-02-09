@@ -113,22 +113,30 @@ module.exports = (pool) => {
                 let skipped = 0;
                 const errors = [];
 
-                // Log first row values for debugging
-                if (rawData.length > 0) {
-                    const sample = rawData[0];
-                    console.log('📝 Sample row NIC:', getColValue(sample, 'NIC', 'nic'));
-                    console.log('📝 Sample row ORDEN:', getColValue(sample, 'ORDEN', 'orden', 'NUM ORDEN'));
+                // Extensive debug logging for first 3 rows
+                console.log('🔍 DEBUG: Checking first 3 rows...');
+                for (let i = 0; i < Math.min(3, rawData.length); i++) {
+                    const sample = rawData[i];
+                    console.log(`📝 Row ${i + 1} keys:`, Object.keys(sample).slice(0, 10));
+                    console.log(`📝 Row ${i + 1} NIC value:`, getColValue(sample, 'NIC', 'nic'));
+                    console.log(`📝 Row ${i + 1} ORDEN value:`, getColValue(sample, 'ORDEN', 'orden', 'NUM ORDEN'));
+                    console.log(`📝 Row ${i + 1} DIRECCION value:`, getColValue(sample, 'DIRECCION', 'direccion', 'DIRECCIÓN'));
                 }
 
                 for (const row of rawData) {
                     // Map columns flexibly using helper function
                     const nic = getColValue(row, 'NIC', 'nic', 'Nic');
                     const ordenNum = getColValue(row, 'ORDEN', 'orden', 'Orden', 'NUM ORDEN', 'NUMERO ORDEN');
+                    const direccion = getColValue(row, 'DIRECCION', 'direccion', 'DIRECCIÓN', 'Direccion');
 
-                    if (!nic && !ordenNum) {
+                    // Relaxed validation: Accept if has NIC, ORDEN, or at least DIRECCION
+                    if (!nic && !ordenNum && !direccion) {
                         skipped++;
                         continue;
                     }
+
+                    // Generate synthetic order number if missing
+                    const finalOrdenNum = ordenNum || nic || `AUTO-${Date.now()}-${count}`;
 
                     // Determine order type from TIPO DE OS
                     const tipoOS = row['TIPO DE OS'] || row['TIPO_DE_OS'] || row['tipo_os'] || '';
@@ -167,24 +175,24 @@ module.exports = (pool) => {
                                 technician_name = EXCLUDED.technician_name,
                                 updated_at = NOW()
                         `, [
-                            nic,
-                            ordenNum || `ORD-${Date.now()}-${count}`,
+                            nic || null,
+                            finalOrdenNum,
                             orderType,
                             tipoOS,
                             priority,
-                            row['TECNICO'] || row['tecnico'] || row['NOMBRE TECNICO'] || null,
-                            row['NOMBRE DEL CLIENTE'] || row['CLIENTE'] || row['cliente'] || null,
-                            row['DIRECCION'] || row['direccion'] || row['DIRECCIÓN'] || null,
-                            row['MUNICIPIO'] || row['municipio'] || null,
-                            row['BARRIO'] || row['barrio'] || null,
-                            row['DEPARTAMENTO'] || row['departamento'] || 'ATLANTICO',
-                            row['BRIGADA'] || row['brigada'] || row['ZONA'] || null,
-                            row['TIPO DE BRIGADA'] || row['tipo_brigada'] || null,
-                            row['LINEA ESTRATEGICA'] || row['linea_estrategica'] || row['ALCANCE'] || null,
-                            parseFloat(String(row['DEUDA'] || row['deuda'] || '0').replace(/[,$]/g, '')) || 0,
-                            row['TARIFA'] || row['tarifa'] || null,
-                            row['MEDIDOR'] || row['medidor'] || row['NUM MEDIDOR'] || null,
-                            row['MARCA MEDIDOR'] || row['marca_medidor'] || null,
+                            getColValue(row, 'TECNICO', 'tecnico', 'NOMBRE TECNICO', 'Tecnico'),
+                            getColValue(row, 'NOMBRE DEL CLIENTE', 'CLIENTE', 'cliente', 'NOMBRE_CLIENTE'),
+                            direccion,
+                            getColValue(row, 'MUNICIPIO', 'municipio', 'Municipio'),
+                            getColValue(row, 'BARRIO', 'barrio', 'Barrio'),
+                            getColValue(row, 'DEPARTAMENTO', 'departamento', 'Departamento') || 'ATLANTICO',
+                            getColValue(row, 'BRIGADA', 'brigada', 'ZONA', 'zona'),
+                            getColValue(row, 'TIPO DE BRIGADA', 'tipo_brigada', 'TIPO_BRIGADA'),
+                            getColValue(row, 'LINEA ESTRATEGICA', 'linea_estrategica', 'ALCANCE', 'alcance'),
+                            parseFloat(String(getColValue(row, 'DEUDA', 'deuda', 'MONTO') || '0').replace(/[,$]/g, '')) || 0,
+                            getColValue(row, 'TARIFA', 'tarifa', 'Tarifa'),
+                            getColValue(row, 'MEDIDOR', 'medidor', 'NUM MEDIDOR', 'NUMERO_MEDIDOR'),
+                            getColValue(row, 'MARCA MEDIDOR', 'marca_medidor', 'MARCA_MEDIDOR'),
                             row['FECHA ASIGNACION'] || row['FECHA'] || new Date(),
                             row['OBSERVACIONES'] || row['observaciones'] || null
                         ]);
