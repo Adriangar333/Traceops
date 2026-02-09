@@ -74,9 +74,11 @@ export const sendToN8NPOST = async (action, payload) => {
 // Notify driver about new route assignment
 export const notifyDriverAssignment = async (driver, route, waypoints) => {
     try {
-        // ALWAYS use the production URL for notifications to ensure drivers can access it
-        const baseUrl = 'https://dashboard-frontend.zvkdyr.easypanel.host';
-        const driverLink = `${baseUrl}/driver/${route.id}`;
+        // Use custom scheme for deep linking (works without assetlinks.json verification)
+        // The app's AndroidManifest has intent-filter for traceops://driver/*
+        const appLink = `traceops://driver/routes/${route.id}`;
+        // Fallback web URL for non-app users
+        const webLink = `https://dashboard-frontend.zvkdyr.easypanel.host/driver/${route.id}`;
 
         // Simple message format
         const message = `
@@ -88,17 +90,19 @@ export const notifyDriverAssignment = async (driver, route, waypoints) => {
           - Paradas: ${waypoints.length}
           
           👉 Ver ruta completa y gestionar entregas aquí:
-          ${driverLink}
+          ${appLink}
+          
+          (Si el link no abre la app, usa: ${webLink})
         `;
 
-        // Only send the text content for now (simpler for n8n to handle)
-        // or struct if your n8n expects it. Let's send a structured payload for the new workflow.
+        // Payload for n8n workflow
         const payload = {
             type: 'notification',
             agent_email: driver.email,
             agent_phone: driver.phone,
             message: message,
-            driver_link: driverLink,
+            driver_link: appLink,       // Primary: opens app directly
+            web_link: webLink,          // Fallback: web browser
             route_name: route.name,
             waypoints_count: waypoints.length
         };
