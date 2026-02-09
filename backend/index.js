@@ -99,6 +99,10 @@ app.use('/api/fleet', fleetRoutes);
 const inventoryRoutes = require('./routes/inventoryRoutes')(pool);
 app.use('/api/inventory', inventoryRoutes);
 
+// System Configuration Routes (SCR settings, brigade matrix, times, etc.)
+const configRoutes = require('./routes/configRoutes')(pool);
+app.use('/api/config', configRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================

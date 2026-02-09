@@ -13,6 +13,7 @@ import SCRCPanel from './components/SCRCPanel';
 import ScheduleManager from './components/ScheduleManager';
 import FleetManagement from './components/FleetManagement';
 import InventoryManagement from './components/InventoryManagement';
+import SettingsPanel from './components/SettingsPanel';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -124,7 +125,12 @@ function App() {
                 <ScheduleManager />
               </Route>
 
+              <Route path="/settings">
+                <SettingsPanel />
+              </Route>
+
               {/* Fallback 404 within Layout */}
+
               <Route>
                 <div style={{
                   height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#94a3b8'
