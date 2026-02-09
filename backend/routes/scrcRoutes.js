@@ -68,12 +68,20 @@ module.exports = (pool) => {
                 }
             }
 
-            // Step 4: Final fallback - use first sheet
+            // Step 4: Final fallback - use first sheet (intentar fila 0 o 1 como encabezados)
             if (!sheetName) {
                 console.log('⚠️ No sheet with NIC/ORDEN found, using first sheet');
                 sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 rawData = XLSX.utils.sheet_to_json(sheet);
+                if (!hasRequiredColumns(rawData) && rawData.length > 1) {
+                    // Muchos Excels tienen título en fila 1 y encabezados en fila 2
+                    const withRow1Header = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    if (hasRequiredColumns(withRow1Header)) {
+                        rawData = withRow1Header;
+                        console.log('✅ Usando fila 2 como encabezados');
+                    }
+                }
             }
 
             console.log(`📊 Processing ${rawData.length} rows from sheet "${sheetName}"`);
@@ -188,10 +196,10 @@ module.exports = (pool) => {
                 }
 
                 for (const row of dataToProcess) {
-                    // Map columns flexibly using helper function
-                    const nic = getColValue(row, 'NIC', 'CLIENTE');
-                    const ordenNum = getColValue(row, 'ORDEN', 'NUM ORDEN', 'NUMERO ORDEN');
-                    const direccion = getColValue(row, 'DIRECCION', 'DIRECCION DEL PREDIO');
+                    // Map columns flexibly using helper function (más variantes para compatibilidad con distintos Excels)
+                    const nic = getColValue(row, 'NIC', 'NIC CLIENTE', 'NUMERO IDENTIFICACION', 'IDENTIFICACION', 'NÚMERO NIC', 'CLIENTE');
+                    const ordenNum = getColValue(row, 'ORDEN', 'NUM ORDEN', 'NUMERO ORDEN', 'NO. ORDEN', 'NÚMERO DE ORDEN', 'NUMERO DE ORDEN', 'ORDEN DE SERVICIO', 'OS', 'NUMERO OS');
+                    const direccion = getColValue(row, 'DIRECCION', 'DIRECCION DEL PREDIO', 'DIRECCIÓN', 'DIRECCION DEL INMUEBLE', 'ADDRESS');
 
                     // Relaxed validation: Accept if has NIC, ORDEN, or at least DIRECCION
                     if (!nic && !ordenNum && !direccion) {
@@ -285,19 +293,26 @@ module.exports = (pool) => {
                 await client.query('COMMIT');
                 console.log(`📥 Excel upload: ${count} orders inserted, ${skipped} skipped`);
 
+                const firstProcessedRow = dataToProcess[0];
+                const detectedColumns = firstProcessedRow ? Object.keys(firstProcessedRow) : Object.keys(rawData[0] || {});
+
                 const response = {
                     success: true,
                     count,
                     skipped,
                     sheetName,
                     totalRows: rawData.length,
-                    errors: errors.slice(0, 5) // Return first 5 errors only
+                    processedRows: dataToProcess.length,
+                    errors: errors.slice(0, 5),
+                    detectedColumns
                 };
 
-                // Add helpful info if no orders were loaded
-                if (count === 0 && skipped > 0) {
-                    response.hint = 'Verifica que tu Excel tenga columnas NIC u ORDEN. Columnas detectadas: ' + Object.keys(rawData[0] || {}).join(', ');
-                    response.requiredColumns = ['NIC', 'ORDEN'];
+                // Add helpful info when no orders were loaded
+                if (count === 0) {
+                    response.hint = skipped > 0
+                        ? `Ninguna fila tenía NIC/ORDEN/DIRECCIÓN válidos. Columnas detectadas: ${detectedColumns.join(', ') || '(ninguna)'}. Usa columnas llamadas NIC, ORDEN o al menos DIRECCION.`
+                        : `No se procesaron filas. Columnas en la hoja: ${detectedColumns.join(', ') || '(ninguna)'}.`;
+                    response.requiredColumns = ['NIC (o Número de Identificación)', 'ORDEN (o Número de Orden)', 'DIRECCION (opcional)'];
                 }
 
                 res.json(response);
@@ -421,7 +436,7 @@ module.exports = (pool) => {
     // 2. GET ALL ORDERS (with filters)
     // ============================================
     router.get('/orders', async (req, res) => {
-        const { status, brigade_type, technician, municipality, limit = 100, offset = 0 } = req.query;
+        const { status, brigade_type, technician, municipality, audit_status, limit = 100, offset = 0 } = req.query;
 
         try {
             let query = 'SELECT * FROM scrc_orders WHERE 1=1';
@@ -444,6 +459,11 @@ module.exports = (pool) => {
                 query += ` AND municipality = $${paramIndex++}`;
                 params.push(municipality);
             }
+            if (audit_status) {
+                query += ` AND (audit_status = $${paramIndex++} OR ($${paramIndex}::text = 'pending' AND audit_status IS NULL))`;
+                params.push(audit_status, audit_status);
+                paramIndex++;
+            }
 
             query += ` ORDER BY priority ASC, created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
             params.push(parseInt(limit), parseInt(offset));
@@ -453,6 +473,39 @@ module.exports = (pool) => {
         } catch (err) {
             console.error('Get orders error:', err);
             res.status(500).json({ error: 'Failed to fetch orders' });
+        }
+    });
+
+    // ============================================
+    // AUDIT ENDPOINT
+    // ============================================
+    router.post('/orders/:id/audit', async (req, res) => {
+        const { id } = req.params;
+        const { status, reason, auditor } = req.body; // status: 'approved' | 'rejected'
+
+        if (!['approved', 'rejected', 'pending'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid audit status' });
+        }
+
+        try {
+            const result = await pool.query(`
+                UPDATE scrc_orders 
+                SET audit_status = $1, 
+                    rejection_reason = $2,
+                    audited_at = NOW(),
+                    audited_by = $3
+                WHERE id = $4
+                RETURNING *
+            `, [status, reason, auditor || 'System', id]);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: 'Order not found' });
+            }
+
+            res.json({ success: true, order: result.rows[0] });
+        } catch (err) {
+            console.error('Audit update error:', err);
+            res.status(500).json({ error: 'Failed to update audit status' });
         }
     });
 

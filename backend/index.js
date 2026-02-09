@@ -525,7 +525,15 @@ const initDB = async () => {
             ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS supervisor TEXT;
             ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS assignment_date TIMESTAMP;
         `);
-        console.log('✅ SCRC migrations applied');
+
+        // Audit Module Migration
+        await client.query(`
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS audit_status TEXT DEFAULT 'pending'; -- pending, approved, rejected
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS audited_at TIMESTAMP;
+            ALTER TABLE scrc_orders ADD COLUMN IF NOT EXISTS audited_by TEXT;
+        `);
+        console.log('✅ SCRC migrations applied (audit columns added)');
 
         // Indexes for SCRC
         await client.query(`

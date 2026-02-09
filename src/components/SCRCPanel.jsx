@@ -117,19 +117,27 @@ export default function SCRCPanel({ onClose }) {
                 body: formData
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Error al procesar archivo');
+            let data;
+            try {
+                data = await res.json();
+            } catch (_) {
+                throw new Error('El servidor respondió con un formato inesperado. ¿El backend está en ejecución?');
             }
 
-            if (data.count === 0 && data.skipped > 0) {
-                toast.warning(`⚠️ 0 órdenes cargadas (${data.skipped} omitidas). ${data.hint || 'Verifica las columnas NIC u ORDEN'}`, {
+            if (!res.ok) {
+                const msg = data?.error && data?.details ? `${data.error}: ${data.details}` : (data?.error || data?.message || 'Error al procesar archivo');
+                throw new Error(msg);
+            }
+
+            if (data.count === 0) {
+                const hint = data.hint || 'Verifica que el Excel tenga columnas NIC, ORDEN o al menos DIRECCION.';
+                const colList = data.detectedColumns?.length ? ` Columnas detectadas: ${data.detectedColumns.join(', ')}.` : '';
+                toast.warning(`⚠️ No se cargó ninguna orden.${colList} ${hint}`, {
                     id: 'excel-upload',
-                    duration: 8000
+                    duration: 12000
                 });
-            } else {
-                toast.success(`✅ ${data.count} órdenes cargadas (${data.skipped} omitidas)`, { id: 'excel-upload' });
+            } else if (data.count > 0) {
+                toast.success(`✅ ${data.count} órdenes cargadas${data.skipped > 0 ? ` (${data.skipped} omitidas)` : ''}`, { id: 'excel-upload' });
             }
 
             // Refresh orders
@@ -137,7 +145,8 @@ export default function SCRCPanel({ onClose }) {
             fetchStats();
         } catch (err) {
             console.error('Excel upload error:', err);
-            toast.error(`❌ ${err.message}`, { id: 'excel-upload' });
+            const msg = err.message || 'Error de conexión. Verifica que el backend esté en ejecución y la URL configurada.';
+            toast.error(`❌ ${msg}`, { id: 'excel-upload', duration: 8000 });
         }
 
         // Clear file input
