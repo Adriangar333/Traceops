@@ -23,10 +23,19 @@ module.exports = (pool) => {
             // Parse Excel file
             const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
 
-            // Use 'asignacion' sheet or first sheet
-            const sheetName = workbook.SheetNames.includes('asignacion')
-                ? 'asignacion'
-                : workbook.SheetNames[0];
+            console.log('📊 Available sheets:', workbook.SheetNames);
+
+            // Search for sheet name with flexible matching (case insensitive + common variations)
+            const targetSheetNames = ['ASIGNACION', 'asignacion', 'Asignacion', 'ASIGNACIÓN', 'Asignación', 'ASSIGNMENT'];
+            let sheetName = workbook.SheetNames.find(name =>
+                targetSheetNames.some(target => name.toLowerCase().includes(target.toLowerCase()))
+            );
+
+            // If not found, fallback to first sheet
+            if (!sheetName) {
+                console.log('⚠️ No ASIGNACION sheet found, using first sheet');
+                sheetName = workbook.SheetNames[0];
+            }
 
             const sheet = workbook.Sheets[sheetName];
             const rawData = XLSX.utils.sheet_to_json(sheet);
