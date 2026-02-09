@@ -91,6 +91,14 @@ app.use('/api/zones', zoneRoutes);
 const scheduleRoutes = require('./routes/scheduleRoutes')(pool);
 app.use('/api/schedules', scheduleRoutes);
 
+// Fleet Management Routes (Vehicles, Drivers, Maintenance)
+const fleetRoutes = require('./routes/fleetRoutes')(pool);
+app.use('/api/fleet', fleetRoutes);
+
+// Inventory Control Routes
+const inventoryRoutes = require('./routes/inventoryRoutes')(pool);
+app.use('/api/inventory', inventoryRoutes);
+
 // ======================================
 // SCALABILITY OPTIMIZATIONS
 // ======================================

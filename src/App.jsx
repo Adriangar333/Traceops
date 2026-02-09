@@ -11,6 +11,8 @@ import InventoryPage from './components/InventoryPage';
 import LoginPage from './components/LoginPage';
 import SCRCPanel from './components/SCRCPanel';
 import ScheduleManager from './components/ScheduleManager';
+import FleetManagement from './components/FleetManagement';
+import InventoryManagement from './components/InventoryManagement';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -103,14 +105,9 @@ function App() {
             <Switch>
               <Route path="/" component={DashboardHome} />
               <Route path="/operations" component={AdminDashboard} />
-              <Route path="/inventory" component={InventoryPage} />
+              <Route path="/inventory" component={InventoryManagement} />
 
-              <Route path="/fleet">
-                <div style={{ padding: '40px 60px' }}>
-                  <h1 style={{ color: '#f8fafc', fontSize: 28, fontWeight: 700 }}>🚚 Administración Vehicular</h1>
-                  <p style={{ color: '#94a3b8', marginTop: 10 }}>Gestión de vehículos y conductores (Próximamente)</p>
-                </div>
-              </Route>
+              <Route path="/fleet" component={FleetManagement} />
 
               <Route path="/calls">
                 <div style={{ padding: '40px 60px' }}>
