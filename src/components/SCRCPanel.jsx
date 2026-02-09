@@ -123,7 +123,14 @@ export default function SCRCPanel({ onClose }) {
                 throw new Error(data.error || 'Error al procesar archivo');
             }
 
-            toast.success(`✅ ${data.count} órdenes cargadas (${data.skipped} omitidas)`, { id: 'excel-upload' });
+            if (data.count === 0 && data.skipped > 0) {
+                toast.warning(`⚠️ 0 órdenes cargadas (${data.skipped} omitidas). ${data.hint || 'Verifica las columnas NIC u ORDEN'}`, {
+                    id: 'excel-upload',
+                    duration: 8000
+                });
+            } else {
+                toast.success(`✅ ${data.count} órdenes cargadas (${data.skipped} omitidas)`, { id: 'excel-upload' });
+            }
 
             // Refresh orders
             fetchOrders();

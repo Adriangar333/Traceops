@@ -126,14 +126,22 @@ module.exports = (pool) => {
                 await client.query('COMMIT');
                 console.log(`📥 Excel upload: ${count} orders inserted, ${skipped} skipped`);
 
-                res.json({
+                const response = {
                     success: true,
                     count,
                     skipped,
                     sheetName,
                     totalRows: rawData.length,
                     errors: errors.slice(0, 5) // Return first 5 errors only
-                });
+                };
+
+                // Add helpful info if no orders were loaded
+                if (count === 0 && skipped > 0) {
+                    response.hint = 'Verifica que tu Excel tenga columnas NIC u ORDEN. Columnas detectadas: ' + Object.keys(rawData[0] || {}).join(', ');
+                    response.requiredColumns = ['NIC', 'ORDEN'];
+                }
+
+                res.json(response);
             } catch (err) {
                 await client.query('ROLLBACK');
                 throw err;

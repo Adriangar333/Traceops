@@ -172,9 +172,12 @@ export default function ScheduleManager({ onClose }) {
     const styles = {
         container: {
             background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-            minHeight: '100vh',
+            height: '100vh',
             color: '#f1f5f9',
-            fontFamily: 'Inter, system-ui, sans-serif'
+            fontFamily: 'Inter, system-ui, sans-serif',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
         },
         header: {
             padding: '20px 24px',
@@ -243,7 +246,9 @@ export default function ScheduleManager({ onClose }) {
             color: 'white'
         },
         content: {
-            padding: '24px'
+            padding: '24px',
+            flex: 1,
+            overflowY: 'auto'
         },
         driverCard: {
             background: 'rgba(148, 163, 184, 0.05)',
