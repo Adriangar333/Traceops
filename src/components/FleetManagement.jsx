@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Truck, User, Tool, Calendar, Plus, Search,
+    Truck, User, Wrench, Calendar, Plus, Search,
     AlertTriangle, CheckCircle, Clock, FileText,
     MoreVertical, Key
 } from 'lucide-react';
@@ -189,7 +189,7 @@ const FleetManagement = () => {
                     <TabButton id="vehicles" label="Vehículos" icon={Truck} />
                     <TabButton id="drivers" label="Conductores" icon={User} />
                     <TabButton id="assignments" label="Asignaciones" icon={Key} />
-                    <TabButton id="maintenance" label="Mantenimiento" icon={Tool} />
+                    <TabButton id="maintenance" label="Mantenimiento" icon={Wrench} />
                 </div>
             </div>
 
@@ -343,7 +343,7 @@ const FleetManagement = () => {
                                     display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600
                                 }}
                             >
-                                <Tool size={18} /> Registrar Mantenimiento
+                                <Wrench size={18} /> Registrar Mantenimiento
                             </button>
                         </div>
 
