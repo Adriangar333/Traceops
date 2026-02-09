@@ -85,6 +85,26 @@ module.exports = (pool) => {
             // Log first row to debug column names
             console.log('📝 First row columns:', Object.keys(rawData[0]));
 
+            // Helper function to get value from row by normalized column name
+            // Handles variations in casing, spaces, and common synonyms
+            const getColValue = (row, ...possibleNames) => {
+                const rowKeys = Object.keys(row);
+                for (const name of possibleNames) {
+                    // Try exact match first
+                    if (row[name] !== undefined) return row[name];
+
+                    // Try case-insensitive match with trimming
+                    const normalizedName = name.trim().toUpperCase();
+                    const matchingKey = rowKeys.find(k => k.trim().toUpperCase() === normalizedName);
+                    if (matchingKey && row[matchingKey] !== undefined) return row[matchingKey];
+
+                    // Try partial match (column contains the name)
+                    const partialKey = rowKeys.find(k => k.trim().toUpperCase().includes(normalizedName));
+                    if (partialKey && row[partialKey] !== undefined) return row[partialKey];
+                }
+                return null;
+            };
+
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
@@ -93,10 +113,17 @@ module.exports = (pool) => {
                 let skipped = 0;
                 const errors = [];
 
+                // Log first row values for debugging
+                if (rawData.length > 0) {
+                    const sample = rawData[0];
+                    console.log('📝 Sample row NIC:', getColValue(sample, 'NIC', 'nic'));
+                    console.log('📝 Sample row ORDEN:', getColValue(sample, 'ORDEN', 'orden', 'NUM ORDEN'));
+                }
+
                 for (const row of rawData) {
-                    // Map columns flexibly (handle different column names)
-                    const nic = row['NIC'] || row['nic'] || row['Nic'];
-                    const ordenNum = row['ORDEN'] || row['orden'] || row['Orden'] || row['NUM ORDEN'];
+                    // Map columns flexibly using helper function
+                    const nic = getColValue(row, 'NIC', 'nic', 'Nic');
+                    const ordenNum = getColValue(row, 'ORDEN', 'orden', 'Orden', 'NUM ORDEN', 'NUMERO ORDEN');
 
                     if (!nic && !ordenNum) {
                         skipped++;
