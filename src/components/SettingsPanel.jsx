@@ -3,8 +3,8 @@
  * Comprehensive configuration module for SCR operations
  * Based on CRITERIOS_TECNICOS_SCR_RESUMEN.md
  */
-import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import React, { useState, useEffect } from 'react';
+
 
 // ============================================
 // DEFAULT CONFIGURATION VALUES
