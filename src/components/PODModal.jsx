@@ -24,6 +24,7 @@ const PODModal = ({
     const [signature, setSignature] = useState(null);
     const [location, setLocation] = useState(null);
     const [geofenceResult, setGeofenceResult] = useState(null);
+    const [notes, setNotes] = useState('');
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -38,6 +39,7 @@ const PODModal = ({
             setSignature(null);
             setLocation(null);
             setGeofenceResult(null);
+            setNotes('');
             setError(null);
         }
     }, [isOpen]);
@@ -96,10 +98,10 @@ const PODModal = ({
 
     const handleSignatureSave = (signatureData) => {
         setSignature(signatureData);
-        handleSubmit(signatureData);
+        setStep('review');
     };
 
-    const handleSubmit = async (signatureData) => {
+    const handleSubmit = async () => {
         setStep('submitting');
         setIsLoading(true);
 
@@ -108,8 +110,10 @@ const PODModal = ({
             waypointIndex,
             driverId,
             photo,
-            signature: signatureData,
-            location
+            signature,
+            location,
+            notes,
+            technicianName: driverName
         };
 
         // Check if online before attempting to submit
@@ -211,7 +215,7 @@ const PODModal = ({
                         gap: 8,
                         marginBottom: 24
                     }}>
-                        {['location', 'photo', 'signature'].map((s, i) => (
+                        {['location', 'photo', 'signature', 'review'].map((s, i) => (
                             <div
                                 key={s}
                                 style={{
@@ -220,7 +224,8 @@ const PODModal = ({
                                     borderRadius: '50%',
                                     background: step === s ||
                                         (s === 'location' && step !== 'location') ||
-                                        (s === 'photo' && (step === 'signature' || step === 'submitting'))
+                                        (s === 'photo' && (step === 'signature' || step === 'review' || step === 'submitting')) ||
+                                        (s === 'signature' && (step === 'review' || step === 'submitting'))
                                         ? '#9DBD39' : '#e2e8f0'
                                 }}
                             />
@@ -389,6 +394,79 @@ const PODModal = ({
                             width={Math.min(window.innerWidth - 64, 320)}
                             height={180}
                         />
+                    )}
+
+                    {/* Review Step (Notes) */}
+                    {step === 'review' && (
+                        <div style={{ textAlign: 'center' }}>
+                            <p style={{ color: '#0f172a', fontWeight: 600, marginBottom: 16 }}>
+                                Revisar y Agregar Notas
+                            </p>
+
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+                                {photo && (
+                                    <div style={{ width: 80, height: 80 }}>
+                                        <img src={`data:image/jpeg;base64,${photo}`} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                                    </div>
+                                )}
+                                {signature && (
+                                    <div style={{ width: 80, height: 80, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <img src={signature} alt="Firma" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                                    </div>
+                                )}
+                            </div>
+
+                            <textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Agregar notas u observaciones aquí..."
+                                style={{
+                                    width: '100%',
+                                    minHeight: 100,
+                                    padding: 12,
+                                    borderRadius: 8,
+                                    border: '1px solid #cbd5e1',
+                                    marginBottom: 24,
+                                    fontFamily: 'sans-serif',
+                                    fontSize: '0.9rem',
+                                    resize: 'none'
+                                }}
+                            />
+
+                            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setStep('signature')}
+                                    style={{
+                                        padding: '12px 16px',
+                                        background: 'transparent',
+                                        color: '#64748b',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    Atrás
+                                </button>
+                                <button
+                                    onClick={() => handleSubmit()}
+                                    disabled={isLoading}
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: '#9DBD39',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 8,
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        flex: 1
+                                    }}
+                                >
+                                    Confirmar y Enviar
+                                </button>
+                            </div>
+                        </div>
                     )}
 
                     {/* Submitting Step */}

@@ -377,8 +377,14 @@ const initDB = async () => {
                 latitude FLOAT,
                 longitude FLOAT,
                 notes TEXT,
+                technician_name TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+        `);
+        // Ensure column exists (migration)
+        await client.query(`
+            ALTER TABLE delivery_proofs 
+            ADD COLUMN IF NOT EXISTS technician_name TEXT;
         `);
         console.log('✅ Table delivery_proofs ready');
 
@@ -845,7 +851,7 @@ app.post('/api/drivers/fcm-token', async (req, res) => {
 
 // POD - Proof of Delivery
 app.post('/pod', async (req, res) => {
-    const { routeId, waypointIndex, driverId, photo, signature, location, notes } = req.body;
+    const { routeId, waypointIndex, driverId, photo, signature, location, notes, technicianName } = req.body;
 
     if (!routeId || waypointIndex === undefined || !driverId) {
         return res.status(400).json({ error: 'routeId, waypointIndex, and driverId are required' });
@@ -854,8 +860,8 @@ app.post('/pod', async (req, res) => {
     try {
         const result = await pool.query(
             `INSERT INTO delivery_proofs 
-             (route_id, waypoint_index, driver_id, photo, signature, latitude, longitude, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             (route_id, waypoint_index, driver_id, photo, signature, latitude, longitude, notes, technician_name)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING id`,
             [
                 routeId,
@@ -865,7 +871,8 @@ app.post('/pod', async (req, res) => {
                 signature || null,
                 location?.lat || null,
                 location?.lng || null,
-                notes || ''
+                notes || '',
+                technicianName || null
             ]
         );
 

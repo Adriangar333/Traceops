@@ -335,7 +335,8 @@ export const submitPOD = async (podData) => {
                 signature: podData.signature, // Base64
                 location: podData.location,
                 timestamp: new Date().toISOString(),
-                notes: podData.notes || ''
+                notes: podData.notes || '',
+                technicianName: podData.technicianName
             })
         });
 
