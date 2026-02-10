@@ -255,21 +255,42 @@ const addWatermarkToPhoto = async (base64Image, metadata = {}) => {
  * @returns {Promise<string|null>} Base64 encoded image or null on failure
  */
 export const capturePhoto = async (metadata = null) => {
-    try {
-        const image = await Camera.getPhoto({
-            quality: 80,
-            allowEditing: false,
-            resultType: CameraResultType.Base64,
-            source: CameraSource.Camera,
-            width: 1024,
-            height: 1024,
-            correctOrientation: true
-        });
+    // Timeout wrapper to prevent infinite hang on web
+    const withTimeout = (promise, ms) => {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Camera timeout - please try again')), ms)
+            )
+        ]);
+    };
 
+    try {
+        console.log('📷 Starting camera capture...');
+
+        const image = await withTimeout(
+            Camera.getPhoto({
+                quality: 80,
+                allowEditing: false,
+                resultType: CameraResultType.Base64,
+                source: CameraSource.Camera,
+                width: 1024,
+                height: 1024,
+                correctOrientation: true,
+                promptLabelHeader: 'Foto de entrega',
+                promptLabelCancel: 'Cancelar',
+                promptLabelPhoto: 'Galería',
+                promptLabelPicture: 'Tomar foto'
+            }),
+            30000 // 30 second timeout
+        );
+
+        console.log('📷 Photo captured successfully');
         let photoBase64 = image.base64String;
 
         // Add watermark if metadata provided
         if (metadata) {
+            console.log('📷 Adding watermark...');
             photoBase64 = await addWatermarkToPhoto(photoBase64, metadata);
         }
 
@@ -278,6 +299,7 @@ export const capturePhoto = async (metadata = null) => {
         console.error('Camera error:', error);
         // Check if user cancelled
         if (error.message?.includes('cancelled') || error.message?.includes('User cancelled')) {
+            console.log('📷 User cancelled camera');
             return null;
         }
         throw error;

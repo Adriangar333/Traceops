@@ -27,6 +27,7 @@ const PODModal = ({
     const [notes, setNotes] = useState('');
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isCameraActive, setIsCameraActive] = useState(false);
 
     // Check location on modal open
     useEffect(() => {
@@ -41,6 +42,7 @@ const PODModal = ({
             setGeofenceResult(null);
             setNotes('');
             setError(null);
+            setIsCameraActive(false);
         }
     }, [isOpen]);
 
@@ -75,6 +77,7 @@ const PODModal = ({
     const handleTakePhoto = async () => {
         setIsLoading(true);
         setError(null);
+        setIsCameraActive(true); // Hide modal while camera is open
 
         try {
             // Prepare metadata for watermark
@@ -93,9 +96,14 @@ const PODModal = ({
                 // User clicks "Continuar" to proceed to signature
             }
         } catch (err) {
-            console.error(err);
-            setError('Error al tomar la foto. Intenta de nuevo.');
+            console.error('Camera error:', err);
+            // Handle "User cancelled" specifically to avoid scary errors
+            if (err.message !== 'User cancelled photos app') {
+                setError('No se pudo abrir la cámara. Revisa los permisos.');
+            }
         } finally {
+            // CRITICAL: MUST RUN TO UNFREEZE UI
+            setIsCameraActive(false);
             setIsLoading(false);
         }
     };
@@ -155,11 +163,6 @@ const PODModal = ({
         setIsLoading(false);
     };
 
-    const skipGeofence = () => {
-        // Allow skipping with warning (for demo/testing)
-        setStep('photo');
-    };
-
     if (!isOpen) return null;
 
     return (
@@ -169,12 +172,15 @@ const PODModal = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0,0,0,0.8)',
-            zIndex: 2000,
+            background: isCameraActive ? 'transparent' : 'rgba(0,0,0,0.8)',
+            zIndex: isCameraActive ? -1 : 2000, // Hide behind camera when active
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16
+            padding: 16,
+            opacity: isCameraActive ? 0 : 1,
+            pointerEvents: isCameraActive ? 'none' : 'auto',
+            transition: 'opacity 0.2s ease'
         }}>
             <div style={{
                 background: '#ffffff',

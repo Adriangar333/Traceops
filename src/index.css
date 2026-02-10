@@ -411,9 +411,9 @@ body {
   background: rgba(148, 163, 184, 0.4);
 }
 
-/* PWA Elements Z-Index Fix */
+/* FORCE CAMERA ON TOP OF EVERYTHING */
 pwa-camera-modal,
 pwa-action-sheet,
 pwa-toast {
-  z-index: 20000 !important;
+  z-index: 2147483647 !important; /* Max integer value for safety */
 }
