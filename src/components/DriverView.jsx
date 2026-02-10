@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, CheckCircle, Radio, Camera, Wifi, WifiOff, CloudOff, RefreshCw, AlertTriangle, AlertOctagon, Lock, XCircle, Search, Siren } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'sonner';
 import { TrackingService } from '../utils/trackingService';
-import { getDriverRoutes, getDrivers } from '../utils/backendService';
+import { getRouteStatus, getDriverHistory, validateGeofence, getDrivers, getDriverById } from '../utils/backendService';
 import { initAutoSync, getPendingCount, syncPending, onSyncEvent, isOnline } from '../utils/offlineSyncService';
 import { PushService } from '../utils/pushService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import 'maplibregl/dist/maplibre-gl.css';
 
 const DriverView = ({ params }) => {
     const { routeId } = params;
@@ -228,17 +229,22 @@ const DriverView = ({ params }) => {
             // 4. Fetch Driver Name for Watermark
             if (effectiveDriverId) {
                 try {
-                    const allDrivers = await getDrivers();
-                    const currentDriver = allDrivers.find(d => d.id.toString() === effectiveDriverId.toString());
-                    if (currentDriver) {
-                        setDriverName(currentDriver.name);
+                    // Try fetching specific driver first
+                    const driverData = await getDriverById(effectiveDriverId);
+                    if (driverData && driverData.name) {
+                        setDriverName(driverData.name);
+                    } else {
+                        // Fallback to list if specific fetch fails (legacy)
+                        const allDrivers = await getDrivers();
+                        const currentDriver = allDrivers.find(d => d.id.toString() === effectiveDriverId.toString());
+                        if (currentDriver) {
+                            setDriverName(currentDriver.name);
+                        }
                     }
-                    // Optional: Update list if needed, but primarily we needed the name
                 } catch (e) {
                     console.error('Error fetching driver details:', e);
                 }
             }
-
             setLoading(false);
         };
         load();

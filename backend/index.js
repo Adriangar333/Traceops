@@ -386,6 +386,14 @@ const initDB = async () => {
             ALTER TABLE delivery_proofs 
             ADD COLUMN IF NOT EXISTS technician_name TEXT;
         `);
+        // Audit columns
+        await client.query(`
+            ALTER TABLE delivery_proofs 
+            ADD COLUMN IF NOT EXISTS audit_status TEXT DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+            ADD COLUMN IF NOT EXISTS reviewed_by TEXT,
+            ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+        `);
         console.log('✅ Table delivery_proofs ready');
 
         // Create routes table for Persistent Links
@@ -617,6 +625,30 @@ app.get('/drivers', publicLimiter, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch drivers' });
+    }
+});
+
+// GET specific driver detail (public for app usage)
+app.get('/drivers/:id', publicLimiter, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, status, cuadrilla, email, phone, vehicle_type, brigade_role FROM drivers WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Driver not found' });
+        }
+        const d = result.rows[0];
+        res.json({
+            id: d.id,
+            name: d.name,
+            status: d.status,
+            cuadrilla: d.cuadrilla,
+            email: d.email || '',
+            phone: d.phone || '',
+            vehicleType: d.vehicle_type || 'car',
+            brigadeRole: d.brigade_role || ''
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch driver' });
     }
 });
 
@@ -877,6 +909,60 @@ app.post('/pod', async (req, res) => {
         );
 
         console.log(`✅ POD saved for route ${routeId}, waypoint ${waypointIndex}`);
+
+        // --- SCRC Audit Auto-Creation ---
+        // Check if this route exists in scrc_orders
+        const scrcCheck = await pool.query('SELECT id FROM scrc_orders WHERE order_number = $1', [routeId]);
+
+        if (scrcCheck.rows.length > 0) {
+            // Order exists, update status to pending audit if not already audit-able
+            await pool.query(`
+                UPDATE scrc_orders 
+                SET status = 'completed', 
+                    audit_status = CASE WHEN audit_status = 'pending' THEN 'pending' ELSE audit_status END,
+                    technician_name = COALESCE($1, technician_name)
+                WHERE order_number = $2
+            `, [technicianName || null, routeId]);
+        } else {
+            // Order DOES NOT exist (was assigned manually/email), create it so it appears in Audit
+            // First fetch route details to get address/client info
+            const routeRes = await pool.query('SELECT * FROM routes WHERE id = $1', [routeId]);
+            let address = '';
+            let clientName = 'Cliente Manual';
+
+            if (routeRes.rows.length > 0) {
+                const route = routeRes.rows[0];
+                if (route.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
+                    // Try to find the specific waypoint address or default to first
+                    const wp = route.waypoints.find(w => w.waypointIndex === waypointIndex) || route.waypoints[0];
+                    address = wp.address || '';
+                }
+            }
+
+            await pool.query(`
+                INSERT INTO scrc_orders (
+                    order_number, 
+                    nic, 
+                    order_type, 
+                    status, 
+                    audit_status, 
+                    technician_name, 
+                    address, 
+                    client_name
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [
+                routeId,
+                'MANUAL-' + routeId.substring(0, 8), // Dummy NIC
+                'manual', // Dummy Type
+                'completed',
+                'pending',
+                technicianName || 'Técnico',
+                address,
+                clientName
+            ]);
+            console.log(`✅ Auto-created SCRC order for manual route ${routeId}`);
+        }
+        // --------------------------------
         res.json({ success: true, podId: result.rows[0].id });
     } catch (err) {
         console.error('POD save error:', err);

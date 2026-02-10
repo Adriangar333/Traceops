@@ -18,6 +18,17 @@ export const getDrivers = async () => {
     }
 };
 
+export const getDriverById = async (id) => {
+    try {
+        const res = await fetch(`${API_URL}/drivers/${id}`);
+        if (!res.ok) throw new Error('Error fetching driver');
+        return await res.json();
+    } catch (error) {
+        console.error('Get Driver By ID Error:', error);
+        return null;
+    }
+};
+
 export const createDriver = async (driver) => {
     try {
         const res = await fetch(`${API_URL}/drivers`, {
