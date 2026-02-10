@@ -5,8 +5,13 @@ import App from './App.jsx'
 import { ApolloProvider } from '@apollo/client/react'
 import client from './apollo/client'
 
+import { defineCustomElements } from '@ionic/pwa-elements/loader';
+
 // Load Google Maps dynamically with env var
 import './utils/loadGoogleMaps'
+
+// Initialize PWA Elements (for Camera, etc.)
+defineCustomElements(window);
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

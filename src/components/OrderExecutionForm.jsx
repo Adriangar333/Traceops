@@ -139,12 +139,12 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
                     ? `GPS: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`
                     : 'GPS: No disponible';
                 const orderStr = `Orden: ${order.order_number}`;
-                const nicStr = `NIC: ${order.nic}`;
+                const technicianStr = `Técnico: ${order.technician_name || 'No asignado'}`;
 
                 // Semi-transparent background
                 const padding = 10;
                 const lineHeight = 24;
-                const boxHeight = lineHeight * 5 + padding * 2;
+                const boxHeight = lineHeight * 6 + padding * 2; // Increased for technician line
 
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, img.height - boxHeight, img.width, boxHeight);
@@ -162,6 +162,8 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
                 ctx.fillText(`📋 ${orderStr}`, padding, y);
                 y += lineHeight;
                 ctx.fillText(`🔌 ${nicStr}`, padding, y);
+                y += lineHeight;
+                ctx.fillText(`👤 ${technicianStr}`, padding, y);
                 y += lineHeight;
 
                 // Company watermark

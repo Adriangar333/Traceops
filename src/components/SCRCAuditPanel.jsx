@@ -132,59 +132,61 @@ export default function SCRCAuditPanel() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {orders.map(order => (
-                            <div
-                                key={order.id}
-                                onClick={() => setSelectedOrder(order)}
-                                className="bg-[#1a1f2e] border border-gray-800 rounded-lg overflow-hidden hover:border-indigo-500/50 cursor-pointer transition-all group shadow-sm hover:shadow-indigo-500/10"
-                            >
-                                {/* Thumbnail */}
-                                <div className="aspect-video bg-black/40 relative">
-                                    {order.evidence && order.evidence.length > 0 && order.evidence[0].url ? (
-                                        <img
-                                            src={order.evidence[0].url}
-                                            alt="Evidencia"
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-xs text-gray-500 flex-col gap-1">
-                                            <XCircle size={20} />
-                                            Sin Fotos
-                                        </div>
-                                    )}
+                        {orders.map(order => {
+                            const photoEvidence = order.evidence?.find(e => e.type !== 'signature') || order.evidence?.[0];
+                            return (
+                                <div
+                                    key={order.id}
+                                    onClick={() => setSelectedOrder(order)}
+                                    className="bg-[#1a1f2e] border border-gray-800 rounded-lg overflow-hidden hover:border-indigo-500/50 cursor-pointer transition-all group shadow-sm hover:shadow-indigo-500/10"
+                                >
+                                    {/* Thumbnail */}
+                                    <div className="aspect-video bg-black/40 relative">
+                                        {photoEvidence && photoEvidence.url ? (
+                                            <img
+                                                src={photoEvidence.url}
+                                                alt="Evidencia"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full text-xs text-gray-500 flex-col gap-1">
+                                                <XCircle size={20} />
+                                                Sin Fotos
+                                            </div>
+                                        )}
 
-                                    <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-xs text-white font-mono">
-                                        {order.evidence?.length || 0} 📷
+                                        <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-xs text-white font-mono">
+                                            {order.evidence?.length || 0} 📷
+                                        </div>
+
+                                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                            <p className="text-white text-sm font-bold truncate">{order.nic}</p>
+                                            <p className="text-gray-300 text-xs truncate">{order.clientName}</p>
+                                        </div>
                                     </div>
 
-                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                                        <p className="text-white text-sm font-bold truncate">{order.nic}</p>
-                                        <p className="text-gray-300 text-xs truncate">{order.clientName}</p>
+                                    {/* Info */}
+                                    <div className="p-3 space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <div className="text-xs text-gray-400">
+                                                <p className="font-semibold text-gray-300">{order.orderNumber}</p>
+                                                <p>{new Date(order.executionDate || Date.now()).toLocaleDateString()}</p>
+                                            </div>
+                                            <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold tracking-wider ${getStatusColor(order.auditStatus || 'pending')}`}>
+                                                {order.auditStatus === 'approved' ? 'APROBADA' :
+                                                    order.auditStatus === 'rejected' ? 'RECHAZADA' : 'PENDIENTE'}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
+                                            <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px]">
+                                                {(order.technicianName || 'T')[0]}
+                                            </div>
+                                            <p className="text-xs text-gray-400 truncate flex-1">{order.technicianName || 'Sin Asignar'}</p>
+                                        </div>
                                     </div>
                                 </div>
-
-                                {/* Info */}
-                                <div className="p-3 space-y-2">
-                                    <div className="flex justify-between items-start">
-                                        <div className="text-xs text-gray-400">
-                                            <p className="font-semibold text-gray-300">{order.orderNumber}</p>
-                                            <p>{new Date(order.executionDate || Date.now()).toLocaleDateString()}</p>
-                                        </div>
-                                        <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold tracking-wider ${getStatusColor(order.auditStatus || 'pending')}`}>
-                                            {order.auditStatus === 'approved' ? 'APROBADA' :
-                                                order.auditStatus === 'rejected' ? 'RECHAZADA' : 'PENDIENTE'}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
-                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px]">
-                                            {(order.technicianName || 'T')[0]}
-                                        </div>
-                                        <p className="text-xs text-gray-400 truncate flex-1">{order.technicianName || 'Sin Asignar'}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
                     </div>
                 )}
             </div>

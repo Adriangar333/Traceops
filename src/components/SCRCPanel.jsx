@@ -155,10 +155,12 @@ export default function SCRCPanel({ onClose }) {
     };
 
     useEffect(() => {
-        fetchOrders();
+        if (activeTab === 'orders' || activeTab === 'map') {
+            fetchOrders();
+        }
         fetchBrigades();
         fetchStats();
-    }, []);
+    }, [activeTab]);
 
     useEffect(() => {
         fetchOrders();
