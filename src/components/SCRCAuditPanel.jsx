@@ -186,7 +186,8 @@ export default function SCRCAuditPanel() {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
