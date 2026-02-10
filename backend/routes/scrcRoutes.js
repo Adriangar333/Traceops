@@ -12,83 +12,31 @@ const upload = multer({ storage: multer.memoryStorage() });
 module.exports = (pool) => {
 
     // ============================================
-    // UPLOAD EXCEL FILE (Direct file upload)
+    // UPLOAD EXCEL FILE (OPTIMIZED with batch inserts)
     // ============================================
     router.post('/upload-excel', upload.single('file'), async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        try {
-            // Parse Excel file
-            const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const startTime = Date.now();
 
+        try {
+            const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
             console.log('📊 Available sheets:', workbook.SheetNames);
 
-            // Function to check if a sheet has required columns
-            const hasRequiredColumns = (sheetData) => {
-                if (!sheetData || sheetData.length === 0) return false;
-                const cols = Object.keys(sheetData[0]).map(c => c.toUpperCase());
-                return cols.some(c => c.includes('NIC') || c.includes('ORDEN') || c === 'NUM ORDEN');
-            };
-
-            // Step 1: Try to find sheet by name (ASIGNACION variations)
-            const targetSheetNames = ['ASIGNACION', 'asignacion', 'Asignacion', 'ASIGNACIÓN', 'Asignación', 'ASSIGNMENT'];
+            // Find the right sheet
+            const targetSheetNames = ['ASIGNACION', 'asignacion', 'Asignacion', 'ASIGNACIÓN'];
             let sheetName = workbook.SheetNames.find(name =>
                 targetSheetNames.some(target => name.toLowerCase().includes(target.toLowerCase()))
-            );
+            ) || workbook.SheetNames[0];
 
-            let rawData = null;
+            const sheet = workbook.Sheets[sheetName];
+            let rawData = XLSX.utils.sheet_to_json(sheet);
 
-            // Step 2: If found by name, check if it has required columns
-            if (sheetName) {
-                console.log(`📋 Found sheet by name: "${sheetName}"`);
-                const sheet = workbook.Sheets[sheetName];
-                rawData = XLSX.utils.sheet_to_json(sheet);
-
-                if (!hasRequiredColumns(rawData)) {
-                    // Intentar con fila 2 como encabezados (fila 1 = título)
-                    const withRow2 = XLSX.utils.sheet_to_json(sheet, { range: 1 });
-                    if (hasRequiredColumns(withRow2)) {
-                        rawData = withRow2;
-                        console.log('✅ Usando fila 2 como encabezados (fila 1 era título)');
-                    } else {
-                        console.log(`⚠️ Sheet "${sheetName}" doesn't have NIC/ORDEN columns, searching others...`);
-                        sheetName = null;
-                    }
-                }
-            }
-
-            // Step 3: If not found by name OR missing columns, search all sheets
-            if (!sheetName) {
-                console.log('🔍 Searching all sheets for NIC/ORDEN columns...');
-                for (const name of workbook.SheetNames) {
-                    const sheet = workbook.Sheets[name];
-                    const data = XLSX.utils.sheet_to_json(sheet);
-
-                    if (hasRequiredColumns(data)) {
-                        console.log(`✅ Found required columns in sheet: "${name}"`);
-                        sheetName = name;
-                        rawData = data;
-                        break;
-                    }
-                }
-            }
-
-            // Step 4: Final fallback - use first sheet (intentar fila 0 o 1 como encabezados)
-            if (!sheetName) {
-                console.log('⚠️ No sheet with NIC/ORDEN found, using first sheet');
-                sheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                rawData = XLSX.utils.sheet_to_json(sheet);
-                if (!hasRequiredColumns(rawData) && rawData.length > 1) {
-                    // Muchos Excels tienen título en fila 1 y encabezados en fila 2
-                    const withRow1Header = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                    if (hasRequiredColumns(withRow1Header)) {
-                        rawData = withRow1Header;
-                        console.log('✅ Usando fila 2 como encabezados');
-                    }
-                }
+            // Try row 2 as headers if needed
+            if (rawData.length > 0 && !Object.keys(rawData[0]).some(k => k.toUpperCase().includes('NIC') || k.toUpperCase().includes('ORDEN'))) {
+                rawData = XLSX.utils.sheet_to_json(sheet, { range: 1 });
             }
 
             console.log(`📊 Processing ${rawData.length} rows from sheet "${sheetName}"`);
@@ -97,242 +45,123 @@ module.exports = (pool) => {
                 return res.status(400).json({ error: 'No data found in Excel file' });
             }
 
-            // Helper function to normalize strings for comparison (remove accents, special chars, uppercase)
-            const normalizeKey = (key) => {
-                if (!key) return '';
-                return key.toString()
-                    .toUpperCase()
-                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
-                    .replace(/[^A-Z0-9]/g, ""); // Keep only alphanumeric
-            };
+            // Helpers
+            const normalizeKey = (key) => key?.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "") || '';
+            const toVal = (val) => (val === undefined || val === null) ? null : (typeof val === 'number' ? String(val) : String(val).trim() || null);
 
-            // Helper to coerce value: Excel may return numbers for NIC/ORDEN; we accept numbers and non-empty strings
-            const toValidValue = (val) => {
-                if (val === undefined || val === null) return null;
-                if (typeof val === 'number' && !Number.isNaN(val)) return String(val); // 12345 -> "12345"
-                const s = String(val).trim();
-                return s === '' ? null : s;
-            };
-
-            // Helper function to get value from row by normalized column name
-            const getColValue = (row, ...possibleNames) => {
-                const rowKeys = Object.keys(row);
-                const normalizedRowKeys = rowKeys.reduce((acc, k) => {
-                    acc[normalizeKey(k)] = k; // Map normalized -> original
-                    return acc;
-                }, {});
-
-                for (const name of possibleNames) {
-                    const target = normalizeKey(name);
-
-                    // 1. Exact match (normalized)
-                    if (normalizedRowKeys[target]) {
-                        const val = toValidValue(row[normalizedRowKeys[target]]);
-                        if (val) return val;
-                    }
-
-                    // 2. Partial match (key contains target)
-                    if (target.length > 2) {
-                        const partialMatch = Object.keys(normalizedRowKeys).find(k => k.includes(target));
-                        if (partialMatch) {
-                            const val = toValidValue(row[normalizedRowKeys[partialMatch]]);
-                            if (val) return val;
-                        }
-                    }
+            const getCol = (row, ...names) => {
+                const keys = Object.keys(row);
+                const normMap = keys.reduce((a, k) => { a[normalizeKey(k)] = k; return a; }, {});
+                for (const n of names) {
+                    const t = normalizeKey(n);
+                    if (normMap[t]) { const v = toVal(row[normMap[t]]); if (v) return v; }
+                    const partial = Object.keys(normMap).find(k => k.includes(t));
+                    if (partial) { const v = toVal(row[normMap[partial]]); if (v) return v; }
                 }
                 return null;
             };
 
+            // Prepare all rows for batch insert
+            const BATCH_SIZE = 500;
+            const validRows = [];
+            let skipped = 0;
+
+            for (const row of rawData) {
+                const nic = getCol(row, 'NIC', 'NIC CLIENTE');
+                const orden = getCol(row, 'ORDEN', 'NUM ORDEN', 'NUMERO ORDEN');
+                const direccion = getCol(row, 'DIRECCION', 'DIRECCIÓN');
+
+                if (!nic && !orden) { skipped++; continue; }
+
+                const tipoOS = row['TIPO DE OS'] || '';
+                let orderType = 'suspension', priority = 2;
+                if (tipoOS.includes('502') || tipoOS.toLowerCase().includes('corte')) { orderType = 'corte'; priority = 1; }
+                else if (tipoOS.includes('503') || tipoOS.toLowerCase().includes('recon')) { orderType = 'reconexion'; priority = 3; }
+
+                validRows.push([
+                    nic,
+                    orden || nic,
+                    orderType,
+                    tipoOS,
+                    priority,
+                    getCol(row, 'TECNICO', 'NOMBRE TECNICO'),
+                    getCol(row, 'NOMBRE DEL CLIENTE', 'CLIENTE'),
+                    direccion,
+                    getCol(row, 'MUNICIPIO'),
+                    getCol(row, 'BARRIO'),
+                    getCol(row, 'DEPARTAMENTO') || 'ATLANTICO',
+                    getCol(row, 'BRIGADA', 'ZONA'),
+                    getCol(row, 'TIPO DE BRIGADA'),
+                    getCol(row, 'LINEA ESTRATEGICA'),
+                    parseFloat(String(getCol(row, 'DEUDA', ' DEUDA ') || '0').replace(/[,$]/g, '')) || 0,
+                    getCol(row, 'TARIFA'),
+                    getCol(row, 'MEDIDOR', 'NUM MEDIDOR'),
+                    getCol(row, 'MARCA MEDIDOR'),
+                    row['OBSERVACIONES'] || row['observacion'] || null
+                ]);
+            }
+
+            console.log(`✅ ${validRows.length} valid rows, ${skipped} skipped`);
+
+            // Batch insert
             const client = await pool.connect();
+            let count = 0;
+
             try {
                 await client.query('BEGIN');
 
-                let count = 0;
-                let skipped = 0;
-                const errors = [];
+                for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+                    const batch = validRows.slice(i, i + BATCH_SIZE);
+                    const values = [];
+                    const placeholders = batch.map((row, idx) => {
+                        const offset = idx * 19;
+                        values.push(...row);
+                        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15}, $${offset + 16}, $${offset + 17}, $${offset + 18}, 'pending', $${offset + 19})`;
+                    }).join(',\n');
 
-                // Detect header row if not first row
-                let dataToProcess = rawData;
+                    await client.query(`
+                        INSERT INTO scrc_orders (
+                            nic, order_number, order_type, product_code, priority,
+                            technician_name, client_name, address, municipality, neighborhood,
+                            department, zone_code, brigade_type, strategic_line,
+                            amount_due, tariff, meter_number, meter_brand, status, notes
+                        ) VALUES ${placeholders}
+                        ON CONFLICT (order_number) DO UPDATE SET
+                            neighborhood = EXCLUDED.neighborhood,
+                            meter_number = EXCLUDED.meter_number,
+                            meter_brand = EXCLUDED.meter_brand,
+                            client_name = EXCLUDED.client_name,
+                            address = EXCLUDED.address,
+                            technician_name = EXCLUDED.technician_name,
+                            amount_due = EXCLUDED.amount_due,
+                            updated_at = NOW()
+                    `, values);
 
-                // If keys look like "__EMPTY", headers might be inside the data
-                const firstRow = rawData[0];
-                const hasEmptyKeys = firstRow && Object.keys(firstRow).some(k => k.includes('__EMPTY'));
-
-                if (hasEmptyKeys) {
-                    console.log('⚠️ Headers might be missing or inside data content, searching for header row...');
-                    // Try to find a row that contains "NIC" or "ORDEN" as values
-                    const headerRowIndex = rawData.findIndex(row =>
-                        Object.values(row).some(v =>
-                            v && (v.toString().toUpperCase().includes('NIC') ||
-                                v.toString().toUpperCase().includes('ORDEN'))
-                        )
-                    );
-
-                    if (headerRowIndex !== -1) {
-                        console.log(`✅ Found potential header row at index ${headerRowIndex}`);
-                        // Use this row as headers logic is complex with json, 
-                        // simpler: scan next rows and use this row's values as keys map?
-                        // Or re-read sheet? Re-reading is safer but we need file buffer.
-                        // Let's assume we proceed with current data but skip until headerRowIndex + 1
-                        // forcing mapping based on position? No, JSON structure is rigid.
-                        // Best effort: if we found headers in a row, the NEXT rows are the data.
-                        // But keys are still "__EMPTY_X".
-                        // We need to map "__EMPTY_X" to the value in headerRow.
-
-                        const headerRow = rawData[headerRowIndex];
-                        const colMap = {}; // __EMPTY_1 -> "NIC"
-                        Object.keys(headerRow).forEach(k => {
-                            colMap[k] = headerRow[k];
-                        });
-
-                        // Transform subsequent rows to use these new keys
-                        dataToProcess = rawData.slice(headerRowIndex + 1).map(row => {
-                            const newRow = {};
-                            Object.keys(row).forEach(k => {
-                                const newKey = colMap[k] || k;
-                                newRow[newKey] = row[k];
-                            });
-                            return newRow;
-                        });
-                        console.log(`🔄 Remapped ${dataToProcess.length} rows using found headers.`);
-                    }
-                }
-
-                console.log('🔍 DEBUG: Checking first 3 rows of processed data...');
-                for (let i = 0; i < Math.min(3, dataToProcess.length); i++) {
-                    const sample = dataToProcess[i];
-                    console.log(`📝 Row ${i + 1} keys:`, Object.keys(sample).slice(0, 10));
-                    console.log(`📝 Row ${i + 1} NIC:`, getColValue(sample, 'NIC'));
-                    console.log(`📝 Row ${i + 1} ORDEN:`, getColValue(sample, 'ORDEN', 'NUM ORDEN'));
-                }
-
-                for (const row of dataToProcess) {
-                    // Map columns flexibly using helper function (más variantes para compatibilidad con distintos Excels)
-                    const nic = getColValue(row, 'NIC', 'NIC CLIENTE', 'NUMERO IDENTIFICACION', 'IDENTIFICACION', 'NÚMERO NIC', 'CLIENTE');
-                    const ordenNum = getColValue(row, 'ORDEN', 'NUM ORDEN', 'NUMERO ORDEN', 'NO. ORDEN', 'NÚMERO DE ORDEN', 'NUMERO DE ORDEN', 'ORDEN DE SERVICIO', 'OS', 'NUMERO OS');
-                    const direccion = getColValue(row, 'DIRECCION', 'DIRECCION DEL PREDIO', 'DIRECCIÓN', 'DIRECCION DEL INMUEBLE', 'ADDRESS');
-
-                    // Relaxed validation: Accept if has NIC, ORDEN, or at least DIRECCION
-                    if (!nic && !ordenNum && !direccion) {
-                        skipped++;
-                        continue;
-                    }
-
-                    // Generate synthetic order number if missing
-                    const finalOrdenNum = ordenNum || nic || `AUTO-${Date.now()}-${count}`;
-
-                    // Determine order type from TIPO DE OS
-                    const tipoOS = row['TIPO DE OS'] || row['TIPO_DE_OS'] || row['tipo_os'] || '';
-                    let orderType = 'suspension';
-                    let priority = 2;
-
-                    if (tipoOS.includes('502') || tipoOS.toLowerCase().includes('corte')) {
-                        orderType = 'corte';
-                        priority = 1;
-                    } else if (tipoOS.includes('503') || tipoOS.toLowerCase().includes('recon')) {
-                        orderType = 'reconexion';
-                        priority = 3;
-                    }
-
-                    try {
-                        // Create a savepoint for this row so if it fails, we can rollback just this row
-                        // and continue with the next ones (preventing "current transaction is aborted")
-                        await client.query('SAVEPOINT row_insert');
-
-                        await client.query(`
-                            INSERT INTO scrc_orders (
-                                nic, order_number, order_type, product_code, priority, 
-                                technician_name, client_name, 
-                                address, municipality, neighborhood, department,
-                                zone_code, brigade_type, strategic_line,
-                                amount_due, tariff, meter_number, meter_brand,
-                                status, assignment_date, notes
-                            )
-                            VALUES (
-                                $1, $2, $3, $4, $5, 
-                                $6, $7, 
-                                $8, $9, $10, $11,
-                                $12, $13, $14,
-                                $15, $16, $17, $18,
-                                'pending', $19, $20
-                            )
-                            ON CONFLICT (order_number) DO UPDATE SET
-                                status = 'pending',
-                                amount_due = EXCLUDED.amount_due,
-                                technician_name = EXCLUDED.technician_name,
-                                updated_at = NOW()
-                        `, [
-                            nic || null,
-                            finalOrdenNum,
-                            orderType,
-                            tipoOS,
-                            priority,
-                            getColValue(row, 'TECNICO', 'tecnico', 'NOMBRE TECNICO', 'Tecnico'),
-                            getColValue(row, 'NOMBRE DEL CLIENTE', 'CLIENTE', 'cliente', 'NOMBRE_CLIENTE'),
-                            direccion,
-                            getColValue(row, 'MUNICIPIO', 'municipio', 'Municipio'),
-                            getColValue(row, 'BARRIO', 'barrio', 'Barrio'),
-                            getColValue(row, 'DEPARTAMENTO', 'departamento', 'Departamento') || 'ATLANTICO',
-                            getColValue(row, 'BRIGADA', 'brigada', 'ZONA', 'zona'),
-                            getColValue(row, 'TIPO DE BRIGADA', 'tipo_brigada', 'TIPO_BRIGADA'),
-                            getColValue(row, 'LINEA ESTRATEGICA', 'linea_estrategica', 'ALCANCE', 'alcance'),
-                            parseFloat(String(getColValue(row, 'DEUDA', 'deuda', 'MONTO') || '0').replace(/[,$]/g, '')) || 0,
-                            getColValue(row, 'TARIFA', 'tarifa', 'Tarifa'),
-                            getColValue(row, 'MEDIDOR', 'medidor', 'NUM MEDIDOR', 'NUMERO_MEDIDOR'),
-                            getColValue(row, 'MARCA MEDIDOR', 'marca_medidor', 'MARCA_MEDIDOR'),
-                            row['FECHA ASIGNACION'] || row['FECHA'] || new Date(),
-                            row['OBSERVACIONES'] || row['observaciones'] || null
-                        ]);
-
-                        await client.query('RELEASE SAVEPOINT row_insert');
-                        count++;
-                    } catch (rowErr) {
-                        await client.query('ROLLBACK TO SAVEPOINT row_insert');
-                        console.error(`❌ Error inserting row ${count + skipped + 1}: ${rowErr.message}`);
-                        // Log the problematic values to help debug
-                        console.error('Row data:', { nic, orden: finalOrdenNum, direccion: direccion?.substring(0, 20) });
-
-                        errors.push({
-                            row: count + skipped + 1,
-                            error: rowErr.message,
-                            orden: finalOrdenNum
-                        });
-                        skipped++;
-                    }
+                    count += batch.length;
+                    console.log(`  ✓ Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${count} rows`);
                 }
 
                 await client.query('COMMIT');
-                console.log(`📥 Excel upload: ${count} orders inserted, ${skipped} skipped`);
-
-                const firstProcessedRow = dataToProcess[0];
-                const detectedColumns = firstProcessedRow ? Object.keys(firstProcessedRow) : Object.keys(rawData[0] || {});
-
-                const response = {
-                    success: true,
-                    count,
-                    skipped,
-                    sheetName,
-                    totalRows: rawData.length,
-                    processedRows: dataToProcess.length,
-                    errors: errors.slice(0, 5),
-                    detectedColumns
-                };
-
-                // Add helpful info when no orders were loaded
-                if (count === 0) {
-                    response.hint = skipped > 0
-                        ? `Ninguna fila tenía NIC/ORDEN/DIRECCIÓN válidos. Columnas detectadas: ${detectedColumns.join(', ') || '(ninguna)'}. Usa columnas llamadas NIC, ORDEN o al menos DIRECCION.`
-                        : `No se procesaron filas. Columnas en la hoja: ${detectedColumns.join(', ') || '(ninguna)'}.`;
-                    response.requiredColumns = ['NIC (o Número de Identificación)', 'ORDEN (o Número de Orden)', 'DIRECCION (opcional)'];
-                }
-
-                res.json(response);
             } catch (err) {
                 await client.query('ROLLBACK');
                 throw err;
             } finally {
                 client.release();
             }
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`📥 Excel upload: ${count} orders in ${elapsed}s`);
+
+            res.json({
+                success: true,
+                count,
+                skipped,
+                sheetName,
+                totalRows: rawData.length,
+                elapsedSeconds: parseFloat(elapsed),
+                detectedColumns: Object.keys(rawData[0] || {})
+            });
+
         } catch (err) {
             console.error('Excel upload error:', err);
             res.status(500).json({ error: 'Failed to process Excel file', details: err.message });
@@ -450,29 +279,20 @@ module.exports = (pool) => {
         const { status, brigade_type, technician, municipality, audit_status, limit = 100, offset = 0 } = req.query;
 
         try {
+            // Optimized query - don't fetch evidence here, let GraphQL handle it
+            // Also don't use 'type' column which doesn't exist
             let query = `
-                SELECT *,
-                (
-                    SELECT json_agg(
-                        CASE 
-                            WHEN photo LIKE 'data:image%' THEN photo 
-                            ELSE CONCAT('data:image/jpeg;base64,', photo) 
-                        END
-                    )
-                    FROM delivery_proofs 
-                    WHERE route_id = scrc_orders.order_number::text AND type != 'signature'
-                ) as evidence_photos,
-                (
-                    SELECT json_agg(
-                        CASE 
-                            WHEN signature LIKE 'data:image%' THEN signature 
-                            ELSE CONCAT('data:image/png;base64,', signature) 
-                        END
-                    )
-                    FROM delivery_proofs 
-                    WHERE route_id = scrc_orders.order_number::text AND type = 'signature'
-                ) as evidence_signatures
-                FROM scrc_orders 
+                SELECT
+                    id, order_number, nic, order_type, product_code, priority,
+                    technician_name, client_name, address, municipality, neighborhood,
+                    department, zone_code, brigade_type, strategic_line,
+                    amount_due, tariff, meter_number, meter_brand,
+                    status, audit_status, notes, latitude, longitude,
+                    assigned_brigade_id, assigned_at, assignment_date, execution_date,
+                    created_at, updated_at,
+                    (SELECT COUNT(*) FROM delivery_proofs WHERE route_id = scrc_orders.order_number::text AND photo IS NOT NULL) as photo_count,
+                    (SELECT COUNT(*) FROM delivery_proofs WHERE route_id = scrc_orders.order_number::text AND signature IS NOT NULL) as signature_count
+                FROM scrc_orders
                 WHERE 1=1
             `;
             const params = [];
