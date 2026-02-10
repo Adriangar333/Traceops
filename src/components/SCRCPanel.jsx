@@ -658,23 +658,69 @@ export default function SCRCPanel({ onClose }) {
         );
     };
 
+    // Generate brigades from technicians in orders
+    const [generatingBrigades, setGeneratingBrigades] = useState(false);
+
+    const handleGenerateBrigades = async () => {
+        setGeneratingBrigades(true);
+        try {
+            const res = await fetch(`${API_BASE}/scrc/brigades/generate-from-orders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'corte', capacity_per_day: 25 })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`${data.message}`);
+                fetchBrigades();
+            } else {
+                toast.error(data.error || 'Error generando brigadas');
+            }
+        } catch (err) {
+            console.error('Generate brigades error:', err);
+            toast.error('Error de conexión');
+        } finally {
+            setGeneratingBrigades(false);
+        }
+    };
+
     // Brigades Tab
     const BrigadesTab = () => (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
                 <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Brigadas Activas</h3>
-                <button style={styles.filterBtn} onClick={fetchBrigades}>
-                    <RefreshCw size={16} /> Actualizar
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        style={{ ...styles.primaryBtn, padding: '8px 16px', fontSize: '0.875rem' }}
+                        onClick={handleGenerateBrigades}
+                        disabled={generatingBrigades}
+                    >
+                        {generatingBrigades ? (
+                            <><RefreshCw size={14} className="spin" /> Generando...</>
+                        ) : (
+                            <><Users size={14} /> Generar desde Órdenes</>
+                        )}
+                    </button>
+                    <button style={styles.filterBtn} onClick={fetchBrigades}>
+                        <RefreshCw size={16} /> Actualizar
+                    </button>
+                </div>
             </div>
 
             {brigades.length === 0 ? (
                 <div style={{ ...styles.card, textAlign: 'center', padding: 40 }}>
                     <Users size={48} color="#64748b" style={{ marginBottom: 16, opacity: 0.5 }} />
                     <p style={{ color: '#64748b' }}>No hay brigadas registradas</p>
-                    <p style={{ color: '#475569', fontSize: '0.875rem' }}>
-                        Usa <code>/api/scrc/brigades/bulk</code> para cargar brigadas
+                    <p style={{ color: '#475569', fontSize: '0.875rem', marginBottom: 16 }}>
+                        Haz clic en "Generar desde Órdenes" para crear brigadas automáticamente
                     </p>
+                    <button
+                        style={{ ...styles.primaryBtn, margin: '0 auto' }}
+                        onClick={handleGenerateBrigades}
+                        disabled={generatingBrigades}
+                    >
+                        {generatingBrigades ? 'Generando...' : 'Generar Brigadas Automáticamente'}
+                    </button>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>

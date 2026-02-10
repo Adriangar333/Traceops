@@ -693,5 +693,122 @@ module.exports = (pool) => {
         }
     });
 
+    // POST /api/scrc/brigades/generate-from-orders
+    // Automatically generate brigades from unique technicians in orders
+    router.post('/brigades/generate-from-orders', async (req, res) => {
+        const { type = 'corte', capacity_per_day = 25 } = req.body;
+
+        const client = await pool.connect();
+        try {
+            // Get unique technicians from orders
+            const techResult = await client.query(`
+                SELECT DISTINCT technician_name
+                FROM scrc_orders
+                WHERE technician_name IS NOT NULL
+                AND technician_name != ''
+                ORDER BY technician_name
+            `);
+
+            if (techResult.rows.length === 0) {
+                return res.json({ success: true, count: 0, message: 'No technicians found in orders' });
+            }
+
+            await client.query('BEGIN');
+            let created = 0;
+            let updated = 0;
+
+            for (const row of techResult.rows) {
+                const name = row.technician_name.trim();
+                if (!name) continue;
+
+                const result = await client.query(`
+                    INSERT INTO brigades (name, type, members, capacity_per_day, status)
+                    VALUES ($1, $2, $3, $4, 'active')
+                    ON CONFLICT ON CONSTRAINT brigades_name_key DO UPDATE
+                    SET updated_at = NOW()
+                    RETURNING (xmax = 0) as inserted
+                `, [name, type, [name], capacity_per_day]);
+
+                if (result.rows[0]?.inserted) {
+                    created++;
+                } else {
+                    updated++;
+                }
+            }
+
+            await client.query('COMMIT');
+
+            console.log(`✅ Generated brigades: ${created} created, ${updated} updated`);
+            res.json({
+                success: true,
+                created,
+                updated,
+                total: created + updated,
+                message: `${created} brigadas creadas, ${updated} actualizadas`
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Generate brigades error:', err);
+            res.status(500).json({ error: 'Failed to generate brigades', details: err.message });
+        } finally {
+            client.release();
+        }
+    });
+
+    // DELETE /api/scrc/brigades/:id
+    // Delete a brigade
+    router.delete('/brigades/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            // First unassign any orders from this brigade
+            await pool.query(`
+                UPDATE scrc_orders
+                SET assigned_brigade_id = NULL, status = 'pending'
+                WHERE assigned_brigade_id = $1
+            `, [id]);
+
+            const result = await pool.query('DELETE FROM brigades WHERE id = $1 RETURNING *', [id]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            res.json({ success: true, deleted: result.rows[0] });
+        } catch (err) {
+            console.error('Delete brigade error:', err);
+            res.status(500).json({ error: 'Failed to delete brigade' });
+        }
+    });
+
+    // PUT /api/scrc/brigades/:id
+    // Update a brigade
+    router.put('/brigades/:id', async (req, res) => {
+        const { id } = req.params;
+        const { name, type, members, capacity_per_day, status } = req.body;
+
+        try {
+            const result = await pool.query(`
+                UPDATE brigades
+                SET name = COALESCE($1, name),
+                    type = COALESCE($2, type),
+                    members = COALESCE($3, members),
+                    capacity_per_day = COALESCE($4, capacity_per_day),
+                    status = COALESCE($5, status),
+                    updated_at = NOW()
+                WHERE id = $6
+                RETURNING *
+            `, [name, type, members, capacity_per_day, status, id]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Brigade not found' });
+            }
+
+            res.json({ brigade: result.rows[0] });
+        } catch (err) {
+            console.error('Update brigade error:', err);
+            res.status(500).json({ error: 'Failed to update brigade' });
+        }
+    });
+
     return router;
 };
