@@ -9,7 +9,7 @@ import { initAutoSync, getPendingCount, syncPending, onSyncEvent, isOnline } fro
 import { PushService } from '../utils/pushService';
 import PODModal from './PODModal';
 import maplibregl from 'maplibre-gl';
-import 'maplibregl/dist/maplibre-gl.css';
+
 
 const DriverView = ({ params }) => {
     const { routeId } = params;

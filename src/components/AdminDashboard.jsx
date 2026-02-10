@@ -363,15 +363,15 @@ function AdminDashboard() {
                 flexWrap: 'nowrap',
                 boxSizing: 'border-box'
             }}>
-                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 0 : 110 }}>
+                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: isMobile ? 0 : 110, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <span style={{ fontSize: isMobile ? 10 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>RUTAS</span>
                     <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#10b981' }}>{savedRoutes.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 0 : 110 }}>
+                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: isMobile ? 0 : 110, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <span style={{ fontSize: isMobile ? 10 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>{isMobile ? 'COND.' : 'CONDUCTORES'}</span>
                     <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#f59e0b' }}>{agents.length}</span>
                 </div>
-                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: isMobile ? 0 : 110 }}>
+                <div style={{ pointerEvents: 'auto', flex: 1, minWidth: isMobile ? 0 : 110, background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', padding: isMobile ? '10px 6px' : '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <span style={{ fontSize: isMobile ? 10 : 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 2 }}>ALERTAS</span>
                     <span style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: '#6366f1' }}>0</span>
                 </div>
