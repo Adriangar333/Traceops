@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X, Check, AlertCircle, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useMutation, gql } from '@apollo/client';
+import { gql } from '@apollo/client';
+import { useMutation } from '@apollo/client/react';
 
 const AUDIT_SCRC_ORDER = gql`
     mutation AuditSCRCOrder($id: ID!, $status: String!, $notes: String) {

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, RefreshCw, CheckCircle, XCircle, Clock, Calendar, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import SCRCAuditModal from './SCRCAuditModal';
-import { useQuery, gql } from '@apollo/client';
+import { gql } from '@apollo/client';
+import { useQuery } from '@apollo/client/react';
 
 const GET_SCRC_ORDERS = gql`
     query GetSCRCOrders($status: String, $auditStatus: String, $technician: String, $limit: Int) {
