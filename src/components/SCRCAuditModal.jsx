@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Check, AlertCircle, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Check, AlertCircle, ChevronLeft, ChevronRight, Maximize2, Keyboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
@@ -32,6 +32,68 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
             toast.error('Error al actualizar estado: ' + err.message);
         }
     });
+
+    // Keyboard shortcuts
+    const [showShortcuts, setShowShortcuts] = useState(false);
+
+    const handleKeyDown = useCallback((e) => {
+        // Don't trigger if typing in textarea
+        if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+        const isPending = order?.auditStatus === 'pending' || order?.auditStatus === null;
+
+        switch (e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
+                setCurrentPhotoIndex(prev => {
+                    const photos = order?.evidence?.filter(ev => ev.type !== 'signature') || [];
+                    return photos.length > 0 ? (prev - 1 + photos.length) % photos.length : prev;
+                });
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                setCurrentPhotoIndex(prev => {
+                    const photos = order?.evidence?.filter(ev => ev.type !== 'signature') || [];
+                    return photos.length > 0 ? (prev + 1) % photos.length : prev;
+                });
+                break;
+            case 'Enter':
+                if (isPending && !showRejectInput && !processing) {
+                    e.preventDefault();
+                    auditOrder({ variables: { id: order.id, status: 'approved', notes: null } });
+                }
+                break;
+            case 'Escape':
+                e.preventDefault();
+                if (showRejectInput) {
+                    setShowRejectInput(false);
+                } else {
+                    onClose();
+                }
+                break;
+            case 'r':
+            case 'R':
+                if (isPending && !showRejectInput) {
+                    e.preventDefault();
+                    setShowRejectInput(true);
+                }
+                break;
+            case 'f':
+            case 'F':
+                e.preventDefault();
+                setIsFullScreen(prev => !prev);
+                break;
+            case '?':
+                e.preventDefault();
+                setShowShortcuts(prev => !prev);
+                break;
+        }
+    }, [order, showRejectInput, processing, auditOrder, onClose]);
+
+    useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleKeyDown]);
 
     if (!order) return null;
 
@@ -88,6 +150,13 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                         <p className="text-sm text-gray-400">{order.nic} - {order.clientName || order.client_name}</p>
                     </div>
                     <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowShortcuts(!showShortcuts)}
+                            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg relative"
+                            title="Atajos de teclado (?)"
+                        >
+                            <Keyboard size={20} />
+                        </button>
                         <button onClick={() => setIsFullScreen(!isFullScreen)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg">
                             <Maximize2 size={20} />
                         </button>
@@ -95,6 +164,37 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                             <X size={20} />
                         </button>
                     </div>
+
+                    {/* Keyboard shortcuts tooltip */}
+                    {showShortcuts && (
+                        <div className="absolute top-16 right-4 bg-gray-900 border border-gray-700 rounded-lg p-4 shadow-xl z-10 text-sm">
+                            <h4 className="font-bold text-white mb-3 flex items-center gap-2">
+                                <Keyboard size={16} /> Atajos de Teclado
+                            </h4>
+                            <div className="space-y-2 text-gray-300">
+                                <div className="flex justify-between gap-6">
+                                    <span className="text-gray-500">←/→</span>
+                                    <span>Navegar fotos</span>
+                                </div>
+                                <div className="flex justify-between gap-6">
+                                    <span className="text-gray-500">Enter</span>
+                                    <span className="text-green-400">Aprobar</span>
+                                </div>
+                                <div className="flex justify-between gap-6">
+                                    <span className="text-gray-500">R</span>
+                                    <span className="text-red-400">Rechazar</span>
+                                </div>
+                                <div className="flex justify-between gap-6">
+                                    <span className="text-gray-500">F</span>
+                                    <span>Pantalla completa</span>
+                                </div>
+                                <div className="flex justify-between gap-6">
+                                    <span className="text-gray-500">Esc</span>
+                                    <span>Cerrar</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Content */}

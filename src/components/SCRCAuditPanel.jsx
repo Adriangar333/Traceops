@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, RefreshCw, CheckSquare, XCircle, Camera, MapPin, User, FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, RefreshCw, CheckSquare, XCircle, Camera, MapPin, User, FileText, ChevronLeft, ChevronRight, Loader2, Check, X, Filter, Calendar, Square, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import SCRCAuditModal from './SCRCAuditModal';
 import { gql } from '@apollo/client';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
+
+const BULK_AUDIT_ORDERS = gql`
+    mutation BulkAuditOrders($ids: [ID!]!, $status: String!, $notes: String) {
+        bulkAuditSCRCOrders(ids: $ids, status: $status, notes: $notes) {
+            success
+            count
+        }
+    }
+`;
 
 const GET_SCRC_ORDERS = gql`
     query GetSCRCOrders($status: String, $auditStatus: String, $technician: String, $limit: Int) {
@@ -47,8 +56,36 @@ export default function SCRCAuditPanel() {
     const [page, setPage] = useState(1);
     const ITEMS_PER_PAGE = 20;
 
+    // Bulk selection state
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkMode, setBulkMode] = useState(false);
+    const [showBulkRejectInput, setShowBulkRejectInput] = useState(false);
+    const [bulkRejectReason, setBulkRejectReason] = useState('');
+
+    // Advanced filters
+    const [showFilters, setShowFilters] = useState(false);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [orderTypeFilter, setOrderTypeFilter] = useState('');
+    const [neighborhoodFilter, setNeighborhoodFilter] = useState('');
+
     // Debounce search to avoid querying on every keystroke
     const debouncedSearch = useDebounce(searchInput, 400);
+
+    // Bulk audit mutation
+    const [bulkAudit, { loading: bulkProcessing }] = useMutation(BULK_AUDIT_ORDERS, {
+        onCompleted: (data) => {
+            toast.success(`${data.bulkAuditSCRCOrders.count} órdenes actualizadas`);
+            setSelectedIds(new Set());
+            setBulkMode(false);
+            setShowBulkRejectInput(false);
+            setBulkRejectReason('');
+            refetch();
+        },
+        onError: (err) => {
+            toast.error('Error en operación masiva: ' + err.message);
+        }
+    });
 
     const { data, loading, error, refetch } = useQuery(GET_SCRC_ORDERS, {
         variables: {
@@ -62,17 +99,106 @@ export default function SCRCAuditPanel() {
 
     const allOrders = data?.scrcOrders || [];
 
-    // Client-side filtering for instant feedback while debounce waits
+    // Client-side filtering for instant feedback while debounce waits + advanced filters
     const filteredOrders = useMemo(() => {
-        if (!searchInput || searchInput === debouncedSearch) return allOrders;
-        const search = searchInput.toLowerCase();
-        return allOrders.filter(o =>
-            o.technicianName?.toLowerCase().includes(search) ||
-            o.clientName?.toLowerCase().includes(search) ||
-            o.nic?.toLowerCase().includes(search) ||
-            o.orderNumber?.toLowerCase().includes(search)
-        );
-    }, [allOrders, searchInput, debouncedSearch]);
+        let result = allOrders;
+
+        // Text search
+        if (searchInput) {
+            const search = searchInput.toLowerCase();
+            result = result.filter(o =>
+                o.technicianName?.toLowerCase().includes(search) ||
+                o.clientName?.toLowerCase().includes(search) ||
+                o.nic?.toLowerCase().includes(search) ||
+                o.orderNumber?.toLowerCase().includes(search)
+            );
+        }
+
+        // Date range filter
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom);
+            result = result.filter(o => new Date(o.executionDate) >= fromDate);
+        }
+        if (dateTo) {
+            const toDate = new Date(dateTo);
+            toDate.setHours(23, 59, 59);
+            result = result.filter(o => new Date(o.executionDate) <= toDate);
+        }
+
+        // Order type filter
+        if (orderTypeFilter) {
+            result = result.filter(o => o.orderType?.toLowerCase() === orderTypeFilter.toLowerCase());
+        }
+
+        // Neighborhood filter
+        if (neighborhoodFilter) {
+            const nbSearch = neighborhoodFilter.toLowerCase();
+            result = result.filter(o => o.neighborhood?.toLowerCase().includes(nbSearch));
+        }
+
+        return result;
+    }, [allOrders, searchInput, dateFrom, dateTo, orderTypeFilter, neighborhoodFilter]);
+
+    // Get unique order types and neighborhoods for filter dropdowns
+    const { orderTypes, neighborhoods } = useMemo(() => {
+        const types = new Set();
+        const nbs = new Set();
+        allOrders.forEach(o => {
+            if (o.orderType) types.add(o.orderType);
+            if (o.neighborhood) nbs.add(o.neighborhood);
+        });
+        return {
+            orderTypes: Array.from(types).sort(),
+            neighborhoods: Array.from(nbs).sort()
+        };
+    }, [allOrders]);
+
+    // Bulk selection helpers
+    const toggleSelection = (orderId) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(orderId)) {
+            newSet.delete(orderId);
+        } else {
+            newSet.add(orderId);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const selectAll = () => {
+        const allIds = new Set(paginatedOrders.map(o => o.id));
+        setSelectedIds(allIds);
+    };
+
+    const deselectAll = () => {
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkApprove = () => {
+        if (selectedIds.size === 0) return;
+        bulkAudit({
+            variables: {
+                ids: Array.from(selectedIds),
+                status: 'approved',
+                notes: null
+            }
+        });
+    };
+
+    const handleBulkReject = () => {
+        if (selectedIds.size === 0 || !bulkRejectReason.trim()) {
+            toast.error('Ingresa un motivo de rechazo');
+            return;
+        }
+        bulkAudit({
+            variables: {
+                ids: Array.from(selectedIds),
+                status: 'rejected',
+                notes: bulkRejectReason
+            }
+        });
+    };
+
+    const activeFiltersCount = [dateFrom, dateTo, orderTypeFilter, neighborhoodFilter].filter(Boolean).length;
 
     // Pagination
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
@@ -82,7 +208,24 @@ export default function SCRCAuditPanel() {
     }, [filteredOrders, page]);
 
     // Reset page when filter changes
-    useEffect(() => { setPage(1); }, [auditFilter, debouncedSearch]);
+    useEffect(() => { setPage(1); }, [auditFilter, debouncedSearch, dateFrom, dateTo, orderTypeFilter, neighborhoodFilter]);
+
+    // Clear selection when exiting bulk mode
+    useEffect(() => {
+        if (!bulkMode) {
+            setSelectedIds(new Set());
+            setShowBulkRejectInput(false);
+            setBulkRejectReason('');
+        }
+    }, [bulkMode]);
+
+    // Clear filters helper
+    const clearAdvancedFilters = () => {
+        setDateFrom('');
+        setDateTo('');
+        setOrderTypeFilter('');
+        setNeighborhoodFilter('');
+    };
 
     useEffect(() => {
         if (error) {
@@ -152,6 +295,30 @@ export default function SCRCAuditPanel() {
                             )}
                         </div>
 
+                        {/* Advanced filters toggle */}
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`p-2 rounded-lg transition-colors relative ${showFilters || activeFiltersCount > 0 ? 'text-indigo-400 bg-indigo-500/20' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                            title="Filtros avanzados"
+                        >
+                            <Filter size={18} />
+                            {activeFiltersCount > 0 && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                                    {activeFiltersCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Bulk mode toggle */}
+                        <button
+                            onClick={() => setBulkMode(!bulkMode)}
+                            className={`px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2 ${bulkMode ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                            title="Modo selección múltiple"
+                        >
+                            <CheckCheck size={16} />
+                            <span className="hidden sm:inline">Lote</span>
+                        </button>
+
                         {/* Refresh */}
                         <button
                             onClick={() => refetch()}
@@ -194,6 +361,145 @@ export default function SCRCAuditPanel() {
                         </span>
                     </div>
                 </div>
+
+                {/* Advanced Filters Panel */}
+                {showFilters && (
+                    <div className="mt-4 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 animate-in fade-in slide-in-from-top-2">
+                        <div className="flex flex-wrap gap-4 items-end">
+                            {/* Date range */}
+                            <div className="flex gap-2 items-center">
+                                <Calendar size={16} className="text-gray-500" />
+                                <div>
+                                    <label className="text-[10px] text-gray-500 uppercase block mb-1">Desde</label>
+                                    <input
+                                        type="date"
+                                        value={dateFrom}
+                                        onChange={(e) => setDateFrom(e.target.value)}
+                                        className="px-3 py-1.5 bg-gray-900/50 border border-gray-700/50 rounded text-sm text-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-gray-500 uppercase block mb-1">Hasta</label>
+                                    <input
+                                        type="date"
+                                        value={dateTo}
+                                        onChange={(e) => setDateTo(e.target.value)}
+                                        className="px-3 py-1.5 bg-gray-900/50 border border-gray-700/50 rounded text-sm text-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Order type */}
+                            <div>
+                                <label className="text-[10px] text-gray-500 uppercase block mb-1">Tipo de Orden</label>
+                                <select
+                                    value={orderTypeFilter}
+                                    onChange={(e) => setOrderTypeFilter(e.target.value)}
+                                    className="px-3 py-1.5 bg-gray-900/50 border border-gray-700/50 rounded text-sm text-white min-w-[140px]"
+                                >
+                                    <option value="">Todos</option>
+                                    {orderTypes.map(type => (
+                                        <option key={type} value={type}>{type.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Neighborhood */}
+                            <div>
+                                <label className="text-[10px] text-gray-500 uppercase block mb-1">Barrio</label>
+                                <input
+                                    type="text"
+                                    value={neighborhoodFilter}
+                                    onChange={(e) => setNeighborhoodFilter(e.target.value)}
+                                    placeholder="Buscar barrio..."
+                                    className="px-3 py-1.5 bg-gray-900/50 border border-gray-700/50 rounded text-sm text-white w-48"
+                                />
+                            </div>
+
+                            {/* Clear filters */}
+                            {activeFiltersCount > 0 && (
+                                <button
+                                    onClick={clearAdvancedFilters}
+                                    className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-gray-700/50 rounded transition-colors"
+                                >
+                                    Limpiar filtros
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk Action Bar */}
+                {bulkMode && (
+                    <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <div className="flex items-center gap-3">
+                                <span className="text-purple-300 text-sm">
+                                    <strong>{selectedIds.size}</strong> órdenes seleccionadas
+                                </span>
+                                <button
+                                    onClick={selectAll}
+                                    className="text-xs text-purple-400 hover:text-purple-300 underline"
+                                >
+                                    Seleccionar página ({paginatedOrders.length})
+                                </button>
+                                {selectedIds.size > 0 && (
+                                    <button
+                                        onClick={deselectAll}
+                                        className="text-xs text-gray-400 hover:text-white underline"
+                                    >
+                                        Deseleccionar todo
+                                    </button>
+                                )}
+                            </div>
+
+                            {!showBulkRejectInput ? (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setShowBulkRejectInput(true)}
+                                        disabled={selectedIds.size === 0 || bulkProcessing}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/40 rounded-lg hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                                    >
+                                        <X size={16} /> Rechazar Selección
+                                    </button>
+                                    <button
+                                        onClick={handleBulkApprove}
+                                        disabled={selectedIds.size === 0 || bulkProcessing}
+                                        className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 border border-green-500/40 rounded-lg hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                                    >
+                                        {bulkProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                        Aprobar Selección
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 flex-1 max-w-xl">
+                                    <input
+                                        type="text"
+                                        value={bulkRejectReason}
+                                        onChange={(e) => setBulkRejectReason(e.target.value)}
+                                        placeholder="Motivo del rechazo masivo..."
+                                        className="flex-1 px-3 py-2 bg-black/30 border border-red-500/30 rounded-lg text-sm text-white focus:outline-none focus:border-red-500"
+                                        autoFocus
+                                    />
+                                    <button
+                                        onClick={() => setShowBulkRejectInput(false)}
+                                        className="px-3 py-2 text-gray-400 hover:text-white text-sm"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleBulkReject}
+                                        disabled={!bulkRejectReason.trim() || bulkProcessing}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 disabled:opacity-50 text-sm"
+                                    >
+                                        {bulkProcessing ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
+                                        Confirmar
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Content */}
@@ -218,11 +524,17 @@ export default function SCRCAuditPanel() {
                             const hasSignature = order.evidence?.some(e => e.type === 'signature');
                             const photoCount = order.evidence?.filter(e => e.type === 'photo').length || 0;
 
+                            const isSelected = selectedIds.has(order.id);
+
                             return (
                                 <div
                                     key={order.id}
-                                    onClick={() => setSelectedOrder(order)}
-                                    className="bg-[#1a1f2e] border border-gray-800/50 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-0.5 group"
+                                    onClick={() => bulkMode ? toggleSelection(order.id) : setSelectedOrder(order)}
+                                    className={`bg-[#1a1f2e] border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group ${
+                                        isSelected
+                                            ? 'border-purple-500 shadow-purple-500/20'
+                                            : 'border-gray-800/50 hover:border-indigo-500/50 hover:shadow-indigo-500/5'
+                                    }`}
                                 >
                                     {/* Image */}
                                     <div className="aspect-[4/3] bg-gray-900 relative overflow-hidden">
@@ -244,9 +556,20 @@ export default function SCRCAuditPanel() {
 
                                         {/* Badges overlay */}
                                         <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md border ${getStatusStyles(order.auditStatus)}`}>
-                                                {getStatusLabel(order.auditStatus)}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                {bulkMode && (
+                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                                        isSelected
+                                                            ? 'bg-purple-500 border-purple-500'
+                                                            : 'border-white/50 bg-black/30'
+                                                    }`}>
+                                                        {isSelected && <Check size={12} className="text-white" />}
+                                                    </div>
+                                                )}
+                                                <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md border ${getStatusStyles(order.auditStatus)}`}>
+                                                    {getStatusLabel(order.auditStatus)}
+                                                </span>
+                                            </div>
                                             <div className="flex gap-1">
                                                 {photoCount > 0 && (
                                                     <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white flex items-center gap-1">

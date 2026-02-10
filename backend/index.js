@@ -571,6 +571,14 @@ const initDB = async () => {
             CREATE INDEX IF NOT EXISTS idx_scrc_brigade ON scrc_orders(assigned_brigade_id);
             CREATE INDEX IF NOT EXISTS idx_scrc_order_number ON scrc_orders(order_number);
             CREATE INDEX IF NOT EXISTS idx_brigades_location ON brigades USING GIST(last_location);
+
+            -- Composite indexes for audit queries (P0 performance fix)
+            CREATE INDEX IF NOT EXISTS idx_scrc_audit_composite ON scrc_orders(status, audit_status, execution_date DESC);
+            CREATE INDEX IF NOT EXISTS idx_scrc_technician_status ON scrc_orders(technician_name, status);
+
+            -- Indexes for delivery_proofs (P0 - fixes N+1 query bottleneck)
+            CREATE INDEX IF NOT EXISTS idx_delivery_proofs_route_id ON delivery_proofs(route_id);
+            CREATE INDEX IF NOT EXISTS idx_delivery_proofs_created ON delivery_proofs(created_at DESC);
         `);
 
         client.release();

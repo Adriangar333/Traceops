@@ -89,6 +89,12 @@ const typeDefs = `#graphql
         location: Location
     }
 
+    type BulkAuditResult {
+        success: Boolean!
+        count: Int!
+        message: String
+    }
+
     # === Statistics ===
     type DashboardStats {
         totalDrivers: Int!
@@ -130,6 +136,9 @@ const typeDefs = `#graphql
         # === SCRC Mutations ===
         # Audit an order (approve/reject)
         auditSCRCOrder(id: ID!, status: String!, notes: String): SCRCOrder
+
+        # Bulk audit multiple orders
+        bulkAuditSCRCOrders(ids: [ID!]!, status: String!, notes: String): BulkAuditResult
 
         # Upload evidence (photo or signature)
         uploadSCRCEvidence(

@@ -453,6 +453,45 @@ const resolvers = {
         },
 
         /**
+         * Bulk Audit SCRC Orders
+         */
+        bulkAuditSCRCOrders: async (_, { ids, status, notes }, { db }) => {
+            try {
+                // Validate status
+                const validStatuses = ['approved', 'rejected', 'pending'];
+                if (!validStatuses.includes(status)) {
+                    throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+                }
+
+                if (status === 'rejected' && !notes?.trim()) {
+                    throw new Error('Rejection requires a reason (notes)');
+                }
+
+                // Use parameterized query with ANY for array
+                const result = await db.query(
+                    `UPDATE scrc_orders
+                     SET audit_status = $1,
+                         notes = COALESCE($2, notes),
+                         audited_at = NOW()
+                     WHERE id = ANY($3::int[])
+                     RETURNING id`,
+                    [status, notes, ids.map(id => parseInt(id))]
+                );
+
+                console.log(`[GraphQL] Bulk audit: ${result.rowCount} orders set to ${status}`);
+
+                return {
+                    success: true,
+                    count: result.rowCount,
+                    message: `${result.rowCount} órdenes actualizadas a ${status}`
+                };
+            } catch (error) {
+                console.error('[GraphQL] Error bulk auditing orders:', error);
+                throw new Error('Failed to bulk audit orders: ' + error.message);
+            }
+        },
+
+        /**
          * Upload SCRC Evidence
          */
         uploadSCRCEvidence: async (_, args, { db }) => {
