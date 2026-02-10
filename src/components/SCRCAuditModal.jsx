@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { X, Check, AlertCircle, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
+const getBaseUrl = () => {
+    const url = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
+    return url.replace(/\/api$/, '');
+};
+const API_BASE = getBaseUrl();
 
 export default function SCRCAuditModal({ order, onClose, onUpdate }) {
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -65,8 +69,8 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             Auditoría de Orden #{order.order_number}
                             <span className={`px-2 py-0.5 text-xs rounded-full border ${order.audit_status === 'approved' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
-                                    order.audit_status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
-                                        'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                order.audit_status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                                    'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
                                 }`}>
                                 {order.audit_status?.toUpperCase() || 'PENDIENTE'}
                             </span>

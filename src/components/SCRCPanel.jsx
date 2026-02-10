@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClipboardList, Users, Zap, BarChart3, Upload, Search, RefreshCw, Filter, X, Check, AlertCircle, FileSpreadsheet, ChevronDown, ChevronUp, MapPin, Map } from 'lucide-react';
+import { ClipboardList, Users, Zap, BarChart3, Upload, Search, RefreshCw, Filter, X, Check, AlertCircle, FileSpreadsheet, ChevronDown, ChevronUp, MapPin, Map, CheckSquare } from 'lucide-react';
+import SCRCAuditPanel from './SCRCAuditPanel';
 import { toast, Toaster } from 'sonner';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -168,6 +169,7 @@ export default function SCRCPanel({ onClose }) {
         { id: 'map', icon: Map, label: 'Mapa' },
         { id: 'brigades', icon: Users, label: 'Brigadas' },
         { id: 'autoassign', icon: Zap, label: 'Auto-Asignar' },
+        { id: 'audit', icon: CheckSquare, label: 'Auditoría' },
         { id: 'stats', icon: BarChart3, label: 'Estadísticas' }
     ];
 
@@ -874,6 +876,12 @@ export default function SCRCPanel({ onClose }) {
                 {activeTab === 'map' && <MapTab />}
                 {activeTab === 'brigades' && <BrigadesTab />}
                 {activeTab === 'autoassign' && <AutoAssignTab />}
+                {activeTab === 'audit' && (
+                    <div style={{ height: 'calc(100vh - 180px)' }}>
+                        <SCRCAuditPanel />
+                    </div>
+                )}
+
                 {activeTab === 'stats' && <StatsTab />}
             </div>
         </div>

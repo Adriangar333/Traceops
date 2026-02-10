@@ -47,8 +47,15 @@ module.exports = (pool) => {
                 rawData = XLSX.utils.sheet_to_json(sheet);
 
                 if (!hasRequiredColumns(rawData)) {
-                    console.log(`⚠️ Sheet "${sheetName}" doesn't have NIC/ORDEN columns, searching others...`);
-                    sheetName = null; // Reset to trigger search
+                    // Intentar con fila 2 como encabezados (fila 1 = título)
+                    const withRow2 = XLSX.utils.sheet_to_json(sheet, { range: 1 });
+                    if (hasRequiredColumns(withRow2)) {
+                        rawData = withRow2;
+                        console.log('✅ Usando fila 2 como encabezados (fila 1 era título)');
+                    } else {
+                        console.log(`⚠️ Sheet "${sheetName}" doesn't have NIC/ORDEN columns, searching others...`);
+                        sheetName = null;
+                    }
                 }
             }
 
@@ -90,9 +97,6 @@ module.exports = (pool) => {
                 return res.status(400).json({ error: 'No data found in Excel file' });
             }
 
-            // Log first row to debug column names
-            console.log('📝 First row columns:', Object.keys(rawData[0]));
-
             // Helper function to normalize strings for comparison (remove accents, special chars, uppercase)
             const normalizeKey = (key) => {
                 if (!key) return '';
@@ -100,6 +104,14 @@ module.exports = (pool) => {
                     .toUpperCase()
                     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
                     .replace(/[^A-Z0-9]/g, ""); // Keep only alphanumeric
+            };
+
+            // Helper to coerce value: Excel may return numbers for NIC/ORDEN; we accept numbers and non-empty strings
+            const toValidValue = (val) => {
+                if (val === undefined || val === null) return null;
+                if (typeof val === 'number' && !Number.isNaN(val)) return String(val); // 12345 -> "12345"
+                const s = String(val).trim();
+                return s === '' ? null : s;
             };
 
             // Helper function to get value from row by normalized column name
@@ -115,17 +127,16 @@ module.exports = (pool) => {
 
                     // 1. Exact match (normalized)
                     if (normalizedRowKeys[target]) {
-                        const val = row[normalizedRowKeys[target]];
-                        if (val !== undefined && val !== null && val !== '') return val;
+                        const val = toValidValue(row[normalizedRowKeys[target]]);
+                        if (val) return val;
                     }
 
                     // 2. Partial match (key contains target)
-                    // Only if target is substantial (length > 2) to avoid false positives
                     if (target.length > 2) {
                         const partialMatch = Object.keys(normalizedRowKeys).find(k => k.includes(target));
                         if (partialMatch) {
-                            const val = row[normalizedRowKeys[partialMatch]];
-                            if (val !== undefined && val !== null && val !== '') return val;
+                            const val = toValidValue(row[normalizedRowKeys[partialMatch]]);
+                            if (val) return val;
                         }
                     }
                 }

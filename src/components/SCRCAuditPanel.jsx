@@ -3,7 +3,11 @@ import { Search, Filter, RefreshCw, CheckCircle, XCircle, Clock, Calendar, Check
 import { toast } from 'sonner';
 import SCRCAuditModal from './SCRCAuditModal';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
+const getBaseUrl = () => {
+    const url = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
+    return url.replace(/\/api$/, '');
+};
+const API_BASE = getBaseUrl();
 
 export default function SCRCAuditPanel() {
     const [orders, setOrders] = useState([]);
