@@ -2,47 +2,56 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, RefreshCw, CheckCircle, XCircle, Clock, Calendar, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import SCRCAuditModal from './SCRCAuditModal';
+import { useQuery, gql } from '@apollo/client';
 
-const getBaseUrl = () => {
-    const url = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
-    return url.replace(/\/api$/, '');
-};
-const API_BASE = getBaseUrl();
+const GET_SCRC_ORDERS = gql`
+    query GetSCRCOrders($status: String, $auditStatus: String, $technician: String, $limit: Int) {
+        scrcOrders(status: $status, auditStatus: $auditStatus, technician: $technician, limit: $limit) {
+            id
+            orderNumber
+            nic
+            clientName
+            technicianName
+            executionDate
+            auditStatus
+            status
+            notes
+            evidence {
+                id
+                type
+                url
+            }
+        }
+    }
+`;
 
 export default function SCRCAuditPanel() {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [filters, setFilters] = useState({
-        status: 'completed', // Default to completed orders
-        audit_status: 'pending', // Default to those needing audit
+        status: 'completed',
+        audit_status: 'pending',
         technician: '',
         limit: 50
     });
 
-    const fetchOrders = useCallback(async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            if (filters.status) params.append('status', filters.status);
-            if (filters.audit_status) params.append('audit_status', filters.audit_status);
-            if (filters.technician) params.append('technician', filters.technician);
-            params.append('limit', filters.limit.toString());
+    const { data, loading, error, refetch } = useQuery(GET_SCRC_ORDERS, {
+        variables: {
+            status: filters.status,
+            auditStatus: filters.audit_status,
+            technician: filters.technician,
+            limit: filters.limit
+        },
+        fetchPolicy: 'network-only' // Ensure fresh data on mount/refetch
+    });
 
-            const res = await fetch(`${API_BASE}/api/scrc/orders?${params}`);
-            const data = await res.json();
-            setOrders(data.orders || []);
-        } catch (err) {
-            console.error('Error fetching audit orders:', err);
-            toast.error('Error al cargar órdenes para auditoría');
-        } finally {
-            setLoading(false);
-        }
-    }, [filters]);
+    const orders = data?.scrcOrders || [];
 
     useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
+        if (error) {
+            console.error('Error fetching audit orders:', error);
+            toast.error('Error al cargar órdenes para auditoría');
+        }
+    }, [error]);
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -61,14 +70,14 @@ export default function SCRCAuditPanel() {
                         <CheckSquare size={24} />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold">Auditoría de Calidad</h1>
+                        <h1 className="text-xl font-bold">Auditoría de Calidad (GraphQL)</h1>
                         <p className="text-xs text-gray-400">Revisión de evidencia fotográfica y ejecución</p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={fetchOrders}
+                        onClick={() => refetch()}
                         className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
                         title="Actualizar"
                     >
@@ -114,7 +123,7 @@ export default function SCRCAuditPanel() {
 
             {/* Grid Content */}
             <div className="flex-1 overflow-auto p-4 content-start">
-                {orders.length === 0 ? (
+                {orders.length === 0 && !loading ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
                         <CheckSquare size={64} className="mb-4" strokeWidth={1} />
                         <p className="text-lg">No hay órdenes para auditar</p>
@@ -130,9 +139,9 @@ export default function SCRCAuditPanel() {
                             >
                                 {/* Thumbnail */}
                                 <div className="aspect-video bg-black/40 relative">
-                                    {order.evidence_photos && order.evidence_photos.length > 0 ? (
+                                    {order.evidence && order.evidence.length > 0 && order.evidence[0].url ? (
                                         <img
-                                            src={order.evidence_photos[0]}
+                                            src={order.evidence[0].url}
                                             alt="Evidencia"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         />
@@ -144,12 +153,12 @@ export default function SCRCAuditPanel() {
                                     )}
 
                                     <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-xs text-white font-mono">
-                                        {order.evidence_photos?.length || 0} 📷
+                                        {order.evidence?.length || 0} 📷
                                     </div>
 
                                     <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                                         <p className="text-white text-sm font-bold truncate">{order.nic}</p>
-                                        <p className="text-gray-300 text-xs truncate">{order.client_name}</p>
+                                        <p className="text-gray-300 text-xs truncate">{order.clientName}</p>
                                     </div>
                                 </div>
 
@@ -157,20 +166,20 @@ export default function SCRCAuditPanel() {
                                 <div className="p-3 space-y-2">
                                     <div className="flex justify-between items-start">
                                         <div className="text-xs text-gray-400">
-                                            <p className="font-semibold text-gray-300">{order.order_number}</p>
-                                            <p>{new Date(order.execution_date || order.updated_at).toLocaleDateString()}</p>
+                                            <p className="font-semibold text-gray-300">{order.orderNumber}</p>
+                                            <p>{new Date(order.executionDate || Date.now()).toLocaleDateString()}</p>
                                         </div>
-                                        <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold tracking-wider ${getStatusColor(order.audit_status || 'pending')}`}>
-                                            {order.audit_status === 'approved' ? 'APROBADA' :
-                                                order.audit_status === 'rejected' ? 'RECHAZADA' : 'PENDIENTE'}
+                                        <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold tracking-wider ${getStatusColor(order.auditStatus || 'pending')}`}>
+                                            {order.auditStatus === 'approved' ? 'APROBADA' :
+                                                order.auditStatus === 'rejected' ? 'RECHAZADA' : 'PENDIENTE'}
                                         </span>
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
                                         <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px]">
-                                            {(order.technician_name || 'T')[0]}
+                                            {(order.technicianName || 'T')[0]}
                                         </div>
-                                        <p className="text-xs text-gray-400 truncate flex-1">{order.technician_name || 'Sin Asignar'}</p>
+                                        <p className="text-xs text-gray-400 truncate flex-1">{order.technicianName || 'Sin Asignar'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -184,7 +193,7 @@ export default function SCRCAuditPanel() {
                 <SCRCAuditModal
                     order={selectedOrder}
                     onClose={() => setSelectedOrder(null)}
-                    onUpdate={fetchOrders}
+                    onUpdate={() => refetch()}
                 />
             )}
         </div>

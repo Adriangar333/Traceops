@@ -188,6 +188,47 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
         }
     };
 
+    // Signature Pad Functions
+    const startDrawing = (e) => {
+        isDrawing.current = true;
+        const canvas = signaturePadRef.current;
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+
+        const x = (e.clientX || e.touches[0].clientX) - rect.left;
+        const y = (e.clientY || e.touches[0].clientY) - rect.top;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    };
+
+    const draw = (e) => {
+        if (!isDrawing.current) return;
+        const canvas = signaturePadRef.current;
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+
+        const x = (e.clientX || e.touches[0].clientX) - rect.left;
+        const y = (e.clientY || e.touches[0].clientY) - rect.top;
+
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    };
+
+    const stopDrawing = () => {
+        if (!isDrawing.current) return;
+        isDrawing.current = false;
+        const canvas = signaturePadRef.current;
+        setSignature(canvas.toDataURL());
+    };
+
+    const clearSignature = () => {
+        const canvas = signaturePadRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setSignature(null);
+    };
+
     // Validate form
     const isValid = () => {
         if (!action) return false;
@@ -195,6 +236,8 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
         // Require photo for successful actions
         if (['suspended', 'cut', 'reconnected', 'completed'].includes(action)) {
             if (!photo) return false;
+            // Require signature if action is completed/effective
+            // if (!signature) return false; // Uncomment to make signature mandatory
         }
 
         // Require reason for non-effective
@@ -218,7 +261,8 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
             const evidenceId = await dbService.saveEvidence({
                 orderId: order.id,
                 type: photo ? 'photo' : 'form',
-                filePath: photo, // DataURL for now, could save to filesystem
+                filePath: photo,
+                signature: signature, // Save signature
                 reading: reading,
                 action: action,
                 reason: reason,
@@ -248,6 +292,7 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
 
     return (
         <div style={styles.container}>
+
             {/* Hidden canvas for watermarking */}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
@@ -375,6 +420,42 @@ export default function OrderExecutionForm({ order, onComplete, onCancel }) {
                         rows={3}
                     />
                 </div>
+
+                {/* Signature Section */}
+                {['suspended', 'cut', 'reconnected', 'completed'].includes(action) && (
+                    <div style={styles.section}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <label style={styles.label}>Firma del Cliente</label>
+                            <button
+                                onClick={clearSignature}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#60a5fa',
+                                    fontSize: '13px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Limpiar
+                            </button>
+                        </div>
+                        <div style={{ backgroundColor: '#fff', borderRadius: '10px', overflow: 'hidden' }}>
+                            <canvas
+                                ref={signaturePadRef}
+                                width={window.innerWidth - 80} // Approx width minus padding
+                                height={200}
+                                style={{ display: 'block' }}
+                                onMouseDown={startDrawing}
+                                onMouseMove={draw}
+                                onMouseUp={stopDrawing}
+                                onMouseLeave={stopDrawing}
+                                onTouchStart={startDrawing}
+                                onTouchMove={draw}
+                                onTouchEnd={stopDrawing}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Error */}
                 {error && (

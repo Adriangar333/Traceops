@@ -164,6 +164,7 @@ export default function TechnicianApp() {
         return (
             <OrderExecutionForm
                 order={selectedOrder}
+                technician={user}
                 onComplete={handleExecutionComplete}
                 onCancel={() => setIsExecuting(false)}
             />

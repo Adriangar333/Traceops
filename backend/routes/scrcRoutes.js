@@ -460,8 +460,18 @@ module.exports = (pool) => {
                         END
                     )
                     FROM delivery_proofs 
-                    WHERE route_id = scrc_orders.order_number::text
-                ) as evidence_photos
+                    WHERE route_id = scrc_orders.order_number::text AND type != 'signature'
+                ) as evidence_photos,
+                (
+                    SELECT json_agg(
+                        CASE 
+                            WHEN signature LIKE 'data:image%' THEN signature 
+                            ELSE CONCAT('data:image/png;base64,', signature) 
+                        END
+                    )
+                    FROM delivery_proofs 
+                    WHERE route_id = scrc_orders.order_number::text AND type = 'signature'
+                ) as evidence_signatures
                 FROM scrc_orders 
                 WHERE 1=1
             `;
@@ -498,6 +508,112 @@ module.exports = (pool) => {
         } catch (err) {
             console.error('Get orders error:', err);
             res.status(500).json({ error: 'Failed to fetch orders' });
+        }
+    });
+
+    // ============================================
+    // UPLOAD EVIDENCE (Photo, Signature, etc.)
+    // ============================================
+    router.post('/orders/:id/evidence', async (req, res) => {
+        const { id } = req.params; // This is the order_number
+        const { type, reading, action, notes, lat, lng, capturedAt, photo, signature, technician_name } = req.body;
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            console.log(`📸 Received evidence for order #${id} (${type})`);
+
+            // 1. Check if order exists in scrc_orders
+            let orderCheck = await client.query('SELECT id FROM scrc_orders WHERE order_number = $1', [id]);
+
+            // 2. If not found, try to find in 'routes' table and AUTO-CREATE
+            if (orderCheck.rowCount === 0) {
+                console.log(`⚠️ Order ${id} not found in SCRC. Checking manual routes...`);
+
+                const routeCheck = await client.query('SELECT * FROM routes WHERE order_number = $1', [id]);
+
+                if (routeCheck.rowCount > 0) {
+                    const r = routeCheck.rows[0];
+                    console.log(`✅ Found in routes table. Auto-creating SCRC order...`);
+
+                    const insertResult = await client.query(`
+                        INSERT INTO scrc_orders (
+                            order_number, nic, client_name, address, municipality, neighborhood,
+                            order_type, brigade_type, amount_due, priority, status,
+                            lat, lng, assigned_at, created_at, technician_name
+                        ) VALUES (
+                            $1, $2, $3, $4, $5, $6,
+                            $7, $8, $9, $10, 'in_progress',
+                            $11, $12, NOW(), NOW(), $13
+                        ) RETURNING id
+                    `, [
+                        r.order_number, r.nic, r.client_name, r.address, r.municipality, r.neighborhood,
+                        r.order_type || 'manual', 'moto', r.amount_due || 0, 1,
+                        r.lat, r.lng, technician_name || 'Técnico'
+                    ]);
+
+                    orderCheck = insertResult; // Use the new ID
+                } else {
+                    throw new Error(`Order ${id} not found in SCRC or Routes`);
+                }
+            }
+
+            // 3. Insert Evidence into delivery_proofs
+            // Check if we need to add a signature column to delivery_proofs or store it in photo/metadata
+            // For now, we'll store specific types. 
+            // If type is 'signature', we save it. If type is 'photo', we save it.
+            // But usually this comes as a single "execution" pack. 
+            // We will save row by row.
+
+            // If payload has 'photo', save it
+            if (photo) {
+                await client.query(`
+                    INSERT INTO delivery_proofs (
+                        route_id, type, photo, reading, action_taken, 
+                        notes, lat, lng, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `, [
+                    id, 'photo', photo, reading, action,
+                    notes, lat, lng, capturedAt || new Date()
+                ]);
+            }
+
+            // If payload has 'signature', save it 
+            if (signature) {
+                await client.query(`
+                    INSERT INTO delivery_proofs (
+                        route_id, type, photo, reading, action_taken, 
+                        notes, lat, lng, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `, [
+                    id, 'signature', signature, reading, action,
+                    notes, lat, lng, capturedAt || new Date()
+                ]);
+            }
+
+            // 4. Update SCRC Order Status
+            let newStatus = 'completed';
+            if (action === 'failed' || action === 'postponed') newStatus = 'failed';
+
+            await client.query(`
+                UPDATE scrc_orders 
+                SET status = $1, 
+                    technician_name = COALESCE($2, technician_name),
+                    updated_at = NOW(),
+                    notes = COALESCE(notes, '') || E'\n' || $3
+                WHERE order_number = $4
+            `, [newStatus, technician_name, notes, id]);
+
+            await client.query('COMMIT');
+            res.json({ success: true, message: 'Evidence saved' });
+
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Evidence upload error:', err);
+            res.status(500).json({ error: 'Failed to save evidence', details: err.message });
+        } finally {
+            client.release();
         }
     });
 

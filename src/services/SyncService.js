@@ -9,8 +9,38 @@
 
 import { dbService } from './DatabaseService';
 import { Network } from '@capacitor/network';
+import client from '../apollo/client';
+import { gql } from '@apollo/client';
 
 const API_BASE = 'https://dashboard-backend.zvkdyr.easypanel.host/api';
+
+const UPLOAD_EVIDENCE = gql`
+    mutation UploadSCRCEvidence(
+        $orderNumber: String!,
+        $type: String!,
+        $photo: String,
+        $signature: String,
+        $notes: String,
+        $technicianName: String,
+        $lat: Float,
+        $lng: Float,
+        $capturedAt: String
+    ) {
+        uploadSCRCEvidence(
+            orderNumber: $orderNumber,
+            type: $type,
+            photo: $photo,
+            signature: $signature,
+            notes: $notes,
+            technicianName: $technicianName,
+            lat: $lat,
+            lng: $lng,
+            capturedAt: $capturedAt
+        ) {
+            id
+        }
+    }
+`;
 
 class SyncService {
     constructor() {
@@ -199,23 +229,35 @@ class SyncService {
 
         const record = result.values[0];
 
-        // Upload to server
-        const response = await fetch(`${API_BASE}/scrc/orders/${record.order_id}/evidence`, {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify({
+        // Get order number (which is the ID for the endpoint)
+        const orderRes = await dbService.db.query('SELECT order_number FROM orders WHERE id = ?', [record.order_id]);
+        const orderNumber = orderRes.values[0]?.order_number;
+
+        // Get technician name
+        const user = await dbService.getState('user');
+
+        // Combine notes
+        const combinedNotes = [
+            record.notes,
+            record.reading_value ? `Lectura: ${record.reading_value}` : '',
+            record.action_taken ? `Acción: ${record.action_taken}` : ''
+        ].filter(Boolean).join(' | ');
+
+        // Upload to server using GraphQL
+        await client.mutate({
+            mutation: UPLOAD_EVIDENCE,
+            variables: {
+                orderNumber: orderNumber,
                 type: record.type,
-                reading: record.reading_value,
-                action: record.action_taken,
-                notes: record.notes,
+                photo: record.file_path, // Base64 content
+                signature: record.signature,
+                notes: combinedNotes,
+                technicianName: user?.name,
                 lat: record.lat,
                 lng: record.lng,
-                capturedAt: record.captured_at,
-                // TODO: Upload photo file separately (FormData)
-            })
+                capturedAt: record.captured_at
+            }
         });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         // Mark as synced
         await dbService.db.run(

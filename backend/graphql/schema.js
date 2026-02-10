@@ -60,12 +60,39 @@ const typeDefs = `#graphql
         lng: Float!
     }
 
+    # === SCRC Types ===
+    type SCRCOrder {
+        id: ID!
+        orderNumber: String!
+        nic: String
+        clientName: String
+        technicianName: String
+        address: String
+        status: String
+        auditStatus: String
+        executionDate: String
+        notes: String
+        # Resolved field
+        evidence: [SCRCEvidence!]
+    }
+
+    type SCRCEvidence {
+        id: ID!
+        type: String
+        url: String
+        notes: String
+        createdAt: String
+        technicianName: String
+        location: Location
+    }
+
     # === Statistics ===
     type DashboardStats {
         totalDrivers: Int!
         totalRoutes: Int!
         activeRoutes: Int!
         completedDeliveries: Int!
+        pendingAudits: Int
     }
 
     # === Query Root ===
@@ -80,6 +107,10 @@ const typeDefs = `#graphql
 
         # Dashboard
         dashboardStats: DashboardStats!
+
+        # SCRC
+        scrcOrders(status: String, auditStatus: String, technician: String, limit: Int): [SCRCOrder!]!
+        scrcOrder(id: ID!): SCRCOrder
     }
 
     # === Mutation Root (for future use) ===
@@ -92,6 +123,23 @@ const typeDefs = `#graphql
 
         # Update delivery status
         updateWaypointStatus(waypointId: ID!, status: String!): Waypoint
+
+        # === SCRC Mutations ===
+        # Audit an order (approve/reject)
+        auditSCRCOrder(id: ID!, status: String!, notes: String): SCRCOrder
+
+        # Upload evidence (photo or signature)
+        uploadSCRCEvidence(
+            orderNumber: String!
+            type: String
+            photo: String
+            signature: String
+            notes: String
+            technicianName: String
+            lat: Float
+            lng: Float
+            capturedAt: String
+        ): SCRCEvidence
     }
 `;
 

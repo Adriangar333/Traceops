@@ -1,24 +1,49 @@
 import React, { useState } from 'react';
 import { X, Check, AlertCircle, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useMutation, gql } from '@apollo/client';
 
-const getBaseUrl = () => {
-    const url = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'https://dashboard-backend.zvkdyr.easypanel.host';
-    return url.replace(/\/api$/, '');
-};
-const API_BASE = getBaseUrl();
+const AUDIT_SCRC_ORDER = gql`
+    mutation AuditSCRCOrder($id: ID!, $status: String!, $notes: String) {
+        auditSCRCOrder(id: $id, status: $status, notes: $notes) {
+            id
+            auditStatus
+            notes
+        }
+    }
+`;
 
 export default function SCRCAuditModal({ order, onClose, onUpdate }) {
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
     const [showRejectInput, setShowRejectInput] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
-    const [processing, setProcessing] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
+    const [auditOrder, { loading: processing }] = useMutation(AUDIT_SCRC_ORDER, {
+        onCompleted: (data) => {
+            const status = data.auditSCRCOrder.auditStatus;
+            toast.success(status === 'approved' ? 'Orden APROBADA' : 'Orden RECHAZADA');
+            onUpdate();
+            onClose();
+        },
+        onError: (err) => {
+            console.error('Mutación fallida:', err);
+            toast.error('Error al actualizar estado: ' + err.message);
+        }
+    });
 
     if (!order) return null;
 
-    const photos = order.evidence_photos || [];
-    const hasPhotos = photos.length > 0;
+    // Filter evidence based on new GraphQL structure
+    const evidenceList = order.evidence || [];
+    const photos = evidenceList.filter(e => e.type !== 'signature').map(e => e.url);
+    const signatures = evidenceList.filter(e => e.type === 'signature').map(e => e.url);
+
+    // Fallback for older data structure if needed, or if mixed
+    const displayPhotos = photos.length > 0 ? photos : (order.evidence_photos || []);
+    const displaySignatures = signatures.length > 0 ? signatures : (order.evidence_signatures || []);
+
+    const hasPhotos = displayPhotos.length > 0;
 
     const handleAudit = async (status) => {
         if (status === 'rejected' && !rejectionReason.trim()) {
@@ -26,59 +51,43 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
             return;
         }
 
-        setProcessing(true);
-        try {
-            const res = await fetch(`${API_BASE}/api/scrc/orders/${order.id}/audit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status,
-                    reason: status === 'rejected' ? rejectionReason : null,
-                    auditor: 'Admin' // TODO: Get from auth context
-                })
-            });
-
-            if (!res.ok) throw new Error('Failed to update status');
-
-            toast.success(status === 'approved' ? 'Orden APROBADA' : 'Orden RECHAZADA');
-            onUpdate();
-            onClose();
-        } catch (err) {
-            console.error(err);
-            toast.error('Error al actualizar estado');
-        } finally {
-            setProcessing(false);
-        }
+        auditOrder({
+            variables: {
+                id: order.id,
+                status,
+                notes: status === 'rejected' ? rejectionReason : null
+            }
+        });
     };
 
     const nextPhoto = () => {
-        if (hasPhotos) setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+        if (hasPhotos) setCurrentPhotoIndex((prev) => (prev + 1) % displayPhotos.length);
     };
 
     const prevPhoto = () => {
-        if (hasPhotos) setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
+        if (hasPhotos) setCurrentPhotoIndex((prev) => (prev - 1 + displayPhotos.length) % displayPhotos.length);
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className={`bg-[#1a1f2e] border border-gray-700 rounded-xl shadow-2xl flex flex-col ${isFullscreen ? 'w-full h-full' : 'w-full max-w-5xl h-[90vh]'}`}>
+            <div className={`bg-[#1a1f2e] border border-gray-700 rounded-xl shadow-2xl flex flex-col ${isFullScreen ? 'w-full h-full' : 'w-full max-w-5xl h-[90vh]'}`}>
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-[#1e2330]">
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            Auditoría de Orden #{order.order_number}
-                            <span className={`px-2 py-0.5 text-xs rounded-full border ${order.audit_status === 'approved' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
-                                order.audit_status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                            Auditoría de Orden #{order.orderNumber || order.order_number}
+                            <span className={`px-2 py-0.5 text-xs rounded-full border ${order.auditStatus === 'approved' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
+                                order.auditStatus === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
                                     'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
                                 }`}>
-                                {order.audit_status?.toUpperCase() || 'PENDIENTE'}
+                                {order.auditStatus?.toUpperCase() || 'PENDIENTE'}
                             </span>
                         </h2>
-                        <p className="text-sm text-gray-400">{order.nic} - {order.client_name}</p>
+                        <p className="text-sm text-gray-400">{order.nic} - {order.clientName || order.client_name}</p>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg">
+                        <button onClick={() => setIsFullScreen(!isFullScreen)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg">
                             <Maximize2 size={20} />
                         </button>
                         <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-red-900/50 rounded-lg">
@@ -95,16 +104,16 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                         {hasPhotos ? (
                             <>
                                 <img
-                                    src={photos[currentPhotoIndex]}
+                                    src={displayPhotos[currentPhotoIndex]}
                                     alt={`Evidencia ${currentPhotoIndex + 1}`}
                                     className="max-h-full max-w-full object-contain rounded-lg shadow-lg"
                                 />
 
                                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 px-4 py-1 rounded-full text-white text-sm backdrop-blur-md">
-                                    {currentPhotoIndex + 1} / {photos.length}
+                                    {currentPhotoIndex + 1} / {displayPhotos.length}
                                 </div>
 
-                                {photos.length > 1 && (
+                                {displayPhotos.length > 1 && (
                                     <>
                                         <button onClick={prevPhoto} className="absolute left-4 p-2 bg-black/50 text-white rounded-full hover:bg-white/20 backdrop-blur-md transition-all">
                                             <ChevronLeft size={24} />
@@ -132,22 +141,37 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                                 <div className="bg-gray-800/50 p-3 rounded-lg space-y-2 text-sm border border-gray-700">
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Técnico:</span>
-                                        <span className="text-white text-right">{order.technician_name || 'N/A'}</span>
+                                        <span className="text-white text-right">{order.technicianName || order.technician_name || 'N/A'}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Fecha:</span>
                                         <span className="text-white text-right">
-                                            {order.execution_date ? new Date(order.execution_date).toLocaleString() : 'Pendiente'}
+                                            {order.executionDate || order.execution_date ? new Date(order.executionDate || order.execution_date).toLocaleString() : 'Pendiente'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Tipo:</span>
-                                        <span className="text-yellow-400 text-right">{order.order_type?.toUpperCase()}</span>
+                                        <span className="text-yellow-400 text-right">{(order.orderType || order.order_type || 'N/A').toUpperCase()}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-gray-400">Lectura:</span>
-                                        <span className="text-white text-right font-mono">{order.meter_reading || 'No registrada'}</span>
+                                        <span className="text-white text-right font-mono">{order.meterReading || order.meter_reading || 'No registrada'}</span>
                                     </div>
+
+                                    {/* Signature Display */}
+                                    {displaySignatures.length > 0 && (
+                                        <div className="pt-2 border-t border-gray-700">
+                                            <span className="text-gray-400 block mb-2 text-xs uppercase">Firma del Cliente:</span>
+                                            <div className="bg-white rounded-lg p-2 overflow-hidden">
+                                                <img
+                                                    src={displaySignatures[0]}
+                                                    alt="Firma"
+                                                    className="w-full h-auto max-h-24 object-contain filter invert"
+                                                    style={{ filter: 'invert(0)' }} // Reset invert since it's on white bg
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -168,7 +192,7 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
 
                         {/* Audit Actions */}
                         <div className="p-4 border-t border-gray-700 bg-[#1e2330] space-y-3">
-                            {order.audit_status === 'pending' || order.audit_status === null ? (
+                            {order.auditStatus === 'pending' || order.auditStatus === null ? (
                                 <>
                                     {!showRejectInput ? (
                                         <div className="grid grid-cols-2 gap-3">
@@ -215,24 +239,24 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                                     )}
                                 </>
                             ) : (
-                                <div className={`p-3 rounded-lg text-center border ${order.audit_status === 'approved' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+                                <div className={`p-3 rounded-lg text-center border ${order.auditStatus === 'approved' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
                                     }`}>
                                     <p className="font-bold flex items-center justify-center gap-2">
-                                        {order.audit_status === 'approved' ? <Check size={16} /> : <X size={16} />}
-                                        {order.audit_status === 'approved' ? 'APROBADA' : 'RECHAZADA'}
+                                        {order.auditStatus === 'approved' ? <Check size={16} /> : <X size={16} />}
+                                        {order.auditStatus === 'approved' ? 'APROBADA' : 'RECHAZADA'}
                                     </p>
-                                    {order.rejection_reason && (
-                                        <p className="text-xs mt-1 opacity-80">"{order.rejection_reason}"</p>
+                                    {order.notes && (
+                                        <p className="text-xs mt-1 opacity-80">"{order.notes}"</p>
                                     )}
                                     <p className="text-[10px] mt-2 text-gray-500 uppercase">
-                                        Auditado por {order.audited_by || 'Admin'} • {new Date(order.audited_at).toLocaleDateString()}
+                                        Auditado • {new Date().toLocaleDateString()}
                                     </p>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

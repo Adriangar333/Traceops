@@ -84,6 +84,7 @@ class DatabaseService {
                 order_id INTEGER,
                 type TEXT,
                 file_path TEXT,
+                signature TEXT,
                 reading_value TEXT,
                 action_taken TEXT,
                 notes TEXT,
@@ -186,12 +187,12 @@ class DatabaseService {
     async saveEvidence(evidence) {
         const stmt = `
             INSERT INTO evidences 
-            (order_id, type, file_path, reading_value, action_taken, notes, lat, lng, captured_at, synced)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            (order_id, type, file_path, signature, reading_value, action_taken, notes, lat, lng, captured_at, synced)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
         `;
 
         const result = await this.db.run(stmt, [
-            evidence.orderId, evidence.type, evidence.filePath,
+            evidence.orderId, evidence.type, evidence.filePath, evidence.signature, // Added signature
             evidence.reading, evidence.action, evidence.notes,
             evidence.lat, evidence.lng, new Date().toISOString()
         ]);

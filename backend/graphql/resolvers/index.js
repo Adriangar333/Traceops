@@ -137,6 +137,78 @@ const resolvers = {
                 console.error('[GraphQL] Error fetching stats:', error);
                 return { totalDrivers: 0, totalRoutes: 0, activeRoutes: 0, completedDeliveries: 0 };
             }
+        },
+
+        /**
+         * Get SCRC orders with filters
+         */
+        scrcOrders: async (_, { status, auditStatus, technician, limit }, { db }) => {
+            try {
+                let query = 'SELECT * FROM scrc_orders WHERE 1=1';
+                const params = [];
+
+                if (status) {
+                    params.push(status);
+                    query += ` AND status = $${params.length}`;
+                }
+                if (auditStatus) {
+                    params.push(auditStatus);
+                    query += ` AND audit_status = $${params.length}`;
+                }
+                if (technician) {
+                    params.push(`%${technician}%`);
+                    query += ` AND technician_name ILIKE $${params.length}`;
+                }
+
+                query += ' ORDER BY execution_date DESC NULLS LAST, created_at DESC';
+                if (limit) {
+                    params.push(limit);
+                    query += ` LIMIT $${params.length}`;
+                }
+
+                const result = await db.query(query, params);
+                return result.rows.map(row => ({
+                    id: row.id,
+                    orderNumber: row.order_number,
+                    nic: row.nic,
+                    clientName: row.client_name,
+                    technicianName: row.technician_name,
+                    address: row.address,
+                    status: row.status,
+                    auditStatus: row.audit_status,
+                    executionDate: row.execution_date?.toISOString(),
+                    notes: row.notes
+                }));
+            } catch (error) {
+                console.error('[GraphQL] Error fetching SCRC orders:', error);
+                throw new Error('Failed to fetch SCRC orders');
+            }
+        },
+
+        /**
+         * Get single SCRC order
+         */
+        scrcOrder: async (_, { id }, { db }) => {
+            try {
+                const result = await db.query('SELECT * FROM scrc_orders WHERE id = $1', [id]);
+                if (result.rows.length === 0) return null;
+                const row = result.rows[0];
+                return {
+                    id: row.id,
+                    orderNumber: row.order_number,
+                    nic: row.nic,
+                    clientName: row.client_name,
+                    technicianName: row.technician_name,
+                    address: row.address,
+                    status: row.status,
+                    auditStatus: row.audit_status,
+                    executionDate: row.execution_date?.toISOString(),
+                    notes: row.notes
+                };
+            } catch (error) {
+                console.error('[GraphQL] Error fetching SCRC order:', error);
+                throw new Error('Failed to fetch SCRC order');
+            }
         }
     },
 
@@ -201,6 +273,29 @@ const resolvers = {
             } catch (error) {
                 console.error('[GraphQL] Error resolving POD:', error);
                 return null;
+            }
+        }
+    },
+
+    SCRCOrder: {
+        evidence: async (parent, _, { db }) => {
+            try {
+                const result = await db.query(
+                    "SELECT * FROM delivery_proofs WHERE route_id = $1 ORDER BY created_at",
+                    [parent.orderNumber]
+                );
+                return result.rows.map(row => ({
+                    id: row.id,
+                    type: row.type || (row.signature ? 'signature' : 'photo'),
+                    url: row.signature ? `data:image/png;base64,${row.signature}` : (row.photo ? `data:image/jpeg;base64,${row.photo}` : null),
+                    notes: row.notes,
+                    createdAt: row.created_at?.toISOString(),
+                    technicianName: row.technician_name,
+                    location: { lat: row.latitude, lng: row.longitude }
+                }));
+            } catch (error) {
+                console.error('[GraphQL] Error fetching evidence:', error);
+                return [];
             }
         }
     },
@@ -287,6 +382,89 @@ const resolvers = {
             } catch (error) {
                 console.error('[GraphQL] Error updating waypoint:', error);
                 throw new Error('Failed to update waypoint');
+            }
+        },
+
+        /**
+         * Audit SCRC Order
+         */
+        auditSCRCOrder: async (_, { id, status, notes }, { db }) => {
+            try {
+                const result = await db.query(
+                    `UPDATE scrc_orders 
+                     SET audit_status = $1, notes = COALESCE($2, notes) 
+                     WHERE id = $3 
+                     RETURNING *`,
+                    [status, notes, id]
+                );
+
+                if (result.rows.length === 0) throw new Error('Order not found');
+
+                const row = result.rows[0];
+                return {
+                    id: row.id,
+                    orderNumber: row.order_number,
+                    nic: row.nic,
+                    clientName: row.client_name,
+                    technicianName: row.technician_name,
+                    address: row.address,
+                    status: row.status,
+                    auditStatus: row.audit_status,
+                    executionDate: row.execution_date?.toISOString(),
+                    notes: row.notes
+                };
+            } catch (error) {
+                console.error('[GraphQL] Error auditing order:', error);
+                throw new Error('Failed to audit order');
+            }
+        },
+
+        /**
+         * Upload SCRC Evidence
+         */
+        uploadSCRCEvidence: async (_, args, { db }) => {
+            const { orderNumber, type, photo, signature, notes, technicianName, lat, lng, capturedAt } = args;
+            try {
+                // Insert into delivery_proofs
+                const result = await db.query(
+                    `INSERT INTO delivery_proofs 
+                     (route_id, type, photo, signature, notes, technician_name, latitude, longitude, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamp, NOW()))
+                     RETURNING id, created_at`,
+                    [orderNumber, type || 'photo', photo, signature, notes, technicianName, lat, lng, capturedAt]
+                );
+
+                // Auto-create/Update SCRC Order
+                const orderCheck = await db.query('SELECT id FROM scrc_orders WHERE order_number = $1', [orderNumber]);
+
+                if (orderCheck.rows.length > 0) {
+                    await db.query(`
+                        UPDATE scrc_orders 
+                        SET status = 'completed', 
+                            technician_name = COALESCE($1, technician_name)
+                        WHERE order_number = $2
+                    `, [technicianName, orderNumber]);
+                } else {
+                    // Create new if manual
+                    await db.query(`
+                        INSERT INTO scrc_orders (order_number, nic, order_type, status, audit_status, technician_name, address, client_name)
+                        VALUES ($1, $2, 'manual', 'completed', 'pending', $3, '', 'Cliente Manual')
+                    `, [orderNumber, 'MANUAL-' + orderNumber, technicianName || 'Técnico']);
+                }
+
+                const row = result.rows[0];
+                return {
+                    id: row.id,
+                    type: type || 'photo',
+                    url: signature ? `data:image/png;base64,${signature}` : (photo ? `data:image/jpeg;base64,${photo}` : null),
+                    notes: notes,
+                    createdAt: row.created_at?.toISOString(),
+                    technicianName: technicianName,
+                    location: { lat, lng }
+                };
+            } catch (error) {
+                console.error('[GraphQL] Error uploading evidence:', error);
+                throw new Error('Failed to upload evidence');
             }
         }
     }
