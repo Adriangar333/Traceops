@@ -166,7 +166,7 @@ const PODModal = ({
             right: 0,
             bottom: 0,
             background: 'rgba(0,0,0,0.8)',
-            zIndex: 9999,
+            zIndex: 2000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

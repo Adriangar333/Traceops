@@ -410,3 +410,10 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.4);
 }
+
+/* PWA Elements Z-Index Fix */
+pwa-camera-modal,
+pwa-action-sheet,
+pwa-toast {
+  z-index: 20000 !important;
+}
