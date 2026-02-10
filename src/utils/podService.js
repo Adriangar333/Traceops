@@ -250,40 +250,92 @@ const addWatermarkToPhoto = async (base64Image, metadata = {}) => {
 };
 
 /**
+ * Check if running in a native Capacitor app
+ */
+const isNativeApp = () => {
+    return window.Capacitor?.isNativePlatform?.() || false;
+};
+
+/**
+ * Capture photo using native browser input (fallback for web)
+ * More reliable than PWA elements on desktop browsers
+ */
+const capturePhotoWeb = (metadata) => {
+    return new Promise((resolve, reject) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // Use back camera on mobile
+
+        input.onchange = async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) {
+                resolve(null);
+                return;
+            }
+
+            try {
+                // Convert file to base64
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    let base64 = reader.result.split(',')[1];
+
+                    // Add watermark if metadata provided
+                    if (metadata) {
+                        console.log('📷 Adding watermark...');
+                        base64 = await addWatermarkToPhoto(base64, metadata);
+                    }
+
+                    resolve(base64);
+                };
+                reader.onerror = () => reject(new Error('Failed to read image'));
+                reader.readAsDataURL(file);
+            } catch (err) {
+                reject(err);
+            }
+        };
+
+        input.oncancel = () => resolve(null);
+
+        // Trigger file picker
+        input.click();
+    });
+};
+
+/**
  * Capture photo for POD using device camera
+ * Uses Capacitor Camera for native apps, browser input for web
  * @param {Object} metadata - Optional metadata to add as watermark
  * @returns {Promise<string|null>} Base64 encoded image or null on failure
  */
 export const capturePhoto = async (metadata = null) => {
-    // Timeout wrapper to prevent infinite hang on web
-    const withTimeout = (promise, ms) => {
-        return Promise.race([
-            promise,
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Camera timeout - please try again')), ms)
-            )
-        ]);
-    };
+    console.log('📷 Starting camera capture...', isNativeApp() ? '(Native)' : '(Web)');
 
+    // Use native browser input for web - more reliable than PWA elements
+    if (!isNativeApp()) {
+        try {
+            return await capturePhotoWeb(metadata);
+        } catch (error) {
+            console.error('Web camera error:', error);
+            throw error;
+        }
+    }
+
+    // Native app - use Capacitor Camera
     try {
-        console.log('📷 Starting camera capture...');
-
-        const image = await withTimeout(
-            Camera.getPhoto({
-                quality: 80,
-                allowEditing: false,
-                resultType: CameraResultType.Base64,
-                source: CameraSource.Camera,
-                width: 1024,
-                height: 1024,
-                correctOrientation: true,
-                promptLabelHeader: 'Foto de entrega',
-                promptLabelCancel: 'Cancelar',
-                promptLabelPhoto: 'Galería',
-                promptLabelPicture: 'Tomar foto'
-            }),
-            30000 // 30 second timeout
-        );
+        const image = await Camera.getPhoto({
+            quality: 80,
+            allowEditing: false,
+            resultType: CameraResultType.Base64,
+            source: CameraSource.Camera,
+            width: 1024,
+            height: 1024,
+            correctOrientation: true,
+            promptLabelHeader: 'Foto de entrega',
+            promptLabelCancel: 'Cancelar',
+            promptLabelPhoto: 'Galería',
+            promptLabelPicture: 'Tomar foto'
+        });
 
         console.log('📷 Photo captured successfully');
         let photoBase64 = image.base64String;
