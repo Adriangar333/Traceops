@@ -68,6 +68,9 @@ const typeDefs = `#graphql
         clientName: String
         technicianName: String
         address: String
+        neighborhood: String
+        orderType: String
+        meterReading: String
         status: String
         auditStatus: String
         executionDate: String
