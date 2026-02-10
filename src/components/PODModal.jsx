@@ -48,24 +48,28 @@ const PODModal = ({
         setIsLoading(true);
         setError(null);
 
-        const currentLocation = await getCurrentLocation();
+        try {
+            const currentLocation = await getCurrentLocation();
 
-        if (!currentLocation) {
-            setError('No se pudo obtener tu ubicación. Activa el GPS.');
+            if (!currentLocation) {
+                setError('No se pudo obtener tu ubicación. Activa el GPS.');
+                return;
+            }
+
+            setLocation(currentLocation);
+
+            const result = validateGeofence(currentLocation, waypoint, 150); // 150m tolerance
+            setGeofenceResult(result);
+
+            if (result.isWithinRange) {
+                setStep('photo');
+            }
+        } catch (err) {
+            console.error('Location error:', err);
+            setError('Error al verificar ubicación');
+        } finally {
             setIsLoading(false);
-            return;
         }
-
-        setLocation(currentLocation);
-
-        const result = validateGeofence(currentLocation, waypoint, 150); // 150m tolerance
-        setGeofenceResult(result);
-
-        if (result.isWithinRange) {
-            setStep('photo');
-        }
-
-        setIsLoading(false);
     };
 
     const handleTakePhoto = async () => {
@@ -91,9 +95,9 @@ const PODModal = ({
         } catch (err) {
             console.error(err);
             setError('Error al tomar la foto. Intenta de nuevo.');
+        } finally {
+            setIsLoading(false);
         }
-
-        setIsLoading(false);
     };
 
     const handleSignatureSave = (signatureData) => {
@@ -258,26 +262,11 @@ const PODModal = ({
                                             border: 'none',
                                             borderRadius: 8,
                                             fontWeight: 600,
-                                            cursor: 'pointer',
-                                            marginRight: 8
+                                            cursor: 'pointer'
                                         }}
                                     >
                                         <MapPin size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                         Verificar de nuevo
-                                    </button>
-                                    <button
-                                        onClick={skipGeofence}
-                                        style={{
-                                            padding: '12px 16px',
-                                            background: 'transparent',
-                                            color: '#64748b',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: 8,
-                                            cursor: 'pointer',
-                                            fontSize: '0.85rem'
-                                        }}
-                                    >
-                                        Continuar de todas formas
                                     </button>
                                 </>
                             ) : error ? (
