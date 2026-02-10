@@ -450,7 +450,21 @@ module.exports = (pool) => {
         const { status, brigade_type, technician, municipality, audit_status, limit = 100, offset = 0 } = req.query;
 
         try {
-            let query = 'SELECT * FROM scrc_orders WHERE 1=1';
+            let query = `
+                SELECT *,
+                (
+                    SELECT json_agg(
+                        CASE 
+                            WHEN photo LIKE 'data:image%' THEN photo 
+                            ELSE CONCAT('data:image/jpeg;base64,', photo) 
+                        END
+                    )
+                    FROM delivery_proofs 
+                    WHERE route_id = scrc_orders.order_number::text
+                ) as evidence_photos
+                FROM scrc_orders 
+                WHERE 1=1
+            `;
             const params = [];
             let paramIndex = 1;
 
