@@ -470,7 +470,7 @@ export default function SCRCPanel({ onClose }) {
             setGeocoding(true);
             try {
                 const endpoint = simulate ? 'geocoding/simulate' : 'geocoding/batch';
-                const res = await fetch(`${API_BASE}/scrc/${endpoint}`, {
+                const res = await fetch(`${API_BASE}/api/scrc/${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ limit: 500 })
@@ -727,7 +727,7 @@ export default function SCRCPanel({ onClose }) {
     const handleGenerateBrigades = async () => {
         setGeneratingBrigades(true);
         try {
-            const res = await fetch(`${API_BASE}/scrc/brigades/generate-from-orders`, {
+            const res = await fetch(`${API_BASE}/api/scrc/brigades/generate-from-orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'corte', capacity_per_day: 25 })
