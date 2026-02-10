@@ -290,15 +290,39 @@ const resolvers = {
                     "SELECT * FROM delivery_proofs WHERE route_id = $1 ORDER BY created_at",
                     [parent.orderNumber]
                 );
-                return result.rows.map(row => ({
-                    id: row.id,
-                    type: row.type || (row.signature ? 'signature' : 'photo'),
-                    url: row.signature ? `data:image/png;base64,${row.signature}` : (row.photo ? `data:image/jpeg;base64,${row.photo}` : null),
-                    notes: row.notes,
-                    createdAt: row.created_at?.toISOString(),
-                    technicianName: row.technician_name,
-                    location: { lat: row.latitude, lng: row.longitude }
-                }));
+
+                // Each row can have both photo AND signature - return them as separate evidence items
+                const evidenceItems = [];
+
+                result.rows.forEach(row => {
+                    // Add photo as separate evidence if exists
+                    if (row.photo) {
+                        evidenceItems.push({
+                            id: `${row.id}-photo`,
+                            type: 'photo',
+                            url: `data:image/jpeg;base64,${row.photo}`,
+                            notes: row.notes,
+                            createdAt: row.created_at?.toISOString(),
+                            technicianName: row.technician_name,
+                            location: { lat: row.latitude, lng: row.longitude }
+                        });
+                    }
+
+                    // Add signature as separate evidence if exists
+                    if (row.signature) {
+                        evidenceItems.push({
+                            id: `${row.id}-signature`,
+                            type: 'signature',
+                            url: `data:image/png;base64,${row.signature}`,
+                            notes: row.notes,
+                            createdAt: row.created_at?.toISOString(),
+                            technicianName: row.technician_name,
+                            location: { lat: row.latitude, lng: row.longitude }
+                        });
+                    }
+                });
+
+                return evidenceItems;
             } catch (error) {
                 console.error('[GraphQL] Error fetching evidence:', error);
                 return [];
