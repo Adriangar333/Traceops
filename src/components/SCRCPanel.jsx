@@ -463,6 +463,33 @@ export default function SCRCPanel({ onClose }) {
         const markersRef = useRef([]);
         const [mapLoaded, setMapLoaded] = useState(false);
         const [legendFilter, setLegendFilter] = useState({ corte: true, suspension: true, reconexion: true });
+        const [geocoding, setGeocoding] = useState(false);
+
+        // Geocode orders without coordinates
+        const handleGeocode = async (simulate = false) => {
+            setGeocoding(true);
+            try {
+                const endpoint = simulate ? 'geocoding/simulate' : 'geocoding/batch';
+                const res = await fetch(`${API_BASE}/scrc/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit: 500 })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const count = data.geocoded || data.simulated || 0;
+                    toast.success(`${count} órdenes geocodificadas`);
+                    fetchOrders(); // Refresh orders
+                } else {
+                    toast.error(data.error || 'Error geocodificando');
+                }
+            } catch (err) {
+                console.error('Geocode error:', err);
+                toast.error('Error de conexión');
+            } finally {
+                setGeocoding(false);
+            }
+        };
 
         // Color scheme for order types
         const ORDER_COLORS = {
@@ -628,9 +655,45 @@ export default function SCRCPanel({ onClose }) {
                             📍 {ordersWithCoords.length} con coordenadas
                         </div>
                         {ordersWithoutCoords > 0 && (
-                            <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: 4 }}>
-                                ⚠️ {ordersWithoutCoords} sin geocodificar
-                            </div>
+                            <>
+                                <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: 4 }}>
+                                    ⚠️ {ordersWithoutCoords} sin geocodificar
+                                </div>
+                                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <button
+                                        onClick={() => handleGeocode(true)}
+                                        disabled={geocoding}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '0.75rem',
+                                            background: 'rgba(34, 197, 94, 0.2)',
+                                            border: '1px solid rgba(34, 197, 94, 0.5)',
+                                            borderRadius: 6,
+                                            color: '#22c55e',
+                                            cursor: geocoding ? 'wait' : 'pointer',
+                                            opacity: geocoding ? 0.6 : 1
+                                        }}
+                                    >
+                                        {geocoding ? '⏳ Procesando...' : '🎯 Simular Coords'}
+                                    </button>
+                                    <button
+                                        onClick={() => handleGeocode(false)}
+                                        disabled={geocoding}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '0.75rem',
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            border: '1px solid rgba(59, 130, 246, 0.5)',
+                                            borderRadius: 6,
+                                            color: '#3b82f6',
+                                            cursor: geocoding ? 'wait' : 'pointer',
+                                            opacity: geocoding ? 0.6 : 1
+                                        }}
+                                    >
+                                        {geocoding ? '⏳ Procesando...' : '🌍 Google Geocode'}
+                                    </button>
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>

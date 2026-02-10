@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const XLSX = require('xlsx');
+const axios = require('axios');
 
 // Multer storage for Excel uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -807,6 +808,198 @@ module.exports = (pool) => {
         } catch (err) {
             console.error('Update brigade error:', err);
             res.status(500).json({ error: 'Failed to update brigade' });
+        }
+    });
+
+    // ============================================
+    // GEOCODING ENDPOINTS
+    // ============================================
+
+    // GET /api/scrc/geocoding/stats
+    // Get statistics about geocoded orders
+    router.get('/geocoding/stats', async (req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 1 END) as geocoded,
+                    COUNT(CASE WHEN latitude IS NULL OR longitude IS NULL THEN 1 END) as pending
+                FROM scrc_orders
+            `);
+            res.json(result.rows[0]);
+        } catch (err) {
+            console.error('Geocoding stats error:', err);
+            res.status(500).json({ error: 'Failed to get stats' });
+        }
+    });
+
+    // POST /api/scrc/geocoding/batch
+    // Batch geocode orders without coordinates
+    router.post('/geocoding/batch', async (req, res) => {
+        const { limit = 100, city = 'Barranquilla, Colombia' } = req.body;
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+        if (!apiKey) {
+            return res.status(400).json({
+                error: 'GOOGLE_MAPS_API_KEY not configured',
+                hint: 'Set GOOGLE_MAPS_API_KEY environment variable'
+            });
+        }
+
+        try {
+            // Get orders without coordinates
+            const ordersResult = await pool.query(`
+                SELECT id, order_number, address, neighborhood
+                FROM scrc_orders
+                WHERE (latitude IS NULL OR longitude IS NULL)
+                AND address IS NOT NULL AND address != ''
+                LIMIT $1
+            `, [limit]);
+
+            if (ordersResult.rows.length === 0) {
+                return res.json({ success: true, geocoded: 0, message: 'No orders to geocode' });
+            }
+
+            console.log(`🌍 Geocoding ${ordersResult.rows.length} orders...`);
+
+            let geocoded = 0;
+            let failed = 0;
+            const errors = [];
+
+            for (const order of ordersResult.rows) {
+                try {
+                    // Build full address
+                    const fullAddress = `${order.address}, ${order.neighborhood || ''}, ${city}`.replace(/,\s*,/g, ',');
+
+                    // Call Google Geocoding API
+                    const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+                        params: {
+                            address: fullAddress,
+                            key: apiKey,
+                            components: 'country:CO'
+                        },
+                        timeout: 5000
+                    });
+
+                    if (response.data.status === 'OK' && response.data.results?.length > 0) {
+                        const location = response.data.results[0].geometry.location;
+
+                        // Update order with coordinates
+                        await pool.query(`
+                            UPDATE scrc_orders
+                            SET latitude = $1, longitude = $2,
+                                location = ST_SetSRID(ST_MakePoint($2, $1), 4326)
+                            WHERE id = $3
+                        `, [location.lat, location.lng, order.id]);
+
+                        geocoded++;
+                    } else {
+                        failed++;
+                        errors.push({ order_number: order.order_number, reason: response.data.status });
+                    }
+
+                    // Rate limiting - Google allows 50 req/sec, we do 10/sec to be safe
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                } catch (err) {
+                    failed++;
+                    errors.push({ order_number: order.order_number, reason: err.message });
+                }
+            }
+
+            console.log(`✅ Geocoding complete: ${geocoded} success, ${failed} failed`);
+
+            res.json({
+                success: true,
+                processed: ordersResult.rows.length,
+                geocoded,
+                failed,
+                errors: errors.slice(0, 10) // Only first 10 errors
+            });
+
+        } catch (err) {
+            console.error('Batch geocoding error:', err);
+            res.status(500).json({ error: 'Failed to geocode', details: err.message });
+        }
+    });
+
+    // POST /api/scrc/geocoding/simulate
+    // Simulate coordinates for orders (for testing without Google API)
+    // Uses neighborhood centroids for Barranquilla
+    router.post('/geocoding/simulate', async (req, res) => {
+        const { limit = 500 } = req.body;
+
+        // Approximate centroids for Barranquilla neighborhoods
+        const BARRANQUILLA_CENTROIDS = {
+            'DEFAULT': { lat: 10.9685, lng: -74.7813 }, // Centro Barranquilla
+            'NORTE': { lat: 11.0050, lng: -74.8100 },
+            'SUR': { lat: 10.9300, lng: -74.8000 },
+            'CENTRO': { lat: 10.9685, lng: -74.7813 },
+            'RIOMAR': { lat: 11.0110, lng: -74.8050 },
+            'PRADO': { lat: 10.9950, lng: -74.8000 },
+            'CIUDADELA': { lat: 10.9300, lng: -74.8100 },
+            'SOLEDAD': { lat: 10.9100, lng: -74.7700 },
+            'MALAMBO': { lat: 10.8600, lng: -74.7700 },
+            'GALAPA': { lat: 10.9000, lng: -74.8800 }
+        };
+
+        try {
+            // Get orders without coordinates
+            const ordersResult = await pool.query(`
+                SELECT id, neighborhood, address
+                FROM scrc_orders
+                WHERE (latitude IS NULL OR longitude IS NULL)
+                LIMIT $1
+            `, [limit]);
+
+            if (ordersResult.rows.length === 0) {
+                return res.json({ success: true, simulated: 0, message: 'No orders to simulate' });
+            }
+
+            console.log(`🎯 Simulating coordinates for ${ordersResult.rows.length} orders...`);
+
+            let simulated = 0;
+
+            for (const order of ordersResult.rows) {
+                // Try to match neighborhood
+                let centroid = BARRANQUILLA_CENTROIDS.DEFAULT;
+                const nb = (order.neighborhood || '').toUpperCase();
+
+                for (const [key, coords] of Object.entries(BARRANQUILLA_CENTROIDS)) {
+                    if (nb.includes(key)) {
+                        centroid = coords;
+                        break;
+                    }
+                }
+
+                // Add random offset (up to ~500m) to spread markers
+                const latOffset = (Math.random() - 0.5) * 0.01;
+                const lngOffset = (Math.random() - 0.5) * 0.01;
+
+                const lat = centroid.lat + latOffset;
+                const lng = centroid.lng + lngOffset;
+
+                await pool.query(`
+                    UPDATE scrc_orders
+                    SET latitude = $1, longitude = $2,
+                        location = ST_SetSRID(ST_MakePoint($2, $1), 4326)
+                    WHERE id = $3
+                `, [lat, lng, order.id]);
+
+                simulated++;
+            }
+
+            console.log(`✅ Simulated ${simulated} coordinates`);
+
+            res.json({
+                success: true,
+                simulated,
+                message: `${simulated} órdenes con coordenadas simuladas`
+            });
+
+        } catch (err) {
+            console.error('Simulate geocoding error:', err);
+            res.status(500).json({ error: 'Failed to simulate', details: err.message });
         }
     });
 
