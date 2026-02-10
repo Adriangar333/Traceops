@@ -162,7 +162,7 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
                                     {/* Signature Display */}
                                     {displaySignatures.length > 0 && (
                                         <div className="pt-2 border-t border-gray-700">
-                                            <span className="text-gray-400 block mb-2 text-xs uppercase">Firma del Cliente:</span>
+                                            <span className="text-gray-400 block mb-2 text-xs uppercase">Firma del Técnico:</span>
                                             <div className="bg-white rounded-lg p-2 overflow-hidden">
                                                 <img
                                                     src={displaySignatures[0]}

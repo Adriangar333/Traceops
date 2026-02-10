@@ -17,6 +17,10 @@ const GET_SCRC_ORDERS = gql`
             auditStatus
             status
             notes
+            address
+            neighborhood
+            orderType
+            meterReading
             evidence {
                 id
                 type
