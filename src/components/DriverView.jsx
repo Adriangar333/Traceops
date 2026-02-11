@@ -169,8 +169,19 @@ const DriverView = ({ params }) => {
                 try {
                     const decodedData = JSON.parse(decodeURIComponent(dataParam));
                     setRoute(decodedData);
-                    setLoading(false);
-                    return;
+                    // Extract driver name from the decoded data if available
+                    if (decodedData.driverName) {
+                        setDriverName(decodedData.driverName);
+                    } else if (decodedData.driver?.name) {
+                        setDriverName(decodedData.driver.name);
+                    }
+                    // Don't return early - let the driver name fetch run below
+                    // if driverName wasn't in the decoded data
+                    if (decodedData.driverName || decodedData.driver?.name) {
+                        setLoading(false);
+                        return;
+                    }
+                    // Fall through to fetch driver name if not in data
                 } catch (e) {
                     console.error('Error parsing route data from URL:', e);
                     toast.error('Error al leer datos de la ruta');

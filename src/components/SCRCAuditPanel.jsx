@@ -6,8 +6,8 @@ import { gql } from '@apollo/client';
 import { useQuery, useMutation } from '@apollo/client/react';
 
 const BULK_AUDIT_ORDERS = gql`
-    mutation BulkAuditOrders($ids: [ID!]!, $status: String!, $notes: String) {
-        bulkAuditSCRCOrders(ids: $ids, status: $status, notes: $notes) {
+    mutation BulkAuditOrders($ids: [ID!]!, $status: String!, $notes: String, $reviewedBy: String) {
+        bulkAuditSCRCOrders(ids: $ids, status: $status, notes: $notes, reviewedBy: $reviewedBy) {
             success
             count
         }
@@ -179,7 +179,8 @@ export default function SCRCAuditPanel() {
             variables: {
                 ids: Array.from(selectedIds),
                 status: 'approved',
-                notes: null
+                notes: null,
+                reviewedBy: 'Admin'
             }
         });
     };
@@ -193,7 +194,8 @@ export default function SCRCAuditPanel() {
             variables: {
                 ids: Array.from(selectedIds),
                 status: 'rejected',
-                notes: bulkRejectReason
+                notes: bulkRejectReason,
+                reviewedBy: 'Admin'
             }
         });
     };
@@ -341,11 +343,10 @@ export default function SCRCAuditPanel() {
                         <button
                             key={tab.value}
                             onClick={() => setAuditFilter(tab.value)}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                                auditFilter === tab.value
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${auditFilter === tab.value
                                     ? `bg-${tab.color}-500/20 text-${tab.color}-400 border border-${tab.color}-500/40`
                                     : 'text-gray-400 hover:text-white hover:bg-gray-700/30'
-                            }`}
+                                }`}
                         >
                             {tab.label}
                         </button>
@@ -530,11 +531,10 @@ export default function SCRCAuditPanel() {
                                 <div
                                     key={order.id}
                                     onClick={() => bulkMode ? toggleSelection(order.id) : setSelectedOrder(order)}
-                                    className={`bg-[#1a1f2e] border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group ${
-                                        isSelected
+                                    className={`bg-[#1a1f2e] border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group ${isSelected
                                             ? 'border-purple-500 shadow-purple-500/20'
                                             : 'border-gray-800/50 hover:border-indigo-500/50 hover:shadow-indigo-500/5'
-                                    }`}
+                                        }`}
                                 >
                                     {/* Image */}
                                     <div className="aspect-[4/3] bg-gray-900 relative overflow-hidden">
@@ -558,11 +558,10 @@ export default function SCRCAuditPanel() {
                                         <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
                                             <div className="flex items-center gap-2">
                                                 {bulkMode && (
-                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                                                        isSelected
+                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isSelected
                                                             ? 'bg-purple-500 border-purple-500'
                                                             : 'border-white/50 bg-black/30'
-                                                    }`}>
+                                                        }`}>
                                                         {isSelected && <Check size={12} className="text-white" />}
                                                     </div>
                                                 )}

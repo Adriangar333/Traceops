@@ -73,6 +73,8 @@ const typeDefs = `#graphql
         meterReading: String
         status: String
         auditStatus: String
+        auditedBy: String
+        auditedAt: String
         executionDate: String
         notes: String
         # Resolved field
@@ -135,10 +137,10 @@ const typeDefs = `#graphql
 
         # === SCRC Mutations ===
         # Audit an order (approve/reject)
-        auditSCRCOrder(id: ID!, status: String!, notes: String): SCRCOrder
+        auditSCRCOrder(id: ID!, status: String!, notes: String, reviewedBy: String): SCRCOrder
 
         # Bulk audit multiple orders
-        bulkAuditSCRCOrders(ids: [ID!]!, status: String!, notes: String): BulkAuditResult
+        bulkAuditSCRCOrders(ids: [ID!]!, status: String!, notes: String, reviewedBy: String): BulkAuditResult
 
         # Upload evidence (photo or signature)
         uploadSCRCEvidence(

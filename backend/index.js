@@ -964,7 +964,7 @@ app.post('/pod', async (req, res) => {
                 'manual', // Dummy Type
                 'completed',
                 'pending',
-                technicianName || 'Técnico',
+                technicianName || null,
                 address,
                 clientName
             ]);

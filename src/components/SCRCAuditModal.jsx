@@ -5,10 +5,12 @@ import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
 
 const AUDIT_SCRC_ORDER = gql`
-    mutation AuditSCRCOrder($id: ID!, $status: String!, $notes: String) {
-        auditSCRCOrder(id: $id, status: $status, notes: $notes) {
+    mutation AuditSCRCOrder($id: ID!, $status: String!, $notes: String, $reviewedBy: String) {
+        auditSCRCOrder(id: $id, status: $status, notes: $notes, reviewedBy: $reviewedBy) {
             id
             auditStatus
+            auditedBy
+            auditedAt
             notes
         }
     }
@@ -60,7 +62,7 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
             case 'Enter':
                 if (isPending && !showRejectInput && !processing) {
                     e.preventDefault();
-                    auditOrder({ variables: { id: order.id, status: 'approved', notes: null } });
+                    auditOrder({ variables: { id: order.id, status: 'approved', notes: null, reviewedBy: 'Admin' } });
                 }
                 break;
             case 'Escape':
@@ -118,7 +120,8 @@ export default function SCRCAuditModal({ order, onClose, onUpdate }) {
             variables: {
                 id: order.id,
                 status,
-                notes: status === 'rejected' ? rejectionReason : null
+                notes: status === 'rejected' ? rejectionReason : null,
+                reviewedBy: 'Admin'
             }
         });
     };

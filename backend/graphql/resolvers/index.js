@@ -418,19 +418,31 @@ const resolvers = {
         /**
          * Audit SCRC Order
          */
-        auditSCRCOrder: async (_, { id, status, notes }, { db }) => {
+        auditSCRCOrder: async (_, { id, status, notes, reviewedBy }, { db }) => {
             try {
                 const result = await db.query(
                     `UPDATE scrc_orders 
-                     SET audit_status = $1, notes = COALESCE($2, notes) 
-                     WHERE id = $3 
+                     SET audit_status = $1, 
+                         notes = COALESCE($2, notes),
+                         audited_at = NOW(),
+                         audited_by = COALESCE($3, audited_by)
+                     WHERE id = $4 
                      RETURNING *`,
-                    [status, notes, id]
+                    [status, notes, reviewedBy || 'Admin', id]
                 );
 
                 if (result.rows.length === 0) throw new Error('Order not found');
 
                 const row = result.rows[0];
+
+                // Also update delivery_proofs reviewed_by/reviewed_at for this order
+                await db.query(
+                    `UPDATE delivery_proofs 
+                     SET reviewed_by = $1, reviewed_at = NOW() 
+                     WHERE route_id = $2 AND reviewed_by IS NULL`,
+                    [reviewedBy || 'Admin', row.order_number]
+                );
+
                 return {
                     id: row.id,
                     orderNumber: row.order_number,
@@ -443,6 +455,8 @@ const resolvers = {
                     meterReading: row.meter_reading || row.meter_number,
                     status: row.status,
                     auditStatus: row.audit_status,
+                    auditedBy: row.audited_by,
+                    auditedAt: row.audited_at?.toISOString(),
                     executionDate: row.execution_date?.toISOString(),
                     notes: row.notes
                 };
@@ -455,7 +469,7 @@ const resolvers = {
         /**
          * Bulk Audit SCRC Orders
          */
-        bulkAuditSCRCOrders: async (_, { ids, status, notes }, { db }) => {
+        bulkAuditSCRCOrders: async (_, { ids, status, notes, reviewedBy }, { db }) => {
             try {
                 // Validate status
                 const validStatuses = ['approved', 'rejected', 'pending'];
@@ -467,16 +481,30 @@ const resolvers = {
                     throw new Error('Rejection requires a reason (notes)');
                 }
 
+                const intIds = ids.map(id => parseInt(id));
+
                 // Use parameterized query with ANY for array
                 const result = await db.query(
                     `UPDATE scrc_orders
                      SET audit_status = $1,
                          notes = COALESCE($2, notes),
-                         audited_at = NOW()
-                     WHERE id = ANY($3::int[])
-                     RETURNING id`,
-                    [status, notes, ids.map(id => parseInt(id))]
+                         audited_at = NOW(),
+                         audited_by = COALESCE($3, audited_by)
+                     WHERE id = ANY($4::int[])
+                     RETURNING id, order_number`,
+                    [status, notes, reviewedBy || 'Admin', intIds]
                 );
+
+                // Also update delivery_proofs for all related orders
+                const orderNumbers = result.rows.map(r => r.order_number);
+                if (orderNumbers.length > 0) {
+                    await db.query(
+                        `UPDATE delivery_proofs 
+                         SET reviewed_by = $1, reviewed_at = NOW() 
+                         WHERE route_id = ANY($2::text[]) AND reviewed_by IS NULL`,
+                        [reviewedBy || 'Admin', orderNumbers]
+                    );
+                }
 
                 console.log(`[GraphQL] Bulk audit: ${result.rowCount} orders set to ${status}`);
 
