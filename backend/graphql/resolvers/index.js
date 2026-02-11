@@ -152,8 +152,13 @@ const resolvers = {
                     query += ` AND status = $${params.length}`;
                 }
                 if (auditStatus) {
-                    params.push(auditStatus);
-                    query += ` AND audit_status = $${params.length}`;
+                    if (auditStatus === 'pending') {
+                        query += ` AND (audit_status = $${params.length + 1} OR audit_status IS NULL)`;
+                        params.push('pending');
+                    } else {
+                        params.push(auditStatus);
+                        query += ` AND audit_status = $${params.length}`;
+                    }
                 }
                 if (technician) {
                     params.push(`%${technician}%`);

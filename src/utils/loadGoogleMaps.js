@@ -1,31 +1,30 @@
-// Dynamically load Google Maps API with environment variable
-let isLoading = false;
-let isLoaded = false;
-const callbacks = [];
+
+let googleMapsPromise = null;
 
 export const loadGoogleMaps = () => {
-    return new Promise((resolve, reject) => {
-        // Already loaded
-        if (isLoaded && window.google?.maps) {
+    if (googleMapsPromise) return googleMapsPromise;
+
+    googleMapsPromise = new Promise((resolve, reject) => {
+        if (typeof window !== 'undefined' && window.google && window.google.maps) {
             resolve(window.google.maps);
             return;
         }
 
-        // Add to queue if currently loading
-        if (isLoading) {
-            callbacks.push({ resolve, reject });
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            reject(new Error('Google Maps API Key not found in environment variables (VITE_GOOGLE_MAPS_API_KEY)'));
             return;
         }
 
-        isLoading = true;
-        callbacks.push({ resolve, reject });
-
-        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        if (!apiKey) {
-            const error = new Error('VITE_GOOGLE_MAPS_API_KEY is not defined');
-            callbacks.forEach(cb => cb.reject(error));
-            callbacks.length = 0;
-            isLoading = false;
+        const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+        if (existingScript) {
+            // Check periodically if loaded
+            const interval = setInterval(() => {
+                if (window.google && window.google.maps) {
+                    clearInterval(interval);
+                    resolve(window.google.maps);
+                }
+            }, 100);
             return;
         }
 
@@ -33,24 +32,29 @@ export const loadGoogleMaps = () => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
         script.async = true;
         script.defer = true;
+        script.id = 'google-maps-script';
 
         script.onload = () => {
-            isLoaded = true;
-            isLoading = false;
-            callbacks.forEach(cb => cb.resolve(window.google.maps));
-            callbacks.length = 0;
+            if (window.google && window.google.maps) {
+                resolve(window.google.maps);
+            } else {
+                // Sometimes it takes a moment after onload
+                const interval = setInterval(() => {
+                    if (window.google && window.google.maps) {
+                        clearInterval(interval);
+                        resolve(window.google.maps);
+                    }
+                }, 50);
+            }
         };
 
-        script.onerror = (e) => {
-            isLoading = false;
-            const error = new Error('Failed to load Google Maps');
-            callbacks.forEach(cb => cb.reject(error));
-            callbacks.length = 0;
+        script.onerror = (error) => {
+            reject(new Error('Failed to load Google Maps API: ' + (error.message || 'script error')));
+            googleMapsPromise = null;
         };
 
         document.head.appendChild(script);
     });
-};
 
-// Auto-load on import
-loadGoogleMaps().catch(err => console.warn('Google Maps preload:', err.message));
+    return googleMapsPromise;
+};

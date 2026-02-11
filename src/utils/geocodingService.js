@@ -8,25 +8,11 @@ export const setUserLocation = (lat, lng) => {
     console.log('User location set:', userLocation);
 };
 
+import { loadGoogleMaps } from './loadGoogleMaps';
+
 // Wait for Google Maps to be loaded
-const waitForGoogle = () => {
-    return new Promise((resolve, reject) => {
-        if (window.google && window.google.maps) {
-            resolve();
-        } else {
-            let attempts = 0;
-            const interval = setInterval(() => {
-                attempts++;
-                if (window.google && window.google.maps) {
-                    clearInterval(interval);
-                    resolve();
-                } else if (attempts > 50) {
-                    clearInterval(interval);
-                    reject(new Error('Google Maps API not loaded'));
-                }
-            }, 100);
-        }
-    });
+const waitForGoogle = async () => {
+    await loadGoogleMaps();
 };
 
 // Search for address suggestions using Google Places Autocomplete

@@ -1,25 +1,11 @@
 // Google Directions Service - Routes with traffic data
 // Uses Google Directions API for accurate ETAs with real-time traffic
 
+import { loadGoogleMaps } from './loadGoogleMaps';
+
 // Wait for Google Maps to be loaded
-const waitForGoogle = () => {
-    return new Promise((resolve, reject) => {
-        if (window.google && window.google.maps) {
-            resolve();
-        } else {
-            let attempts = 0;
-            const interval = setInterval(() => {
-                attempts++;
-                if (window.google && window.google.maps) {
-                    clearInterval(interval);
-                    resolve();
-                } else if (attempts > 50) {
-                    clearInterval(interval);
-                    reject(new Error('Google Maps API not loaded'));
-                }
-            }, 100);
-        }
-    });
+const waitForGoogle = async () => {
+    await loadGoogleMaps();
 };
 
 // Format duration from seconds

@@ -8,7 +8,7 @@ import client from './apollo/client'
 import { defineCustomElements } from '@ionic/pwa-elements/loader';
 
 // Load Google Maps dynamically with env var
-import './utils/loadGoogleMaps'
+// import './utils/loadGoogleMaps' // Removed to prevent auto-load
 
 // Initialize PWA Elements (for Camera, etc.)
 defineCustomElements(window);
