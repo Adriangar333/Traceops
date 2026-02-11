@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, Search, Bot, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, Map, Truck, ChevronRight, LayoutList, Calendar, AlertCircle, PlayCircle, StopCircle, CheckCircle, Camera } from 'lucide-react';
+import { Navigation, Search, X, Zap, Clock, Route, Upload, Send, Trash2, Users, Save, FolderOpen, BarChart3, Check, MapPin, Home, Flag, ChevronDown, ChevronUp, Settings, Play, Menu, Info, Map, Truck, ChevronRight, LayoutList, Calendar, AlertCircle, PlayCircle, StopCircle, CheckCircle, Camera } from 'lucide-react';
 import { geocodeAddress, searchAddressSuggestions, reverseGeocode, geocodeByPlaceId, searchPlaces } from '../utils/geocodingService';
-import { sendToGemini } from '../utils/geminiService';
+
 import { fetchRouteWithStats, generateRouteOptions } from '../utils/osrmService';
 import { getGoogleRoute, generateGoogleRouteOptions } from '../utils/googleDirectionsService';
 import ZoneStatsPanel from './ZoneStatsPanel';
@@ -60,12 +60,7 @@ const Sidebar = ({
     const [configSuggestions, setConfigSuggestions] = useState([]);
     const [showConfigSuggestions, setShowConfigSuggestions] = useState(false);
 
-    // AI Chat
-    const [chatInput, setChatInput] = useState('');
-    const [chatMessages, setChatMessages] = useState([
-        { role: 'assistant', content: '¡Hola! Soy RouteBot 🤖\nPuedo agregar direcciones, coordenadas y optimizar rutas.' }
-    ]);
-    const [isAiThinking, setIsAiThinking] = useState(false);
+
 
     // Routes
     const [routeName, setRouteName] = useState('');
