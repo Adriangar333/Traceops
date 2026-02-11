@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClipboardList, Users, Zap, BarChart3, Upload, Search, RefreshCw, Filter, X, Check, AlertCircle, FileSpreadsheet, ChevronDown, ChevronUp, MapPin, Map, CheckSquare } from 'lucide-react';
+import { ClipboardList, Users, Zap, BarChart3, Upload, Search, RefreshCw, Filter, X, Check, AlertCircle, FileSpreadsheet, ChevronDown, ChevronUp, MapPin, Map, CheckSquare, Trash2 } from 'lucide-react';
 import SCRCAuditPanel from './SCRCAuditPanel';
 import { toast, Toaster } from 'sonner';
 import maplibregl from 'maplibre-gl';
@@ -32,6 +32,10 @@ export default function SCRCPanel({ onClose }) {
     const [showFilters, setShowFilters] = useState(false);
     const [autoAssignResult, setAutoAssignResult] = useState(null);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [showCleanupModal, setShowCleanupModal] = useState(false);
+    const [cleanupMode, setCleanupMode] = useState('all');
+    const [cleanupValue, setCleanupValue] = useState('');
+    const [isCleaningUp, setIsCleaningUp] = useState(false);
 
     // Fetch orders with filters
     const fetchOrders = useCallback(async () => {
@@ -356,6 +360,13 @@ export default function SCRCPanel({ onClose }) {
                     <RefreshCw size={16} className={loading ? 'spin' : ''} />
                     Actualizar
                 </button>
+                <button
+                    style={{ ...styles.filterBtn, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                    onClick={() => setShowCleanupModal(true)}
+                >
+                    <Trash2 size={16} />
+                    Limpiar Órdenes
+                </button>
                 <label style={{ ...styles.filterBtn, marginLeft: 'auto' }}>
                     <Upload size={16} />
                     Cargar Excel
@@ -413,6 +424,7 @@ export default function SCRCPanel({ onClose }) {
                             <th style={styles.th}>NIC</th>
                             <th style={styles.th}>Cliente</th>
                             <th style={styles.th}>Dirección</th>
+                            <th style={styles.th}>Técnico</th>
                             <th style={styles.th}>Brigada</th>
                             <th style={styles.th}>Estado</th>
                             <th style={styles.th}>Deuda</th>
@@ -421,7 +433,7 @@ export default function SCRCPanel({ onClose }) {
                     <tbody>
                         {orders.length === 0 ? (
                             <tr>
-                                <td colSpan={8} style={{ ...styles.td, textAlign: 'center', color: '#64748b', padding: 40 }}>
+                                <td colSpan={9} style={{ ...styles.td, textAlign: 'center', color: '#64748b', padding: 40 }}>
                                     {loading ? '⏳ Cargando...' : '📭 No hay órdenes que mostrar'}
                                 </td>
                             </tr>
@@ -435,6 +447,9 @@ export default function SCRCPanel({ onClose }) {
                                 <td style={styles.td}>{order.client_name || '—'}</td>
                                 <td style={{ ...styles.td, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {order.address || '—'}
+                                </td>
+                                <td style={{ ...styles.td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: order.technician_name ? '#e2e8f0' : '#64748b' }}>
+                                    {order.technician_name || '—'}
                                 </td>
                                 <td style={styles.td}>{order.zone_code || order.brigade_type || '—'}</td>
                                 <td style={styles.td}>
@@ -453,6 +468,112 @@ export default function SCRCPanel({ onClose }) {
             <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: 12, textAlign: 'right' }}>
                 Mostrando {orders.length} órdenes
             </p>
+            {/* Cleanup Modal */}
+            {showCleanupModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#1e293b', borderRadius: 16, padding: 28, width: 420, maxWidth: '90vw', border: '1px solid rgba(148,163,184,0.15)' }}>
+                        <h3 style={{ margin: '0 0 16px', color: '#f1f5f9', fontSize: '1.15rem' }}>🗑️ Limpiar Órdenes</h3>
+
+                        <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 8, padding: 12, marginBottom: 16, color: '#fca5a5', fontSize: '0.85rem' }}>
+                            ⚠️ Esta acción eliminará órdenes de la base de datos. No se puede deshacer.
+                        </div>
+
+                        <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: 6 }}>Modo de limpieza</label>
+                        <select
+                            style={{ ...styles.input, marginBottom: 14 }}
+                            value={cleanupMode}
+                            onChange={e => { setCleanupMode(e.target.value); setCleanupValue(''); }}
+                        >
+                            <option value="all">🗑️ Todas las órdenes</option>
+                            <option value="by_status">📋 Por estado</option>
+                            <option value="by_type">📦 Por tipo de orden</option>
+                            <option value="by_date">📅 Anteriores a fecha</option>
+                        </select>
+
+                        {cleanupMode === 'by_status' && (
+                            <>
+                                <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: 6 }}>Estado a eliminar</label>
+                                <select style={{ ...styles.input, marginBottom: 14 }} value={cleanupValue} onChange={e => setCleanupValue(e.target.value)}>
+                                    <option value="">Seleccionar estado...</option>
+                                    <option value="pending">Pendiente</option>
+                                    <option value="assigned">Asignada</option>
+                                    <option value="completed">Completada</option>
+                                    <option value="cancelled_payment">Cancelada (Pago)</option>
+                                </select>
+                            </>
+                        )}
+
+                        {cleanupMode === 'by_type' && (
+                            <>
+                                <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: 6 }}>Tipo de orden</label>
+                                <select style={{ ...styles.input, marginBottom: 14 }} value={cleanupValue} onChange={e => setCleanupValue(e.target.value)}>
+                                    <option value="">Seleccionar tipo...</option>
+                                    <option value="corte">✂️ Corte</option>
+                                    <option value="suspension">⚠️ Suspensión</option>
+                                    <option value="reconexion">🔌 Reconexión</option>
+                                </select>
+                            </>
+                        )}
+
+                        {cleanupMode === 'by_date' && (
+                            <>
+                                <label style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginBottom: 6 }}>Eliminar órdenes anteriores a</label>
+                                <input
+                                    type="date"
+                                    style={{ ...styles.input, marginBottom: 14 }}
+                                    value={cleanupValue}
+                                    onChange={e => setCleanupValue(e.target.value)}
+                                />
+                            </>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                            <button
+                                style={{ ...styles.filterBtn, minWidth: 90 }}
+                                onClick={() => { setShowCleanupModal(false); setCleanupMode('all'); setCleanupValue(''); }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                style={{ ...styles.filterBtn, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', minWidth: 90 }}
+                                disabled={isCleaningUp || ((cleanupMode === 'by_status' || cleanupMode === 'by_type' || cleanupMode === 'by_date') && !cleanupValue)}
+                                onClick={async () => {
+                                    setIsCleaningUp(true);
+                                    try {
+                                        const body = { mode: cleanupMode };
+                                        if (cleanupMode === 'by_status') body.status = cleanupValue;
+                                        if (cleanupMode === 'by_type') body.order_type = cleanupValue;
+                                        if (cleanupMode === 'by_date') body.before_date = cleanupValue;
+
+                                        const res = await fetch(`${API_BASE}/api/scrc/orders/cleanup`, {
+                                            method: 'DELETE',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(body)
+                                        });
+                                        const data = await res.json();
+
+                                        if (!res.ok) throw new Error(data.error || 'Error al limpiar');
+
+                                        toast.success(`🗑️ ${data.deleted} órdenes eliminadas`);
+                                        setShowCleanupModal(false);
+                                        setCleanupMode('all');
+                                        setCleanupValue('');
+                                        fetchOrders();
+                                        fetchStats();
+                                    } catch (err) {
+                                        console.error('Cleanup error:', err);
+                                        toast.error(`❌ ${err.message}`);
+                                    } finally {
+                                        setIsCleaningUp(false);
+                                    }
+                                }}
+                            >
+                                {isCleaningUp ? '⏳ Limpiando...' : '🗑️ Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 

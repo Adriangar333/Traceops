@@ -352,6 +352,48 @@ module.exports = (pool) => {
             res.status(500).json({ error: 'Failed to fetch orders' });
         }
     });
+    // ============================================
+    // CLEANUP ORDERS (Delete by mode)
+    // ============================================
+    router.delete('/orders/cleanup', async (req, res) => {
+        const { mode, status, order_type, before_date } = req.body;
+
+        if (!mode || !['all', 'by_status', 'by_type', 'by_date'].includes(mode)) {
+            return res.status(400).json({ error: 'Invalid mode. Use: all, by_status, by_type, by_date' });
+        }
+
+        try {
+            let query, params = [];
+
+            switch (mode) {
+                case 'all':
+                    query = 'DELETE FROM scrc_orders';
+                    break;
+                case 'by_status':
+                    if (!status) return res.status(400).json({ error: 'Status is required for by_status mode' });
+                    query = 'DELETE FROM scrc_orders WHERE status = $1';
+                    params = [status];
+                    break;
+                case 'by_type':
+                    if (!order_type) return res.status(400).json({ error: 'order_type is required for by_type mode' });
+                    query = 'DELETE FROM scrc_orders WHERE order_type = $1';
+                    params = [order_type];
+                    break;
+                case 'by_date':
+                    if (!before_date) return res.status(400).json({ error: 'before_date is required for by_date mode' });
+                    query = 'DELETE FROM scrc_orders WHERE created_at < $1';
+                    params = [before_date];
+                    break;
+            }
+
+            const result = await pool.query(query, params);
+            console.log(`🗑️ Cleanup (${mode}): deleted ${result.rowCount} orders`);
+            res.json({ success: true, deleted: result.rowCount, mode });
+        } catch (err) {
+            console.error('Cleanup orders error:', err);
+            res.status(500).json({ error: 'Failed to cleanup orders', details: err.message });
+        }
+    });
 
     // ============================================
     // UPLOAD EVIDENCE (Photo, Signature, etc.)
