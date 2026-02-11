@@ -801,7 +801,7 @@ module.exports = (pool) => {
                     ON CONFLICT ON CONSTRAINT brigades_name_key DO UPDATE
                     SET updated_at = NOW()
                     RETURNING (xmax = 0) as inserted
-                `, [name, type, [name], capacity_per_day]);
+                `, [name, type, JSON.stringify([{ name: name, role: 'titular' }]), capacity_per_day]);
 
                 if (result.rows[0]?.inserted) {
                     created++;
@@ -823,7 +823,7 @@ module.exports = (pool) => {
         } catch (err) {
             await client.query('ROLLBACK');
             console.error('Generate brigades error:', err);
-            res.status(500).json({ error: 'Failed to generate brigades', details: err.message });
+            res.status(500).json({ error: 'Failed to generate brigades', details: err.message, stack: err.stack });
         } finally {
             client.release();
         }

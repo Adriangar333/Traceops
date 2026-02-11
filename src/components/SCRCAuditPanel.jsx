@@ -72,10 +72,10 @@ export default function SCRCAuditPanel() {
     const [showBulkRejectInput, setShowBulkRejectInput] = useState(false);
     const [bulkRejectReason, setBulkRejectReason] = useState('');
 
-    // Date filters (default to today to save bandwidth)
-    const [dateFrom, setDateFrom] = useState(getToday());
+    // Date filters (default to last 7 days)
+    const [dateFrom, setDateFrom] = useState(getDateNDaysAgo(7));
     const [dateTo, setDateTo] = useState(getToday());
-    const [activePreset, setActivePreset] = useState('today');
+    const [activePreset, setActivePreset] = useState('7days');
 
     // Advanced filters
     const [showFilters, setShowFilters] = useState(false);
