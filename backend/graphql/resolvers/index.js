@@ -435,12 +435,13 @@ const resolvers = {
 
                 const row = result.rows[0];
 
-                // Also update delivery_proofs reviewed_by/reviewed_at for this order
+                // Also update delivery_proofs audit_status, rejection_reason, reviewed_by/reviewed_at for this order
                 await db.query(
                     `UPDATE delivery_proofs 
-                     SET reviewed_by = $1, reviewed_at = NOW() 
-                     WHERE route_id = $2 AND reviewed_by IS NULL`,
-                    [reviewedBy || 'Admin', row.order_number]
+                     SET reviewed_by = $1, reviewed_at = NOW(),
+                         audit_status = $2, rejection_reason = $3
+                     WHERE route_id = $4`,
+                    [reviewedBy || 'Admin', status, notes || null, row.order_number]
                 );
 
                 return {
@@ -500,9 +501,10 @@ const resolvers = {
                 if (orderNumbers.length > 0) {
                     await db.query(
                         `UPDATE delivery_proofs 
-                         SET reviewed_by = $1, reviewed_at = NOW() 
-                         WHERE route_id = ANY($2::text[]) AND reviewed_by IS NULL`,
-                        [reviewedBy || 'Admin', orderNumbers]
+                         SET reviewed_by = $1, reviewed_at = NOW(),
+                             audit_status = $2, rejection_reason = $3
+                         WHERE route_id = ANY($4::text[])`,
+                        [reviewedBy || 'Admin', status, notes || null, orderNumbers]
                     );
                 }
 

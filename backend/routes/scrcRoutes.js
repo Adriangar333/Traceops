@@ -12,6 +12,27 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 module.exports = (pool) => {
 
+    // Helper: Convert Excel serial number to JS Date
+    // Excel serial 1 = Jan 1, 1900. JS epoch = Jan 1, 1970.
+    const parseExcelDate = (value) => {
+        if (!value) return new Date();
+        // If it's already a valid date string, return as-is
+        if (typeof value === 'string' && isNaN(Number(value))) {
+            const parsed = new Date(value);
+            if (!isNaN(parsed.getTime())) return parsed;
+            return new Date(); // fallback
+        }
+        // If it's a number (Excel serial), convert
+        const num = Number(value);
+        if (!isNaN(num) && num > 10000 && num < 100000) {
+            // Excel serial number: days since Jan 1, 1900 (with the famous leap year bug)
+            const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899
+            return new Date(excelEpoch.getTime() + num * 86400000);
+        }
+        // If it's a small number or something else, fallback
+        return new Date();
+    };
+
     // ============================================
     // UPLOAD EXCEL FILE (OPTIMIZED with batch inserts)
     // ============================================
@@ -255,7 +276,7 @@ module.exports = (pool) => {
                     order['TARIFA'] || order.tarifa || null,
                     order['MEDIDOR'] || order.medidor || null,
                     order['MARCA MEDIDOR'] || order.marca_medidor || null,
-                    order['FECHA ASIGNACION'] || new Date(),
+                    parseExcelDate(order['FECHA ASIGNACION']),
                     order['OBSERVACIONES'] || order.observaciones || null
                 ]);
                 count++;
@@ -371,7 +392,7 @@ module.exports = (pool) => {
                     `, [
                         r.order_number, r.nic, r.client_name, r.address, r.municipality, r.neighborhood,
                         r.order_type || 'manual', 'moto', r.amount_due || 0, 1,
-                        r.lat, r.lng, technician_name || 'Técnico'
+                        r.lat, r.lng, technician_name || null
                     ]);
 
                     orderCheck = insertResult; // Use the new ID
@@ -464,7 +485,17 @@ module.exports = (pool) => {
                 return res.status(404).json({ error: 'Order not found' });
             }
 
-            res.json({ success: true, order: result.rows[0] });
+            // Sync audit_status and rejection_reason to delivery_proofs
+            const order = result.rows[0];
+            await pool.query(
+                `UPDATE delivery_proofs 
+                 SET audit_status = $1, rejection_reason = $2,
+                     reviewed_by = $3, reviewed_at = NOW()
+                 WHERE route_id = $4`,
+                [status, reason || null, auditor || 'System', order.order_number]
+            );
+
+            res.json({ success: true, order });
         } catch (err) {
             console.error('Audit update error:', err);
             res.status(500).json({ error: 'Failed to update audit status' });
