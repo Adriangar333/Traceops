@@ -15,8 +15,8 @@ const BULK_AUDIT_ORDERS = gql`
 `;
 
 const GET_SCRC_ORDERS = gql`
-    query GetSCRCOrders($status: String, $auditStatus: String, $technician: String, $limit: Int) {
-        scrcOrders(status: $status, auditStatus: $auditStatus, technician: $technician, limit: $limit) {
+    query GetSCRCOrders($status: String, $auditStatus: String, $technician: String, $dateFrom: String, $dateTo: String, $limit: Int) {
+        scrcOrders(status: $status, auditStatus: $auditStatus, technician: $technician, dateFrom: $dateFrom, dateTo: $dateTo, limit: $limit) {
             id
             orderNumber
             nic
@@ -24,6 +24,8 @@ const GET_SCRC_ORDERS = gql`
             technicianName
             executionDate
             auditStatus
+            auditedBy
+            auditedAt
             status
             notes
             address
@@ -38,6 +40,14 @@ const GET_SCRC_ORDERS = gql`
         }
     }
 `;
+
+// Helper: get today's date as YYYY-MM-DD
+const getToday = () => new Date().toISOString().slice(0, 10);
+const getDateNDaysAgo = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+};
 
 // Debounce hook
 function useDebounce(value, delay) {
@@ -62,12 +72,38 @@ export default function SCRCAuditPanel() {
     const [showBulkRejectInput, setShowBulkRejectInput] = useState(false);
     const [bulkRejectReason, setBulkRejectReason] = useState('');
 
+    // Date filters (default to today to save bandwidth)
+    const [dateFrom, setDateFrom] = useState(getToday());
+    const [dateTo, setDateTo] = useState(getToday());
+    const [activePreset, setActivePreset] = useState('today');
+
     // Advanced filters
     const [showFilters, setShowFilters] = useState(false);
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
     const [orderTypeFilter, setOrderTypeFilter] = useState('');
     const [neighborhoodFilter, setNeighborhoodFilter] = useState('');
+
+    // Quick date preset helper
+    const applyDatePreset = (preset) => {
+        setActivePreset(preset);
+        switch (preset) {
+            case 'today':
+                setDateFrom(getToday());
+                setDateTo(getToday());
+                break;
+            case '7days':
+                setDateFrom(getDateNDaysAgo(7));
+                setDateTo(getToday());
+                break;
+            case '30days':
+                setDateFrom(getDateNDaysAgo(30));
+                setDateTo(getToday());
+                break;
+            case 'all':
+                setDateFrom('');
+                setDateTo('');
+                break;
+        }
+    };
 
     // Debounce search to avoid querying on every keystroke
     const debouncedSearch = useDebounce(searchInput, 400);
@@ -92,7 +128,9 @@ export default function SCRCAuditPanel() {
             status: 'completed',
             auditStatus: auditFilter,
             technician: debouncedSearch || null,
-            limit: 200
+            dateFrom: dateFrom || null,
+            dateTo: dateTo || null,
+            limit: 500
         },
         fetchPolicy: 'cache-and-network'
     });
@@ -100,6 +138,7 @@ export default function SCRCAuditPanel() {
     const allOrders = data?.scrcOrders || [];
 
     // Client-side filtering for instant feedback while debounce waits + advanced filters
+    // NOTE: Date filtering is now server-side (via GraphQL query variables)
     const filteredOrders = useMemo(() => {
         let result = allOrders;
 
@@ -114,17 +153,6 @@ export default function SCRCAuditPanel() {
             );
         }
 
-        // Date range filter
-        if (dateFrom) {
-            const fromDate = new Date(dateFrom);
-            result = result.filter(o => new Date(o.executionDate) >= fromDate);
-        }
-        if (dateTo) {
-            const toDate = new Date(dateTo);
-            toDate.setHours(23, 59, 59);
-            result = result.filter(o => new Date(o.executionDate) <= toDate);
-        }
-
         // Order type filter
         if (orderTypeFilter) {
             result = result.filter(o => o.orderType?.toLowerCase() === orderTypeFilter.toLowerCase());
@@ -137,7 +165,7 @@ export default function SCRCAuditPanel() {
         }
 
         return result;
-    }, [allOrders, searchInput, dateFrom, dateTo, orderTypeFilter, neighborhoodFilter]);
+    }, [allOrders, searchInput, orderTypeFilter, neighborhoodFilter]);
 
     // Get unique order types and neighborhoods for filter dropdowns
     const { orderTypes, neighborhoods } = useMemo(() => {
@@ -200,7 +228,7 @@ export default function SCRCAuditPanel() {
         });
     };
 
-    const activeFiltersCount = [dateFrom, dateTo, orderTypeFilter, neighborhoodFilter].filter(Boolean).length;
+    const activeFiltersCount = [orderTypeFilter, neighborhoodFilter].filter(Boolean).length;
 
     // Pagination
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
@@ -210,7 +238,7 @@ export default function SCRCAuditPanel() {
     }, [filteredOrders, page]);
 
     // Reset page when filter changes
-    useEffect(() => { setPage(1); }, [auditFilter, debouncedSearch, dateFrom, dateTo, orderTypeFilter, neighborhoodFilter]);
+    useEffect(() => { setPage(1); }, [auditFilter, debouncedSearch, orderTypeFilter, neighborhoodFilter]);
 
     // Clear selection when exiting bulk mode
     useEffect(() => {
@@ -223,8 +251,6 @@ export default function SCRCAuditPanel() {
 
     // Clear filters helper
     const clearAdvancedFilters = () => {
-        setDateFrom('');
-        setDateTo('');
         setOrderTypeFilter('');
         setNeighborhoodFilter('');
     };
@@ -333,8 +359,58 @@ export default function SCRCAuditPanel() {
                     </div>
                 </div>
 
-                {/* Filter tabs */}
-                <div className="flex items-center gap-2 mt-4">
+                {/* Date filter bar — always visible */}
+                <div className="flex items-center gap-2 mt-4 flex-wrap">
+                    {/* Quick presets */}
+                    {[
+                        { key: 'today', label: 'Hoy' },
+                        { key: '7days', label: '7 días' },
+                        { key: '30days', label: '30 días' },
+                        { key: 'all', label: 'Todo' }
+                    ].map(preset => (
+                        <button
+                            key={preset.key}
+                            onClick={() => applyDatePreset(preset.key)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${activePreset === preset.key
+                                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
+                                : 'text-gray-500 hover:text-white hover:bg-gray-700/30 border border-transparent'
+                                }`}
+                        >
+                            {preset.label}
+                        </button>
+                    ))}
+
+                    {/* Inline date pickers */}
+                    <div className="flex items-center gap-1.5 ml-2">
+                        <Calendar size={14} className="text-gray-500" />
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => { setDateFrom(e.target.value); setActivePreset('custom'); }}
+                            className="px-2 py-1 bg-gray-900/50 border border-gray-700/50 rounded text-xs text-white focus:border-indigo-500/50 focus:outline-none"
+                        />
+                        <span className="text-gray-600 text-xs">–</span>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => { setDateTo(e.target.value); setActivePreset('custom'); }}
+                            className="px-2 py-1 bg-gray-900/50 border border-gray-700/50 rounded text-xs text-white focus:border-indigo-500/50 focus:outline-none"
+                        />
+                    </div>
+
+                    {/* Stats badges */}
+                    <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                            <Camera size={12} /> {stats.withPhotos} fotos
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <FileText size={12} /> {stats.withSignature} firmas
+                        </span>
+                    </div>
+                </div>
+
+                {/* Status filter tabs with counts */}
+                <div className="flex items-center gap-2 mt-3">
                     {[
                         { value: 'pending', label: 'Pendientes', color: 'yellow' },
                         { value: 'approved', label: 'Aprobadas', color: 'green' },
@@ -343,53 +419,25 @@ export default function SCRCAuditPanel() {
                         <button
                             key={tab.value}
                             onClick={() => setAuditFilter(tab.value)}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${auditFilter === tab.value
-                                    ? `bg-${tab.color}-500/20 text-${tab.color}-400 border border-${tab.color}-500/40`
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-700/30'
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${auditFilter === tab.value
+                                ? `bg-${tab.color}-500/20 text-${tab.color}-400 border border-${tab.color}-500/40`
+                                : 'text-gray-400 hover:text-white hover:bg-gray-700/30'
                                 }`}
                         >
                             {tab.label}
+                            {auditFilter === tab.value && (
+                                <span className={`px-1.5 py-0.5 text-[10px] rounded-full bg-${tab.color}-500/30 font-bold min-w-[20px] text-center`}>
+                                    {filteredOrders.length}
+                                </span>
+                            )}
                         </button>
                     ))}
-
-                    {/* Stats badges */}
-                    <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                            <Camera size={12} /> {stats.withPhotos} con fotos
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <FileText size={12} /> {stats.withSignature} con firma
-                        </span>
-                    </div>
                 </div>
 
-                {/* Advanced Filters Panel */}
+                {/* Advanced Filters Panel (order type + neighborhood only, dates are now in header) */}
                 {showFilters && (
-                    <div className="mt-4 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 animate-in fade-in slide-in-from-top-2">
+                    <div className="mt-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700/50 animate-in fade-in slide-in-from-top-2">
                         <div className="flex flex-wrap gap-4 items-end">
-                            {/* Date range */}
-                            <div className="flex gap-2 items-center">
-                                <Calendar size={16} className="text-gray-500" />
-                                <div>
-                                    <label className="text-[10px] text-gray-500 uppercase block mb-1">Desde</label>
-                                    <input
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        className="px-3 py-1.5 bg-gray-900/50 border border-gray-700/50 rounded text-sm text-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-gray-500 uppercase block mb-1">Hasta</label>
-                                    <input
-                                        type="date"
-                                        value={dateTo}
-                                        onChange={(e) => setDateTo(e.target.value)}
-                                        className="px-3 py-1.5 bg-gray-900/50 border border-gray-700/50 rounded text-sm text-white"
-                                    />
-                                </div>
-                            </div>
-
                             {/* Order type */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase block mb-1">Tipo de Orden</label>
@@ -532,8 +580,8 @@ export default function SCRCAuditPanel() {
                                     key={order.id}
                                     onClick={() => bulkMode ? toggleSelection(order.id) : setSelectedOrder(order)}
                                     className={`bg-[#1a1f2e] border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group ${isSelected
-                                            ? 'border-purple-500 shadow-purple-500/20'
-                                            : 'border-gray-800/50 hover:border-indigo-500/50 hover:shadow-indigo-500/5'
+                                        ? 'border-purple-500 shadow-purple-500/20'
+                                        : 'border-gray-800/50 hover:border-indigo-500/50 hover:shadow-indigo-500/5'
                                         }`}
                                 >
                                     {/* Image */}
@@ -559,8 +607,8 @@ export default function SCRCAuditPanel() {
                                             <div className="flex items-center gap-2">
                                                 {bulkMode && (
                                                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isSelected
-                                                            ? 'bg-purple-500 border-purple-500'
-                                                            : 'border-white/50 bg-black/30'
+                                                        ? 'bg-purple-500 border-purple-500'
+                                                        : 'border-white/50 bg-black/30'
                                                         }`}>
                                                         {isSelected && <Check size={12} className="text-white" />}
                                                     </div>

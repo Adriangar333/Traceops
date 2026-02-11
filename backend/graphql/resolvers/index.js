@@ -142,7 +142,7 @@ const resolvers = {
         /**
          * Get SCRC orders with filters
          */
-        scrcOrders: async (_, { status, auditStatus, technician, limit }, { db }) => {
+        scrcOrders: async (_, { status, auditStatus, technician, dateFrom, dateTo, limit }, { db }) => {
             try {
                 let query = 'SELECT * FROM scrc_orders WHERE 1=1';
                 const params = [];
@@ -158,6 +158,14 @@ const resolvers = {
                 if (technician) {
                     params.push(`%${technician}%`);
                     query += ` AND technician_name ILIKE $${params.length}`;
+                }
+                if (dateFrom) {
+                    params.push(dateFrom);
+                    query += ` AND created_at >= $${params.length}::date`;
+                }
+                if (dateTo) {
+                    params.push(dateTo);
+                    query += ` AND created_at < ($${params.length}::date + interval '1 day')`;
                 }
 
                 query += ' ORDER BY execution_date DESC NULLS LAST, created_at DESC';
@@ -179,6 +187,8 @@ const resolvers = {
                     meterReading: row.meter_reading || row.meter_number,
                     status: row.status,
                     auditStatus: row.audit_status,
+                    auditedBy: row.audited_by,
+                    auditedAt: row.audited_at?.toISOString(),
                     executionDate: row.execution_date?.toISOString(),
                     notes: row.notes
                 }));

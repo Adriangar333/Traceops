@@ -120,7 +120,7 @@ const typeDefs = `#graphql
         dashboardStats: DashboardStats!
 
         # SCRC
-        scrcOrders(status: String, auditStatus: String, technician: String, limit: Int): [SCRCOrder!]!
+        scrcOrders(status: String, auditStatus: String, technician: String, dateFrom: String, dateTo: String, limit: Int): [SCRCOrder!]!
         scrcOrder(id: ID!): SCRCOrder
     }
 
