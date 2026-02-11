@@ -19,7 +19,12 @@ const STATUS_COLORS = {
 const ORDER_TYPE_ICONS = {
     corte: '✂️',
     suspension: '⚠️',
-    reconexion: '🔌'
+    reconexion: '🔌',
+    TO501: '⚠️', // Suspensión MD
+    TO502: '🔌', // Reconexión MD
+    TO503: '📋', // Revisión Susp MD
+    TO504: '🏭', // Suspensión MI/MS
+    TO506: '🔍'  // Revisión MI/MS
 };
 
 export default function SCRCPanel({ onClose }) {
@@ -583,7 +588,10 @@ export default function SCRCPanel({ onClose }) {
         const mapRef = useRef(null);
         const markersRef = useRef([]);
         const [mapLoaded, setMapLoaded] = useState(false);
-        const [legendFilter, setLegendFilter] = useState({ corte: true, suspension: true, reconexion: true });
+        const [legendFilter, setLegendFilter] = useState({
+            corte: true, suspension: true, reconexion: true,
+            TO501: true, TO502: true, TO503: true, TO504: true, TO506: true
+        });
         const [geocoding, setGeocoding] = useState(false);
 
         // Geocode orders without coordinates
@@ -617,6 +625,11 @@ export default function SCRCPanel({ onClose }) {
             corte: '#ef4444',       // Red
             suspension: '#eab308',   // Yellow
             reconexion: '#22c55e',   // Green
+            TO501: '#ef4444',       // Red (Suspension MD)
+            TO502: '#22c55e',       // Green (Reconexion MD)
+            TO503: '#eab308',       // Yellow (Revision Susp MD)
+            TO504: '#a855f7',       // Purple (Suspension MI/MS)
+            TO506: '#3b82f6',       // Blue (Revision MI/MS)
             default: '#3b82f6'       // Blue
         };
 
@@ -752,7 +765,12 @@ export default function SCRCPanel({ onClose }) {
                     {[
                         { key: 'corte', icon: '✂️', label: 'Corte', color: ORDER_COLORS.corte },
                         { key: 'suspension', icon: '⚠️', label: 'Suspensión', color: ORDER_COLORS.suspension },
-                        { key: 'reconexion', icon: '🔌', label: 'Reconexión', color: ORDER_COLORS.reconexion }
+                        { key: 'reconexion', icon: '🔌', label: 'Reconexión', color: ORDER_COLORS.reconexion },
+                        { key: 'TO501', icon: '⚠️', label: 'Susp. MD', color: ORDER_COLORS.TO501 },
+                        { key: 'TO502', icon: '🔌', label: 'Recon. MD', color: ORDER_COLORS.TO502 },
+                        { key: 'TO503', icon: '📋', label: 'Rev. Susp MD', color: ORDER_COLORS.TO503 },
+                        { key: 'TO504', icon: '🏭', label: 'Susp. MI/MS', color: ORDER_COLORS.TO504 },
+                        { key: 'TO506', icon: '🔍', label: 'Rev. MI/MS', color: ORDER_COLORS.TO506 }
                     ].map(item => (
                         <label key={item.key} style={{
                             display: 'flex', alignItems: 'center', gap: 10,

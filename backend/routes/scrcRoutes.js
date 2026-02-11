@@ -97,8 +97,17 @@ module.exports = (pool) => {
 
                 const tipoOS = row['TIPO DE OS'] || '';
                 let orderType = 'suspension', priority = 2;
-                if (tipoOS.includes('502') || tipoOS.toLowerCase().includes('corte')) { orderType = 'corte'; priority = 1; }
-                else if (tipoOS.includes('503') || tipoOS.toLowerCase().includes('recon')) { orderType = 'reconexion'; priority = 3; }
+
+                // Specific code mapping
+                const upperType = tipoOS.toUpperCase();
+                if (upperType.includes('TO501')) { orderType = 'TO501'; priority = 2; }
+                else if (upperType.includes('TO502')) { orderType = 'TO502'; priority = 1; } // Reconexion high priority
+                else if (upperType.includes('TO503')) { orderType = 'TO503'; priority = 3; }
+                else if (upperType.includes('TO504')) { orderType = 'TO504'; priority = 2; }
+                else if (upperType.includes('TO506')) { orderType = 'TO506'; priority = 3; }
+                // Fallbacks
+                else if (upperType.includes('CORTE')) { orderType = 'corte'; priority = 1; }
+                else if (upperType.includes('RECON')) { orderType = 'reconexion'; priority = 3; }
 
                 validRows.push([
                     nic,

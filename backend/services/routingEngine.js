@@ -361,7 +361,8 @@ class RoutingEngine {
 
             // 3. Assign orders to brigades
             for (const order of orders) {
-                const eligibleTypes = this.getEligibleBrigades(order);
+                const eligibleTypes = await this.getEligibleBrigades(order);
+
 
                 // Find best matching brigade with capacity
                 let bestBrigade = null;
