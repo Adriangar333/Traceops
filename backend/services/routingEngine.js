@@ -274,7 +274,27 @@ class RoutingEngine {
             eligibleBrigades = ['SCR PESADA ELITE'];
         }
 
-        return eligibleBrigades;
+        // COMPATIBILITY: Map technical types to legacy 'corte'
+        // Current brigades only have 'corte' type in DB
+        const technicalToLegacy = {
+            'SCR LIVIANA': ['corte'],
+            'SCR PESADA': ['corte'],
+            'SCR PESADA DISPONIBILIDAD': ['corte'],
+            'CANASTA': ['corte'],
+            'SCR MINI CANASTA': ['corte'],
+            'SCR MULTIFAMILIAR': ['corte'],
+            'SCR MEDIDA ESPECIAL': ['corte'],
+            'SCR PESADA ELITE': ['corte']
+        };
+
+        const legacyTypes = new Set();
+        eligibleBrigades.forEach(type => {
+            if (technicalToLegacy[type]) {
+                technicalToLegacy[type].forEach(t => legacyTypes.add(t));
+            }
+        });
+
+        return [...new Set([...eligibleBrigades, ...legacyTypes])];
     }
 
     /**
